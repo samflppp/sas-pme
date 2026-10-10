@@ -8,7 +8,8 @@ dans la passerelle si elle est sûre.</p>
   <label>Écosystème
     <select name="ecosysteme">{% for e in ecosystemes %}<option value="{{ e.value }}">{{ e.value }}</option>{% endfor %}</select>
   </label>
-  <label>Nom du paquet <input name="nom" placeholder="requests" required></label>
+  <label>Nom du paquet <input name="nom" placeholder="requests" value="{{ nom or '' }}" required></label>
+  {% if erreur %}<p class="erreur">{{ erreur }}</p>{% endif %}
   <button type="submit">Demander</button>
 </form>
 {% endblock %}
