@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>sas-pme — Roadmap hackathon</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  :root { --ink:#1b1f24; --mute:#5b6470; --line:#d9dee4; --a:#2563eb; --b:#9333ea; --c:#0f8a5f; --all:#e0632b; --bg:#f5f7f9; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 9.5pt; line-height: 1.35; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 2mm; letter-spacing: -0.3px; }
+  h2 { font-size: 13pt; margin: 0 0 3mm; padding-bottom: 1.5mm; border-bottom: 2px solid var(--ink); }
+  h3 { font-size: 10.5pt; margin: 3mm 0 1.5mm; }
+  p { margin: 0 0 2mm; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .sub { color: var(--mute); font-size: 10.5pt; margin-bottom: 5mm; }
+  .pitch { background: var(--bg); border-left: 4px solid var(--ink); padding: 3mm 4mm; font-size: 11pt; margin-bottom: 5mm; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5mm; }
+  table { border-collapse: collapse; width: 100%; font-size: 8.6pt; }
+  th, td { border-bottom: 1px solid var(--line); padding: 1.3mm 1.6mm; text-align: left; vertical-align: top; }
+  th { background: var(--bg); font-weight: 600; }
+  code, pre { font-family: Consolas, "Courier New", monospace; font-size: 8pt; }
+  pre { background: var(--bg); padding: 2.5mm; margin: 0; white-space: pre; line-height: 1.25; }
+  .tag { display: inline-block; color: #fff; font-weight: 700; border-radius: 3px; padding: 0 1.6mm; font-size: 8.5pt; }
+  .A { background: var(--a); } .B { background: var(--b); } .C { background: var(--c); } .ALL { background: var(--all); }
+  .card { border: 1px solid var(--line); border-top: 4px solid; padding: 3mm; border-radius: 3px; }
+  .card.A { border-top-color: var(--a); background: #fff; } .card.B { border-top-color: var(--b); background:#fff; } .card.C { border-top-color: var(--c); background:#fff; }
+  .card ul { margin: 1mm 0 0; padding-left: 4mm; }
+  .card li { margin-bottom: 1mm; }
+  /* Gantt */
+  .gantt { display: grid; grid-template-columns: 22mm repeat(34, 1fr); border: 1px solid var(--line); font-size: 7.6pt; }
+  .gantt .hcell { border-right: 1px solid var(--line); background: var(--bg); text-align: center; padding: 1mm 0; font-weight: 600; }
+  .gantt .lane { background: var(--bg); font-weight: 700; padding: 1.5mm; border-top: 1px solid var(--line); display:flex; align-items:center; }
+  .gantt .bar { font-size:7.2pt; margin: 1mm 0.4mm; border-radius: 2px; color: #fff; padding: 1mm 1.2mm; font-weight: 600; line-height: 1.15; overflow: hidden; }
+  .bar.A { background: var(--a); } .bar.B { background: var(--b); } .bar.C { background: var(--c); } .bar.ALL { background: var(--all); }
+  .bar.light { opacity: .55; }
+  .sync { background: var(--ink); color: #fff; text-align: center; font-weight: 700; margin: 1mm 0.4mm; border-radius: 2px; padding: 1mm 0; }
+  .legend { margin-top: 2mm; color: var(--mute); font-size: 8.2pt; }
+  .check li { list-style: none; margin-left: -4mm; }
+  .check li::before { content: "☐ "; }
+  .warn { border-left: 4px solid var(--all); background: #fdf1eb; padding: 2mm 3mm; margin-top: 3mm; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 -->
+<section class="page">
+  <h1>sas-pme — Roadmap des 34 prochaines heures</h1>
+  <div class="sub">Hackathon Track 3 « Open Track » · IA × cybersécurité défensive · équipe A · B · C · H0 = début du chantier</div>
+
+  <div class="pitch"><b>Le pitch.</b> Un sas de sécurité posé dans la PME retient chaque nouvelle version de paquet Python le temps
+  qu'une IA locale l'examine et lise ce qu'Internet en dit, puis surveille les connexions sortantes. Si un paquet piégé passe
+  quand même, le sas le démasque dès qu'il appelle son serveur.<br><b>« Le sas qui fait attendre les mises à jour, pas vos développeurs. »</b></div>
+
+  <div class="cols">
+    <div>
+      <h2>Le défenseur aidé</h2>
+      <p>Le responsable technique d'une PME ou startup qui développe en Python (5 à 100 personnes), sans RSSI ni SOC. Vente par l'infogérant.</p>
+      <h2 style="margin-top:4mm">Principes non négociables</h2>
+      <table>
+        <tr><td><b>Le code décide, l'IA alerte</b></td><td>un LLM peut monter un risque, jamais l'abaisser ni approuver</td></tr>
+        <tr><td><b>Un texte lu n'est pas un ordre</b></td><td>code, changelog, article : des données à juger (anti-injection)</td></tr>
+        <tr><td><b>Tout local</b></td><td>LLM sur le boîtier (Ollama) ; aucun service cloud managé</td></tr>
+        <tr><td><b>On lit Internet, on ne lui parle pas de vous</b></td><td>ne sortent que nom de paquet + version, et des domaines</td></tr>
+        <tr><td><b>Transparent</b></td><td>une ligne de config ; pip ne voit jamais d'erreur due à la quarantaine</td></tr>
+      </table>
+    </div>
+    <div>
+      <h2>Ce que fait le sas</h2>
+      <table>
+        <tr><th>Barrière</th><th>Comment</th></tr>
+        <tr><td><b>1. Index PyPI filtré</b></td><td>pip ne voit que les versions approuvées ; une version neuve part en quarantaine (48 h), pip prend la précédente sans erreur</td></tr>
+        <tr><td><b>2. Analyse du paquet</b></td><td>étage 1 : typosquat, âge, mainteneurs, OSV, OpenSSF · étage 2 : diff avec la version précédente (setup.py, exec, base64, secrets, domaines) · étage 3 : LLM local, verdict JSON + phrase en français</td></tr>
+        <tr><td><b>3. Veille</b></td><td>toutes les 2 h : OSV, statut PyPI (yanked), blogs de chercheurs ; un article peut bloquer, jamais débloquer</td></tr>
+        <tr><td><b>4. Sorties</b></td><td>proxy CONNECT sans déchiffrement : domaine nouveau, domaine jeune, IP brute, battement ; <b>corrélation paquet installé ↔ domaine contacté</b> → blocage des deux</td></tr>
+        <tr><td><b>5. Console + journal</b></td><td>une phrase et ses preuves par décision ; approuver/bloquer en un clic ; journal chaîné par hash (NIS2, CRA)</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PAGE 2 : ARCHITECTURE -->
+<section class="page">
+  <h2>Architecture : machines, logiciels, données en transit</h2>
+  <div class="cols">
+    <div>
+<pre>
+ BOÎTIER = EC2 g4dn.xlarge (GPU T4)
+ ──────────────────────────────────
+ Poste dev ─(1)─▶ index :8080 ─(4)─▶ pypi.org / pypiserver démo :8081
+           ◀(2)──     │ version neuve
+                      ▼
+                   pipeline ─(5)─▶ api.osv.dev
+                      │     ─(6)─▶ pypi.org JSON
+                      │     ─(8)─▶ flux RSS
+                      ▼
+                 Ollama :11434 (qwen2.5-coder:7b)  ◀─(9)─ llm, egress_agent
+
+ Poste dev ─(3)─▶ proxy :3128 ─(TLS opaque)─▶ sites autorisés
+   CONNECT            │ Flow
+                      ▼
+                   egress ─(7)─▶ rdap.org
+                      └─ corrélation paquet ↔ domaine ─▶ pipeline
+
+ Navigateur ─(10)─▶ console :8080      SQLite sas.db (état, signaux, flux, journal)
+</pre>
+      <h3>Logiciels sur le boîtier</h3>
+      <table>
+        <tr><th>Logiciel</th><th>Rôle</th><th>Port</th></tr>
+        <tr><td>Ubuntu 22.04, AMI Deep Learning (pilote NVIDIA)</td><td>système</td><td>—</td></tr>
+        <tr><td>Python 3.12 · FastAPI · uvicorn</td><td>index filtré + console + tâches de fond</td><td>8080</td></tr>
+        <tr><td>Proxy CONNECT maison (asyncio)</td><td>relais des sorties, comptage, blocage</td><td>3128</td></tr>
+        <tr><td>Ollama + qwen2.5-coder:7b</td><td>LLM local (verdicts, articles, résumés)</td><td>11434 local</td></tr>
+        <tr><td>SQLite</td><td>état, signaux, flux, journal chaîné</td><td>fichier</td></tr>
+        <tr><td>pypiserver</td><td>paquets piégés + flux RSS de démo</td><td>8081 local</td></tr>
+        <tr><td>httpx · pydantic · rapidfuzz · packaging · feedparser · Jinja2 · HTMX · pytest · respx</td><td>HTTP, schémas, typosquat, versions, RSS, pages, tests</td><td>—</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Données en transit</h3>
+      <table>
+        <tr><th>#</th><th>De → vers</th><th>Protocole</th><th>Contenu</th></tr>
+        <tr><td>1</td><td>poste → index</td><td>HTTP GET <code>/simple/&lt;p&gt;/</code>, <code>/files/…</code></td><td>nom du paquet ; IP source = poste</td></tr>
+        <tr><td>2</td><td>index → poste</td><td>HTML PEP 503 + archive</td><td>versions visibles seulement, <code>#sha256</code> vérifié</td></tr>
+        <tr><td>3</td><td>poste → proxy</td><td><code>CONNECT host:443</code> + TLS opaque</td><td>sas lit domaine, port, heure, octets, durée — <b>jamais le contenu</b></td></tr>
+        <tr><td>4</td><td>index → amont</td><td>HTTPS, JSON PEP 691</td><td>nom ; fichiers publics</td></tr>
+        <tr><td>5</td><td>pipeline → OSV</td><td>HTTPS POST <code>/v1/query</code></td><td>nom + version ; avis CVE/MAL</td></tr>
+        <tr><td>6</td><td>pipeline → PyPI JSON</td><td>HTTPS GET <code>/pypi/&lt;n&gt;/&lt;v&gt;/json</code></td><td>nom + version ; date, mainteneurs, yanked</td></tr>
+        <tr><td>7</td><td>egress → RDAP</td><td>HTTPS GET</td><td>un domaine ; date de création</td></tr>
+        <tr><td>8</td><td>veille → RSS</td><td>HTTPS GET</td><td>rien envoyé ; articles XML</td></tr>
+        <tr><td>9</td><td>sas → Ollama</td><td>HTTP local POST <code>/api/chat</code>, <code>format</code>=schéma, temp. 0</td><td>constats, extraits ≤ 200 car., changelog, articles ; JSON validé pydantic</td></tr>
+        <tr><td>10</td><td>navigateur → console</td><td>HTTP + HTMX</td><td>états, signaux, décisions humaines</td></tr>
+      </table>
+      <div class="warn"><b>Ne quitte jamais le boîtier :</b> code de la PME, liste complète de ses dépendances, identité des postes,
+      contenu des connexions, verdicts. <b>Sort :</b> nom + version (5, 6), domaines (7), lecture de flux publics (8).</div>
+      <h3>Configuration d'un poste (une fois)</h3>
+<pre>pip config set global.index-url http://&lt;ip-du-sas&gt;:8080/simple
+setx HTTPS_PROXY http://&lt;ip-du-sas&gt;:3128</pre>
+    </div>
+  </div>
+</section>
+
+<!-- PAGE 3 : GANTT -->
+<section class="page">
+  <h2>Planning heure par heure</h2>
+  <div class="gantt">
+    <div class="hcell">Heure</div>
+    <div class="hcell">0</div><div class="hcell">1</div><div class="hcell">2</div><div class="hcell">3</div><div class="hcell">4</div><div class="hcell">5</div><div class="hcell">6</div><div class="hcell">7</div><div class="hcell">8</div><div class="hcell">9</div><div class="hcell">10</div><div class="hcell">11</div><div class="hcell">12</div><div class="hcell">13</div><div class="hcell">14</div><div class="hcell">15</div><div class="hcell">16</div><div class="hcell">17</div><div class="hcell">18</div><div class="hcell">19</div><div class="hcell">20</div><div class="hcell">21</div><div class="hcell">22</div><div class="hcell">23</div><div class="hcell">24</div><div class="hcell">25</div><div class="hcell">26</div><div class="hcell">27</div><div class="hcell">28</div><div class="hcell">29</div><div class="hcell">30</div><div class="hcell">31</div><div class="hcell">32</div><div class="hcell">33</div>
+
+    <!-- Sync row -->
+    <div class="lane">Points</div>
+    <div class="sync" style="grid-column: 3 / 4">H1</div>
+    <div class="sync" style="grid-column: 8 / 9">H6</div>
+    <div class="sync" style="grid-column: 14 / 15">H12</div>
+    <div class="sync" style="grid-column: 19 / 20">H17</div>
+    <div class="sync" style="grid-column: 24 / 25">H22</div>
+
+    <!-- A -->
+    <div class="lane" style="grid-row: 3 / 6; color: var(--a)">A · Cœur</div>
+    <div class="bar A" style="grid-row:3; grid-column: 2 / 3">T0</div>
+    <div class="bar A" style="grid-row:3; grid-column: 3 / 5">A1 store + journal</div>
+    <div class="bar A" style="grid-row:3; grid-column: 5 / 6">A2</div>
+    <div class="bar A" style="grid-row:3; grid-column: 6 / 9">A3 index filtré</div>
+    <div class="bar A" style="grid-row:3; grid-column: 9 / 13">A4 pipeline + minuteries</div>
+    <div class="bar A" style="grid-row:4; grid-column: 14 / 19">A5 console</div>
+    <div class="bar A" style="grid-row:4; grid-column: 19 / 26">A6 deck + fiche de défense</div>
+    <div class="bar A light" style="grid-row:5; grid-column: 26 / 36">marge · sommeil (1er) · répétition du pitch</div>
+
+    <!-- B -->
+    <div class="lane" style="grid-row: 6 / 9; color: var(--b)">B · Analyse</div>
+    <div class="bar B" style="grid-row:6; grid-column: 2 / 4">B0 corpus</div>
+    <div class="bar B" style="grid-row:6; grid-column: 4 / 7">B1 contrôles (étage 1)</div>
+    <div class="bar B" style="grid-row:6; grid-column: 7 / 10">B2 diff (étage 2)</div>
+    <div class="bar B" style="grid-row:6; grid-column: 10 / 13">B3 LLM confiné</div>
+    <div class="bar B" style="grid-row:7; grid-column: 13 / 15">B5 mesure v1</div>
+    <div class="bar B" style="grid-row:7; grid-column: 16 / 19">B4 veille</div>
+    <div class="bar B" style="grid-row:7; grid-column: 19 / 22">B5 mesure finale + diapo</div>
+    <div class="bar B light" style="grid-row:8; grid-column: 22 / 36">bugs · sommeil (2e) · réponses du jury sur la mesure</div>
+
+    <!-- C -->
+    <div class="lane" style="grid-row: 9 / 12; color: var(--c)">C · Infra + sorties</div>
+    <div class="bar C" style="grid-row:9; grid-column: 2 / 5">C0 EC2 + quota GPU + Ollama</div>
+    <div class="bar C" style="grid-row:9; grid-column: 5 / 9">C1 proxy CONNECT</div>
+    <div class="bar C" style="grid-row:9; grid-column: 9 / 14">C2 signaux + corrélation</div>
+    <div class="bar C" style="grid-row:10; grid-column: 13 / 16">C3 démo + paquets piégés</div>
+    <div class="bar C" style="grid-row:10; grid-column: 16 / 19">C4 agent des sorties</div>
+    <div class="bar C" style="grid-row:10; grid-column: 22 / 26">C5 vidéo de démo</div>
+    <div class="bar C light" style="grid-row:11; grid-column: 26 / 36">marge · sommeil (3e) · démo en direct prête</div>
+
+    <!-- ALL -->
+    <div class="lane" style="grid-row: 12; color: var(--all)">Tous</div>
+    <div class="bar ALL" style="grid-row:12; grid-column: 2 / 3">phrase</div>
+    <div class="bar ALL" style="grid-row:12; grid-column: 19 / 20">répét.</div>
+    <div class="bar ALL" style="grid-row:12; grid-column: 26 / 28">fiche + répétitions</div>
+  </div>
+  <div class="legend">Une colonne = une heure depuis le début du chantier. Barres pâles = marge et sommeil en quinconce (une personne dort pendant que deux veillent). Noir = point de synchronisation de 15 min. T0 = contrats partagés ; A2 = politique ; « phrase » = phrase-problème envoyée aux organisateurs.</div>
+
+  <h3>Points de synchronisation et règles de coupe</h3>
+  <table>
+    <tr><th style="width:9%">Heure</th><th style="width:46%">Ce qui doit marcher</th><th>Si non</th></tr>
+    <tr><td><b>H1</b></td><td><code>models.py</code> commité ; EC2 lancée ou quota GPU demandé ; phrase-problème envoyée</td><td>A pousse les contrats avant tout le reste</td></tr>
+    <tr><td><b>H6</b></td><td><code>pip install</code> depuis un PC passe par l'index du sas sur l'EC2</td><td>C aide A sur l'index ; le proxy glisse d'une heure</td></tr>
+    <tr><td><b>H12</b></td><td>mesure configuration 1 de bout en bout ; proxy relaie ; LLM répond en &lt; 5 s</td><td><b>on coupe la veille (B4)</b> ; modèle <code>3b</code> si lent</td></tr>
+    <tr><td><b>H17</b></td><td>démo complète répétée une fois</td><td>gel des fonctions, plus que des corrections</td></tr>
+    <tr><td><b>H22</b></td><td>deck, mesure finale, vidéo enregistrée</td><td>la vidéo passe avant le deck</td></tr>
+  </table>
+</section>
+
+<!-- PAGE 4 : TÂCHES PAR PERSONNE -->
+<section class="page">
+  <h2>Tâches par personne</h2>
+  <div class="cols3">
+    <div class="card A">
+      <span class="tag A">A</span> <b>Cœur · console · pitch</b>
+      <ul class="check">
+        <li><b>T0 (H0–H1)</b> <code>pyproject.toml</code>, <code>models.py</code> : State, Level, Source, Signal, Finding, Flow, HumanDecision</li>
+        <li><b>A1 (H1–H3)</b> <code>Store</code> SQLite + <code>Journal</code> chaîné SHA-256, <code>verify()</code></li>
+        <li><b>A2 (H3–H4)</b> <code>policy.decide()</code> fonction pure ; invariant « llm/article n'assouplit jamais » sur 200 cas</li>
+        <li><b>A3 (H4–H7)</b> <code>Upstream</code> PEP 691 ; <code>/simple</code> filtré, <code>/files</code> avec hash ; fail-closed ; adoption initiale ; test <code>pip download</code> réel</li>
+        <li><b>A4 (H7–H11)</b> <code>Pipeline</code> : file asyncio, étages 1→2→3, <code>tick</code> 60 s, veille 2 h, LLM absent → à revoir</li>
+        <li><b>A5 (H12–H17)</b> console HTMX : compteurs, fil, fiche version, fiche poste, journal, approuver/bloquer</li>
+        <li><b>A6 (H17–H24)</b> deck 8 diapos + fiche de défense (10 questions du jury)</li>
+      </ul>
+    </div>
+    <div class="card B">
+      <span class="tag B">B</span> <b>Analyse · mesure</b>
+      <ul class="check">
+        <li><b>B0 (H0–H2)</b> corpus : 30 malveillants (OpenSSF malicious-packages), 50 mises à jour saines. <b>Jamais installer ni exécuter un échantillon.</b></li>
+        <li><b>B1 (H2–H5)</b> <code>checks.run_fast / run</code> : typosquat (rapidfuzz, top 5000), âge, mainteneurs, sdist seul, OpenSSF, OSV</li>
+        <li><b>B2 (H5–H8)</b> <code>diffscan.scan</code> : lignes ajoutées seulement ; setup.py/.pth/__init__, exec/eval/base64, secrets, domaines, entropie ; archives bornées</li>
+        <li><b>B3 (H8–H11)</b> <code>llm.judge_release / classify_article / summarise_host</code> : Ollama, schéma JSON, balises <code>&lt;donnee&gt;</code>, test d'injection</li>
+        <li><b>B5 v1 (H11–H13)</b> mesure configuration 1 — <b>point de contrôle H12</b></li>
+        <li><b>B4 (H14–H17)</b> veille : OSV, yanked, RSS ; un article ne débloque jamais ; seules sortent nom + version</li>
+        <li><b>B5 final (H17–H20)</b> trois colonnes détection / fausses alertes + diapo</li>
+      </ul>
+    </div>
+    <div class="card C">
+      <span class="tag C">C</span> <b>Infra · sorties · démo</b>
+      <ul class="check">
+        <li><b>C0 (H0–H3)</b> <b>quota GPU « G and VT » dès H0</b> ; g4dn.xlarge eu-west-3, AMI Deep Learning ; Ollama + <code>qwen2.5-coder:7b</code>, verdict &lt; 5 s ; service systemd. Repli : c7i.4xlarge + modèle 3b</li>
+        <li><b>C1 (H3–H7)</b> <code>serve_proxy</code> : CONNECT seul, relais et comptage, domaines bloqués, liste fermée CI</li>
+        <li><b>C2 (H7–H12)</b> <code>Egress.on_flow</code> : domaine nouveau, RDAP &lt; 30 j, IP brute, battement, <b>corrélation 10 min</b></li>
+        <li><b>C3 (H11–H14)</b> démo : <code>colorama-utils</code> 1.0/1.1 piégée, <code>reqeusts</code>, flux RSS (vrai + faux article), serveur de battement, <code>script.md</code></li>
+        <li><b>C4 (H14–H17)</b> agent des sorties : résumé français par poste, aucun signal effacé</li>
+        <li><b>C5 (H20–H24)</b> vidéo de démo ≤ 3 min, plan de secours si le direct tombe</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:5mm">
+    <div>
+      <h3>La démo (3 minutes)</h3>
+      <table>
+        <tr><td>1</td><td><code>pip install</code> courant via le sas : rien de visible — <i>« transparent »</i></td></tr>
+        <tr><td>2</td><td>une version piégée sort : pip ne la voit pas, la console explique en français — <i>« le code a lu ce que personne ne lit »</i></td></tr>
+        <tr><td>3</td><td>un faux article « cette version est sûre » ne débloque rien — <i>« l'IA ne peut qu'alerter »</i></td></tr>
+        <tr><td>4</td><td>un dev force l'installation ; en &lt; 1 min, domaine et paquet sont reliés et bloqués — <i>« la deuxième barrière tient »</i></td></tr>
+        <tr><td>5</td><td>diapo de mesure : trois colonnes chiffrées</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Risques à surveiller</h3>
+      <table>
+        <tr><td><b>Quota GPU à 0</b> sur le compte AWS</td><td>demande dès H0 ; repli CPU + modèle 3b</td></tr>
+        <tr><td><b>« Où est l'IA ? »</b> si la colonne 2 ne bat pas la colonne 1</td><td>mesure dès H12 ; mettre en avant incohérence changelog/code et lecture des articles</td></tr>
+        <tr><td><b>Plomberie qui mange le temps</b></td><td>un seul écosystème (PyPI), pas de déchiffrement TLS</td></tr>
+        <tr><td><b>Injection de prompt en démo</b></td><td>LLM ne peut que monter un risque ; test B3 dédié</td></tr>
+        <tr><td><b>Classement en Track 2</b> par le jury</td><td>insister : PME sans SOC + sorties corrélées, pas un scanner de dépendances</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
