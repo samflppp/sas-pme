@@ -5,8 +5,9 @@ Réglages : SAS_DB (chemin de la base), SAS_CLE_JOURNAL (clé HMAC du journal, o
 SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions),
 SAS_TRAITEMENT_INTERVALLE (secondes entre deux appels de `traiter`, 60 ; 0 l'arrête),
 SAS_ARCHIVES (dossier des archives téléchargées, `archives`).
-Au premier lancement (base sans compte), le compte `admin` est créé avec SAS_ADMIN_MOTDEPASSE ;
-sans elle, un mot de passe aléatoire est tiré et affiché. Ensuite, la variable est ignorée.
+Au premier lancement (base sans compte), le compte `admin` est créé avec SAS_ADMIN_MOTDEPASSE
+(MDP_MIN caractères au moins, sinon refus de démarrer) ; sans elle, un mot de passe aléatoire est
+tiré et affiché. Ensuite, la variable est ignorée.
 """
 import os
 import re
@@ -16,10 +17,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
 from commun.modeles import Ecosysteme, Etat, Version
@@ -148,6 +151,17 @@ def _delai_par_defaut() -> timedelta:
     return pypi.delai()
 
 
+def meme_origine(request: Request) -> bool:
+    """Le POST vient-il d'une page de ce site ? `Origin`, sinon `Referer`, comparé à `Host`.
+    Sans aucun des deux, ce n'est pas un navigateur (curl, script) : pas de CSRF possible."""
+    source = request.headers.get("origin") or request.headers.get("referer")
+    if source is None:
+        return True
+    hote = request.headers.get("host", "").lower()
+    p = urlsplit(source)
+    return bool(hote) and p.scheme.lower() in ("http", "https") and p.netloc.lower() == hote
+
+
 def _texte_delai(d: timedelta) -> str:
     return f"{d.days} jours" if d == timedelta(days=d.days) else f"{int(d.total_seconds())} s"
 
@@ -175,6 +189,18 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     app = FastAPI(title="sas-pme — plateforme agréée", lifespan=cycle)
     app.add_middleware(SessionMiddleware, secret_key=secret, same_site="strict",
                        https_only=False, max_age=8 * 3600)
+
+    @app.middleware("http")
+    async def verifier_origine(request: Request, suite):
+        """Relecture de B, A5 : un POST venu d'une autre page (CSRF) est refusé. `same_site` ne
+        suffit pas : deux ports de localhost (le tunnel de la démo) sont le même « site »."""
+        if request.method not in ("GET", "HEAD", "OPTIONS") and not meme_origine(request):
+            source = request.headers.get("origin") or request.headers.get("referer") or ""
+            await run_in_threadpool(base.journaliser, "web", "origine_refusee", request.url.path,
+                                    {"origine": source[:200]})
+            return HTMLResponse("Requête refusée : elle ne vient pas d'une page de cette origine.",
+                                status_code=403)
+        return await suite(request)
     demander = demander or _demander_par_defaut(base)
     horloge = horloge or (lambda: datetime.now(timezone.utc))
     delai = delai or _delai_par_defaut
@@ -191,7 +217,9 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         la page prévue pour."""
         identifiant = request.session.get("utilisateur")
         compte = base.lire_compte(identifiant) if identifiant else None
-        if compte is None or not compte.actif:
+        # Un changement de mot de passe change la génération : les autres sessions sont coupées (A5).
+        if (compte is None or not compte.actif
+                or request.session.get("generation") != compte.generation):
             request.session.clear()
             raise HTTPException(status_code=303, headers={"Location": "/connexion"})
         if compte.doit_changer and not avant_changement:
@@ -222,6 +250,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
                         erreur="Identifiant ou mot de passe incorrect.")
         request.session.clear()
         request.session["utilisateur"] = compte.identifiant
+        request.session["generation"] = compte.generation
         base.journaliser(compte.identifiant, "connexion", "web", {})
         return RedirectResponse("/mot-de-passe" if compte.doit_changer else "/", status_code=303)
 
@@ -423,6 +452,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             return page(request, "mot_de_passe.html", compte, 400, oblige=compte.doit_changer,
                         erreur=erreur)
         base.changer_mot_de_passe(compte.identifiant, nouveau, acteur=compte.identifiant)
+        # Cette session-ci reste ouverte ; les autres ont l'ancienne génération (A5).
+        request.session["generation"] = base.lire_compte(compte.identifiant).generation
         return RedirectResponse("/", status_code=303)
 
     # --- comptes (admin) --------------------------------------------------------
@@ -473,14 +504,18 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
 
 
 def _depuis_environnement() -> FastAPI:
+    base = Base(os.environ.get("SAS_DB", "sas.db"))
     mdp = os.environ.get("SAS_ADMIN_MOTDEPASSE")
     if not mdp:
         mdp = secrets.token_urlsafe(12)
         print(f"[sas-pme] Si la base est neuve, mot de passe du compte admin : {mdp}",
               file=sys.stderr)
+    elif len(mdp) < MDP_MIN and not base.lister_comptes():
+        raise RuntimeError(f"SAS_ADMIN_MOTDEPASSE trop court pour le compte admin initial : "
+                           f"{MDP_MIN} caractères au moins.")
     secret = os.environ.get("SAS_SECRET") or secrets.token_urlsafe(32)
     intervalle = float(os.environ.get("SAS_TRAITEMENT_INTERVALLE", "60"))
-    return creer_app(base=Base(os.environ.get("SAS_DB", "sas.db")), mot_de_passe=mdp, secret=secret,
+    return creer_app(base=base, mot_de_passe=mdp, secret=secret,
                      traiter=_traiter_par_defaut() if intervalle > 0 else None,
                      intervalle=intervalle)
 
