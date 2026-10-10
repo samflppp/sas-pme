@@ -234,3 +234,36 @@ def test_c7_le_piege_passe_avant_le_traceur():
     r = _construire(trace=trace, reseau=[{"t": "tcp", "port": 443, "hote": "collecte.attaquant.example",
                                            "debut": ""}])
     assert r.connexions[0] == "collecte.attaquant.example:443"
+
+
+# --- B : C2 (le paquet efface ses traces) ---------------------------------------------------------
+JETON = "j" * 32
+DEBUT = json.dumps({"e": "debut", "v": JETON})
+FIN = json.dumps({"e": "fin", "v": JETON})
+
+
+def _avec_marques(trace, strace_inst=("SAS-FIN " + JETON,), strace_imp=("SAS-FIN " + JETON,), jeton=JETON):
+    return rapport.construire(trace=trace, reseau=[], leurres=LEURRES, home=HOME, code_sortie=0,
+                              duree_s=1.0, delai_depasse=False, strace_installation=list(strace_inst),
+                              strace_import=list(strace_imp), jeton=jeton)
+
+
+def test_c2_des_traces_completes_ne_signalent_rien():
+    assert rapport.TRACES_EFFACEES not in _avec_marques([DEBUT, FIN]).processus
+
+
+def test_c2_un_journal_vide_ou_sans_fin_est_signale():
+    assert _avec_marques([]).processus[0] == rapport.TRACES_EFFACEES
+    assert _avec_marques([DEBUT]).processus[0] == rapport.TRACES_EFFACEES
+    assert _avec_marques([DEBUT, FIN], strace_imp=()).processus[0] == rapport.TRACES_EFFACEES
+
+
+def test_c2_une_marque_forgee_sans_le_jeton_est_signalee():
+    faux = json.dumps({"e": "fin", "v": "x" * 32})
+    assert _avec_marques([DEBUT, faux]).processus[0] == rapport.TRACES_EFFACEES
+
+
+def test_c2_un_delai_depasse_n_est_pas_pris_pour_un_effacement():
+    r = rapport.construire(trace=[DEBUT], reseau=[], leurres=LEURRES, home=HOME, code_sortie=-1,
+                           duree_s=120.0, delai_depasse=True, jeton=JETON)
+    assert rapport.TRACES_EFFACEES not in r.processus

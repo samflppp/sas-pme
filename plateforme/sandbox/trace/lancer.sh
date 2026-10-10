@@ -2,6 +2,11 @@
 # Scénario de la sandbox, dans le conteneur cible (docs/architecture.md § 5) :
 # poser les leurres, installer l'archive sans réseau, importer le module, attendre un battement.
 set -u
+# Jeton secret de l'analyse, lu sur l'entrée standard : ni variable d'environnement ni fichier, le
+# paquet ne peut pas le lire. Il signe les marques de début et de fin des journaux (B, C2).
+read -r JETON
+exec < /dev/null
+printf '{"e": "debut", "v": "%s"}\n' "$JETON" >> /journal/trace.jsonl
 H="$HOME"
 mkdir -p "$H/.aws" "$H/.ssh"
 printf '[default]\naws_access_key_id = AKIA%s\naws_secret_access_key = %s\n' "$L_ID" "$L_AWS" > "$H/.aws/credentials"
@@ -26,3 +31,8 @@ $ST -o /journal/strace_import.txt python /outils/importer.py "$SAS_MODULE" > /jo
 debut=$(date +%s)
 while [ ! -f /journal/code_import ] && [ $(( $(date +%s) - debut )) -lt 100 ]; do sleep 0.2; done
 sleep "$SAS_ATTENTE"
+# Marques de fin, après le battement : un paquet qui a vidé ou réécrit un journal est vu.
+printf '{"e": "fin", "v": "%s"}\n' "$JETON" >> /journal/trace.jsonl
+for f in /journal/strace_installation.txt /journal/strace_import.txt; do
+  printf 'SAS-FIN %s\n' "$JETON" >> "$f"
+done

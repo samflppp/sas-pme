@@ -47,7 +47,7 @@ def _docker(*args: str, timeout: float = 60, verifier: bool = True) -> subproces
 
 def commande_cible(nom: str, reseau: str, image: str, dossier: str, archive: str, module: str,
                    attente_s: int, leurres: dict[str, str]) -> list[str]:
-    cmd = ["docker", "run", "--name", nom, "--network", reseau, "--hostname", "srv-prod",
+    cmd = ["docker", "run", "-i", "--name", nom, "--network", reseau, "--hostname", "srv-prod",
            "--read-only", "--tmpfs", "/tmp:rw,exec,mode=1777,size=512m",
            "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
            "--pids-limit", "256", "--memory", "1g", "--cpus", "2", "--user", UTILISATEUR,
@@ -118,6 +118,7 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
     reseau, piege, cible = f"sas-sb-{ident}", f"sas-piege-{ident}", f"sas-cible-{ident}"
     attente = int(os.environ.get("SAS_SANDBOX_ATTENTE", str(ATTENTE_PAR_DEFAUT_S)))
     valeurs = {nom: "sasleurre" + secrets.token_hex(12) for nom in (*LEURRES_ENV, *LEURRES_FICHIERS)}
+    jeton = secrets.token_hex(16)        # signe les marques des journaux (B, C2), via stdin
     env_cible = {n: valeurs[n] for n in LEURRES_ENV} | {n: valeurs[n] for n in LEURRES_FICHIERS}
     env_cible["L_ID"] = secrets.token_hex(8).upper()
     a_chercher = {n: valeurs[n] for n in LEURRES_ENV} | \
@@ -152,7 +153,7 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
             try:
                 subprocess.run(commande_cible(cible, reseau, image, str(d), archive.name, module,
                                               attente, env_cible),
-                               capture_output=True, timeout=duree_max_s)
+                               input=(jeton + "\n").encode(), capture_output=True, timeout=duree_max_s)
             except subprocess.TimeoutExpired:
                 depasse = True
                 _docker("kill", cible, verifier=False)
@@ -167,7 +168,7 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
             leurres=a_chercher, home=HOME, code_sortie=_code(d / "journal"), duree_s=duree,
             delai_depasse=depasse, ip_piege=ip,
             strace_installation=_lire(d / "journal" / "strace_installation.txt"),
-            strace_import=_lire(d / "journal" / "strace_import.txt"))
+            strace_import=_lire(d / "journal" / "strace_import.txt"), jeton=jeton)
 
 
 def executer(ecosysteme: Ecosysteme, archive: Path, module: str,
