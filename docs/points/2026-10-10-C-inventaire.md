@@ -69,6 +69,33 @@ Reprise du poste de C (l'ancien est perdu). Clone neuf, `main` à jour, `pytest 
 | A, B | `machine` (IP du serveur) **n'est pas** dans `EntreeInventaire` (contrat § 1). Choix retenu avec Sam : le laisser **hors contrat**, dans le JSON brut de la route (champ `machines`), sans PR `commun/`. OK pour vous, ou faut-il l'ajouter au contrat plus tard ? | M2 (page inventaire de A) | ok / ajouter au contrat |
 
 ## Réponses à vos demandes
+- **(A, relecture PR #39, point 1 bloquant : `machines` casse `lire_inventaire()`)** Corrigé avec
+  l'option (a). `lire_inventaire()` ne garde que les champs d'`EntreeInventaire`. Le test de bout
+  en bout passe par la vraie route `/v1/inventory`, qui joint `machines` ; il a été vu au rouge
+  (`extra_forbidden`) avant la correction. Vérifié sur AWS : `lire_inventaire()` rend 7 entrées sans
+  erreur.
+- **(A, point 2 : un GET raté est compté)** Corrigé. Constat sur AWS : **pypiserver écrit
+  « 200 OK » même quand il répond 404** (essai : `curl …/packages/absent-9.9…whl` → 404, journal
+  → `200 OK`). Le code du journal ne prouve donc rien, et `--log-res-frmt` n'aide pas. Règle
+  retenue : un GET compte **seulement si l'archive était dans le dépôt à cet instant**. Le
+  récepteur tient un registre (`/var/lib/sas/registre.txt` : « date publie|retire archive ») ; une
+  archive posée hors récepteur (stub scp, wheel de pip) compte tant qu'elle est dans le dépôt.
+- **(A, point 3 : versions jamais téléchargées)** Corrigé. Chaque version du dépôt est listée, même
+  à 0 (`dernier = null`), plus chaque version révoquée déjà téléchargée. Vérifié sur AWS : `pip` à
+  0 ; `inventaire-demo` publiée signée, installée par le serveur, révoquée → toujours listée avec 1
+  téléchargement, et introuvable pour pip.
+- **(A, PR #38)** Validée par C, avec une précision de mise en œuvre : « réponse 200 » s'obtient
+  par la présence de l'archive dans le dépôt au moment du GET (registre du récepteur), car
+  pypiserver ne journalise pas le vrai code.
+- **(A, point 4 : la région)** Les identifiants du workshop proposent us-west-2 par défaut, mais
+  us-east-1 marche aussi : lancement d'essai accepté dans les deux régions, et toutes les séances
+  ont tourné en us-east-1. `config.env.exemple` dit maintenant us-east-1 (il disait eu-west-3).
+  C'est la région de toute la documentation C. Si Sam préfère us-west-2, il suffit de changer
+  `REGION` et `AZ` dans `config.env`.
+- 11 tests neufs (inventaire selon la PR #38, registre, route → `lire_inventaire`), chacun vu au
+  rouge (mutations du code). 361 tests passent.
+
+## Réponses antérieures
 - **(A, m1-valide : inventaire lu dans les journaux)** Fait, voir ci-dessus. Reste la vérif AWS
   après un vrai `pip install`.
 - **(A, m1-valide : durcissement ufw)** Fait dans `installer.sh`. Reste la vérif AWS.
@@ -155,7 +182,8 @@ ici (sections 1 à 4) clôt le M1 côté C.
 
 ```
 
-**Verdict : « M1 côté C : TOUS LES CONSTATS PASSENT — le M1 peut être clos. »**
+**Verdict : « M1 côté C : TOUS LES CONSTATS PASSENT — le M1 peut être clos. »** Relancé après les
+corrections des points 1 à 3 (commits `7d0784f` et suivant) : toujours tous OK.
 
 - **AWS nettoyé** : l'infra de la dernière séance (VPC `sas-pme` orphelin en us-east-1, 3 SG, 2
   subnets, IGW, key pair — toutes les instances étaient déjà `terminated`) a été détruite à la
