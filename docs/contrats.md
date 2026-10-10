@@ -80,6 +80,8 @@ base.historique(eco, nom, version) -> list[EntreeJournal]  # journal de cette ve
 base.fiche(eco, nom, version) -> Fiche | None    # version, raison, signaux, verdict, verdict_id, rapport_sandbox
 base.journaliser(acteur, action, sujet, charge: dict) -> None
 base.journal(limite=500) -> list[EntreeJournal]
+base.journal_recent(limite=100, avant=None, q=None) -> list[EntreeJournal]  # plus récentes d'abord
+base.compter_journal() -> int
 base.verifier_journal() -> tuple[bool, int | None]
 # comptes du web (A seul) : Role.ADMIN | Role.DEV, mot de passe en empreinte scrypt salée
 base.creer_compte(identifiant, role, mot_de_passe, *, acteur, doit_changer=True) -> Compte  # ValueError si existe

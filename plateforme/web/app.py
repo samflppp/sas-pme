@@ -32,6 +32,7 @@ Delai = Callable[[], timedelta]
 
 ADMIN_INITIAL = "admin"  # créé au premier lancement, si la base n'a aucun compte
 MDP_MIN = 12
+PAGE_JOURNAL = 100
 _IDENTIFIANT_VALIDE = re.compile(r"^[a-z][a-z0-9._-]{1,31}$")
 # Noms PyPI (PEP 508) et npm (avec portée @org/nom), sans « .. » ni barre oblique libre.
 _NOM_VALIDE = re.compile(r"^(@[a-z0-9][a-z0-9._-]*/)?[A-Za-z0-9][A-Za-z0-9._-]{0,213}$")
@@ -82,6 +83,15 @@ def _compter(valeurs: list[str]) -> list[str]:
 def _lien_sur(url: object) -> str | None:
     """Seuls http et https deviennent des liens : une preuve vient parfois d'Internet."""
     return url if isinstance(url, str) and re.match(r"^https?://", url, re.I) else None
+
+
+_SUJET_VERSION = re.compile(r"^(pypi|npm):(.+)@([^@]+)$")
+
+
+def _lien_fiche(sujet: str) -> str | None:
+    """« pypi:requests@2.32.4 » mène à la fiche de la version ; les autres sujets, nulle part."""
+    m = _SUJET_VERSION.match(sujet)
+    return f"/versions/{m[1]}/{m[2]}/{m[3]}" if m else None
 
 
 def _delai_par_defaut() -> timedelta:
@@ -246,6 +256,21 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
                     en_analyse=base.lister_avec_raison([Etat.EN_ANALYSE]),
                     a_revoir=base.lister_avec_raison([Etat.A_REVOIR]),
                     bloquees=base.lister_avec_raison([Etat.BLOQUEE]))
+
+    # --- journal (admin) ---------------------------------------------------------
+    @app.get("/journal", response_class=HTMLResponse)
+    def journal(request: Request, avant: int | None = None, q: str = "", verifier: bool = False):
+        # Réservé aux admins : il contient les comptes et les identifiants tapés à la connexion.
+        admin = exiger(request, Role.ADMIN)
+        q = q.strip()[:100]
+        entrees = base.journal_recent(PAGE_JOURNAL, avant=avant, q=q or None)
+        verification = None
+        if verifier:
+            intacte, cassee = base.verifier_journal()
+            verification = {"intacte": intacte, "cassee": cassee, "total": base.compter_journal()}
+        suivante = entrees[-1].seq if len(entrees) == PAGE_JOURNAL else None
+        return page(request, "journal.html", admin, entrees=entrees, q=q, suivante=suivante,
+                    verification=verification, fiches={e.seq: _lien_fiche(e.sujet) for e in entrees})
 
     # --- mot de passe -----------------------------------------------------------
     @app.get("/mot-de-passe", response_class=HTMLResponse)
