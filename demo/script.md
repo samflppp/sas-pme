@@ -37,8 +37,8 @@ export SAS_DELAI=120                       # démo : 2 minutes d'attente au lieu
 # Publication signée en TLS mutuel (C) ; sans SAS_PASSERELLE_URL, copie scp du M0.
 export SAS_PASSERELLE_URL=https://10.42.2.10:8443 SAS_CLE_SIGNATURE=~/sas/signature.pem
 export SAS_TLS_CA=~/sas/tls/ca.pem SAS_TLS_CERT=~/sas/tls/plateforme.pem SAS_TLS_CLE=~/sas/tls/plateforme.key
-# LLM local (B) ; Ollama installé sur la plateforme par C. 7B retenu (point A-modele-7b) ;
-# repli sur qwen2.5-coder:3b si son temps de réponse ne tient pas dans la démo.
+# LLM local (B) ; Ollama installé sur la plateforme par C. 7B retenu après mesure (point
+# C-h10-aws : 18 s sur 1.1, 47 s sur 1.2, juste sur les deux ; le 3B fait une fausse alerte sur 1.1).
 export SAS_MODELE=qwen2.5-coder:7b SAS_OLLAMA_URL=http://127.0.0.1:11434
 # Source amont de démo (B) : le faux PyPI de demo/paquets/, qui sert demo-horodatage et relaie
 # tout autre nom vers pypi.org (lecture seule). Sans SAS_PYPI_URL : le vrai PyPI.
