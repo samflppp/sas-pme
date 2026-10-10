@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comptes — sas-pme</title><link rel="stylesheet" href="maquette.css"></head>
+<body>
+<header><span class="marque">sas-pme</span>
+  <nav><a href="catalogue.html">Catalogue</a><a href="file-attente.html">File d'attente</a><a href="#">Demander un paquet</a><a href="journal.html">Journal</a><a class="actif" href="comptes.html">Comptes</a></nav>
+  <span class="droite">sam <span class="role">admin</span> <a href="#">Se déconnecter</a></span></header>
+<main>
+<div class="note">Maquette M1 — données fictives. Page réservée au rôle admin.</div>
+<h1>Comptes</h1>
+<p class="sous">Mots de passe hachés (scrypt), jamais affichés. Chaque création, changement de rôle ou désactivation est écrit dans le journal.</p>
+
+<table>
+  <thead><tr><th>Identifiant</th><th>Rôle</th><th>Dernière connexion</th><th>État</th><th></th></tr></thead>
+  <tbody>
+    <tr><td>sam</td><td><span class="role">admin</span></td><td>10/10/2026 16:40</td><td>actif</td><td><button type="button">Changer le rôle</button></td></tr>
+    <tr><td>mouabd</td><td><span class="role">dev</span></td><td>10/10/2026 15:12</td><td>actif</td><td><button type="button">Changer le rôle</button> <button class="danger" type="button">Désactiver</button></td></tr>
+    <tr><td>steusso</td><td><span class="role">dev</span></td><td>10/10/2026 14:58</td><td>actif</td><td><button type="button">Changer le rôle</button> <button class="danger" type="button">Désactiver</button></td></tr>
+  </tbody>
+</table>
+
+<h2>Nouveau compte</h2>
+<form class="actions">
+  <input placeholder="Identifiant">
+  <select><option>dev</option><option>admin</option></select>
+  <button class="principal" type="button">Créer</button>
+</form>
+<p class="mono">Le mot de passe initial est tiré au hasard, affiché une seule fois, et doit être changé à la première connexion.</p>
+</main></body></html>

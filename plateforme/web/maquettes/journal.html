@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal — sas-pme</title><link rel="stylesheet" href="maquette.css"></head>
+<body>
+<header><span class="marque">sas-pme</span>
+  <nav><a href="catalogue.html">Catalogue</a><a href="file-attente.html">File d'attente</a><a href="#">Demander un paquet</a><a class="actif" href="journal.html">Journal</a><a href="comptes.html">Comptes</a></nav>
+  <span class="droite">sam <span class="role">admin</span> <a href="#">Se déconnecter</a></span></header>
+<main>
+<div class="note">Maquette M1 — données fictives.</div>
+<h1>Journal</h1>
+<p class="sous">Toutes les décisions, de la machine comme des personnes. Chaque entrée contient le hash de la précédente : une entrée modifiée casse la chaîne.</p>
+
+<div class="actions">
+  <button class="principal" type="button">Vérifier la chaîne</button>
+  <span class="ok-chaine">✓ Chaîne intègre — 1 284 entrées vérifiées</span>
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>Quand</th><th>Qui</th><th>Action</th><th>Sujet</th><th>Détail</th><th>Hash</th></tr></thead>
+  <tbody>
+    <tr><td>1284</td><td>12/10 22:16</td><td>pipeline</td><td>etat_change</td><td>pypi:colorama-utils@1.1</td><td><span class="etat bloquee">bloquée</span> leurre lu puis envoyé</td><td class="mono">a91f…3c0d</td></tr>
+    <tr><td>1283</td><td>12/10 22:16</td><td>pipeline</td><td>verdict</td><td>pypi:colorama-utils@1.1</td><td>verdict n° 212</td><td class="mono">77b2…e910</td></tr>
+    <tr><td>1282</td><td>11/10 09:00</td><td>pipeline</td><td>etat_change</td><td>pypi:requests@2.32.4</td><td><span class="etat publiee">publiée</span> signée, acceptée par la passerelle</td><td class="mono">0c4e…51aa</td></tr>
+    <tr><td>1281</td><td>10/10 16:41</td><td>sam</td><td>decision_humaine</td><td>pypi:pyyaml-tools@2.4</td><td>approuvée : « passation annoncée, vérifiée »</td><td class="mono">5d10…b7f2</td></tr>
+    <tr><td>1280</td><td>10/10 16:40</td><td>sam</td><td>connexion</td><td>web</td><td></td><td class="mono">e3a8…0921</td></tr>
+  </tbody>
+</table>
+</main></body></html>
