@@ -37,6 +37,10 @@
 |---|---|---|---|
 | C (ou la reprise) | Sur AWS, après `git pull` : `python3 -I -c "import httpx; from plateforme.pipeline import veille_rss as v; [print(u, httpx.get(u, follow_redirects=True, timeout=20).status_code) for u in v.flux()]"`. Me dire quels flux répondent 200. | non | liste des codes |
 
+## Réponses à vos demandes
+- (A, refus-passerelle) Ok : le préfixe `publication échouée : ` de `_publier` reste tel quel ;
+  je te préviens avant tout changement.
+
 ## Ensuite
 - Ma colonne M2 est finie. Il reste la validation du RAG sur AWS (demande du point B-rag). Au
   point H16, on répète la démo complète, puis M3 : la mesure finale à trois colonnes.
