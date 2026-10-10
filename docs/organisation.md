@@ -82,3 +82,10 @@ Quand le vrai arrive dans `main`, le faux disparaît et on ne change rien chez s
 H3, H10, H16, H22 : 15 min, les trois ensemble, devant la démo de bout en bout. On y vérifie ce qui
 marche, on décide des coupes et on ajuste les contrats si besoin. Hors de ces points, on se parle
 quand on veut.
+
+## 9. Les points d'avancement écrits
+
+À chaque PR fusionnée et avant chaque point de rencontre, chacun ajoute un fichier dans
+`docs/points/` : ce qu'il a fait, ce que les autres peuvent utiliser, ce qu'il leur demande. Au début
+de chaque tâche, chacun lit les points des autres et répond aux demandes qui le concernent. Règle et
+modèle : `docs/points/README.md`.
