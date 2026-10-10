@@ -9,21 +9,48 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
+from packaging.version import InvalidVersion, Version as VersionPep440
 
-from commun.modeles import Etat, RapportSandbox, Version
+from commun.modeles import Etat, RapportSandbox, Signal, Version
 from plateforme.db.acces import Base
 from plateforme.pipeline import politique, pypi, veille
+from plateforme.pipeline.statique.code import controler_code
+from plateforme.pipeline.statique.meta import controler_metadonnees
 from plateforme.pipeline.statique.nom import controler_nom
 
 Telecharger = Callable[[str, str, Path], list[Path]]
 Executer = Callable[..., RapportSandbox]
 Publier = Callable[..., None]
 Veiller = Callable[[Base, datetime], object]
+ControlerMeta = Callable[[Version, str | None, datetime], list[Signal]]
 
 
 def _telecharger_pypi(nom: str, version: str, dossier: Path) -> list[Path]:
     with httpx.Client(timeout=60, follow_redirects=True) as client:
         return pypi.telecharger(nom, version, dossier, client=client)
+
+
+def _meta_reseau(v: Version, precedente: str | None, maintenant: datetime) -> list[Signal]:
+    with httpx.Client(timeout=30, follow_redirects=True) as client:
+        return controler_metadonnees(v.ecosysteme, v.nom, v.version, precedente=precedente,
+                                     maintenant=maintenant, client=client)
+
+
+def _pep(version: str) -> VersionPep440 | None:
+    try:
+        return VersionPep440(version)
+    except InvalidVersion:
+        return None
+
+
+def _precedente(base: Base, v: Version) -> str | None:
+    """La plus haute version publiée (ou approuvée) plus basse que `v` : la référence du diff."""
+    courante = _pep(v.version)
+    if courante is None:
+        return None
+    avant = [(p, x.version) for x in base.versions_du_paquet(v.ecosysteme, v.nom)
+             if x.etat in (Etat.PUBLIEE, Etat.APPROUVEE) and (p := _pep(x.version)) and p < courante]
+    return max(avant)[1] if avant else None
 
 
 def _veiller_reseau(base: Base, maintenant: datetime) -> None:
@@ -62,10 +89,12 @@ def _publier(base: Base, v: Version, archives: list[Path], verdict_id: int,
 def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta | None = None,
             dossier: Path = Path("archives"), telecharger: Telecharger | None = None,
             executer: Executer | None = None, publier: Publier | None = None,
-            veiller: Veiller | None = None) -> list[tuple[Version, Etat]]:
+            veiller: Veiller | None = None, controler_meta: ControlerMeta | None = None
+            ) -> list[tuple[Version, Etat]]:
     """Fait un tour de veille, republie les approuvées non publiées, puis traite chaque version en attente dont le délai est
     écoulé ; renvoie (version, état final). Fait pour être appelée en boucle (tâche de fond de A)."""
     telecharger = telecharger or _telecharger_pypi
+    controler_meta = controler_meta or _meta_reseau
     executer = executer or _de_c("sandbox", "executer")
     publier = publier or _de_c("signature", "publier")
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -102,7 +131,13 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
             rapport = executer(v.ecosysteme, _archive_a_executer(archives),
                                v.nom.replace("-", "_"))
             base.enregistrer_rapport_sandbox(*cle, rapport)
-            signaux = controler_nom(v.ecosysteme, v.nom, v.version)
+            precedente = _precedente(base, v)
+            ici = dossier / v.nom / precedente if precedente else None
+            signaux = [*controler_nom(v.ecosysteme, v.nom, v.version),
+                       *controler_code(v.ecosysteme, v.nom, v.version, archives,
+                                       precedentes=sorted(ici.iterdir())
+                                       if ici and ici.is_dir() else None),
+                       *controler_meta(v, precedente, maintenant)]
             for s in signaux:
                 base.ajouter_signal(s)
             verdict = politique.decider(signaux)
