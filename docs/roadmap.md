@@ -61,6 +61,12 @@ H0 = début de la roadmap. Le budget est d'environ 30 h, dont 6 de marge et de s
 
 **Point H16 :** démo complète répétée une fois. On gèle les fonctions.
 
+**M2 clos le 2026-10-11**, sur décision de Sam : la démo complète a été répétée sur AWS par C
+(`docs/points/2026-10-11-C-h16-repetition.md`), essayée en local par A (passerelle réelle en TLS
+mutuel, sandbox et LLM simulés) ; les fausses alertes du LLM vues en répétition sont corrigées
+(PR #69). npm et WireGuard sont coupés de la démo. Les fonctions sont gelées ; voir
+`docs/points/2026-10-11-A-m2-clos.md`.
+
 ## M3 — Finition (H16 → H22)
 
 | A — Sam | B — Mouabd19 | C — STEUSSO |
