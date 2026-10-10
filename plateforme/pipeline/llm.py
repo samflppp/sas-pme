@@ -12,6 +12,9 @@
 - Un signal FORT du LLM doit s'appuyer sur le paquet observé : son extrait recoupe une ligne
   relevée par les contrôles ou un élément du rapport de sandbox. Sinon (passage du RAG recopié,
   phrase vague), il redescend à MOYEN : le LLM seul ne met pas une version « à revoir » sur du vent.
+- Il faut aussi un constat d'au moins MOYEN hors du LLM (statique, sandbox, veille) : le LLM
+  aggrave un doute réel, il n'en crée pas un en décrivant la fonction même du paquet
+  (`requests.get` dans `requests`). Les signaux identiques du LLM ne comptent qu'une fois.
 - Une réponse hors schéma est ignorée et journalisée ; Ollama injoignable ne donne rien.
 """
 import json
@@ -163,15 +166,20 @@ def analyser(base: Base, v: Version, signaux: list[Signal], rapport: RapportSand
         return ResultatLLM()
     connues = {ref for ref, _ in passages}
     morceaux = _morceaux(signaux, rapport)
+    constat = any(s.source is not Source.LLM and s.niveau.rang >= Niveau.MOYEN.rang
+                  for s in signaux)
 
     def signal(s: SignalLLM) -> Signal:
         niveau, preuve = Niveau(s.niveau), {"extrait": s.extrait}
         if niveau is Niveau.FORT and not _ancre(s.extrait, morceaux, v):
             niveau, preuve = Niveau.MOYEN, {**preuve, "non_ancre": True}
+        elif niveau is Niveau.FORT and not constat:
+            niveau, preuve = Niveau.MOYEN, {**preuve, "sans_constat": True}
         return Signal(ecosysteme=v.ecosysteme, nom=v.nom, version=v.version, source=Source.LLM,
                       niveau=niveau, sorte=s.sorte, preuve=preuve)
 
+    uniques = list({(s.niveau, s.sorte, _norm(s.extrait)): s for s in sortie.signaux}.values())
     return ResultatLLM(
-        signaux=[signal(s) for s in sortie.signaux],
+        signaux=[signal(s) for s in uniques],
         explication=sortie.explication.strip(),
         refs_rag=[ref for ref in sortie.refs_rag if ref in connues])

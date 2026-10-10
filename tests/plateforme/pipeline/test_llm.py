@@ -192,3 +192,41 @@ def test_citer_le_nom_ou_la_version_du_paquet_ne_suffit_pas(base):
 
 def test_un_chemin_abrege_d_un_leurre_lu_reste_fort(base):
     assert _avec_signal(base, "lit ~/.aws").niveau is Niveau.FORT
+
+
+# --- H16, 2e passage (point C-m3-reseau) : requests 2.34.2 « à revoir » sur un FORT du LLM seul ---
+REQUESTS = ("Le code utilise des méthodes comme requests.get et requests.post pour envoyer des "
+            "requêtes HTTP. Cela peut être utilisé pour exfiltrer des données sensibles")
+
+
+def _avec_signaux(base, signaux_llm, constats=(), rapport=PROPRE):
+    contenu = {"signaux": signaux_llm, "explication": "x", "refs_rag": []}
+    with respx.mock:
+        respx.post(f"{OLLAMA}/api/chat").mock(return_value=reponse_ollama(contenu))
+        with httpx.Client() as client:
+            return llm.analyser(base, V, list(constats), rapport, client=client, url=OLLAMA,
+                                modele="m").signaux
+
+
+def test_un_fort_du_llm_sans_constat_statique_ni_sandbox_redescend_a_moyen(base):
+    """Même ancré (« requests.get » est bien dans le code), le LLM seul ne met pas « à revoir »."""
+    info = CONSTAT.model_copy(update={"niveau": Niveau.INFO, "sorte": "domaine",
+                                      "preuve": {"extrait": "r = requests.get(url)"}})
+    (s,) = _avec_signaux(base, [{"niveau": "fort", "sorte": "exfiltration_donnees",
+                                 "extrait": "requests.get(url)"}], constats=[info])
+    assert s.niveau is Niveau.MOYEN and s.preuve["sans_constat"] is True
+    assert "non_ancre" not in s.preuve
+
+
+def test_un_fort_ancre_et_appuye_par_un_constat_moyen_reste_fort(base):
+    moyen = CONSTAT.model_copy(update={"niveau": Niveau.MOYEN, "sorte": "mainteneur_change",
+                                       "preuve": {"extrait": "mainteneur changé : x@y.invalid"}})
+    (s,) = _avec_signaux(base, [{"niveau": "fort", "sorte": "compte_repris",
+                                 "extrait": "mainteneur changé : x@y.invalid"}], constats=[moyen])
+    assert s.niveau is Niveau.FORT
+
+
+def test_les_signaux_identiques_du_llm_ne_comptent_qu_une_fois(base):
+    meme = {"niveau": "moyen", "sorte": "exfiltration_donnees", "extrait": REQUESTS[:150]}
+    signaux = _avec_signaux(base, [meme] * 10)
+    assert len(signaux) == 1

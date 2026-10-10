@@ -45,7 +45,11 @@ class Essai:
 
 def _signal(s) -> str:
     texte = f"{s.niveau.value} {s.sorte}"
-    return texte + " (non ancré : redescendu de fort)" if s.preuve.get("non_ancre") else texte
+    if s.preuve.get("non_ancre"):
+        return texte + " (non ancré : redescendu de fort)"
+    if s.preuve.get("sans_constat"):
+        return texte + " (sans constat statique ni sandbox : redescendu de fort)"
+    return texte
 
 
 def verifier(specs: list[str], client: httpx.Client, url: str, modele: str, dossier: Path,
