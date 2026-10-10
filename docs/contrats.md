@@ -60,7 +60,9 @@ def canonique(m: Manifeste) -> bytes                        # octets exacts à s
 ## 2. Pipeline → base de données (B appelle A)
 
 `plateforme/db/acces.py`, écrit par A (**fait**). B ne fait jamais de SQL lui-même. On crée une
-instance avec `base = Base("sas.db")`, et toutes les méthodes sont sûres entre threads.
+instance avec `base = Base("sas.db")`, et toutes les méthodes sont sûres entre threads. La base lit la
+clé HMAC du journal dans `SAS_CLE_JOURNAL` (32 caractères au moins, hors de la base et hors de Git) et
+refuse de démarrer sans elle (`RuntimeError`) ; les tests la posent dans `tests/conftest.py`.
 
 ```python
 base.enregistrer_version(v: Version, acteur="pipeline") -> bool          # True si nouvelle
@@ -95,8 +97,10 @@ base.changer_mot_de_passe(identifiant, nouveau, *, acteur, doit_changer=False) -
 
 Ces trois méthodes écrivent elles-mêmes dans le journal chaîné : `enregistrer_version`, `changer_etat`
 et `enregistrer_verdict`. Le journal refuse toute modification et toute suppression (triggers SQLite).
-Si un attaquant retire ces triggers, la vérification de la chaîne de hash détecte quand même la
-falsification.
+Chaque entrée est chaînée à la précédente par un HMAC-SHA256 dont la clé n'est pas dans la base. Si un
+attaquant retire ces triggers et réécrit, insère ou recalcule des entrées sans la clé, la vérification
+de la chaîne le détecte. **Limite :** effacer les dernières entrées ne casse pas la chaîne ; l'ancrage
+de la fin du journal côté passerelle est proposé à C (`docs/points/2026-10-10-A-reponse-b.md`).
 
 ## 3. Pipeline → sandbox (B appelle C)
 

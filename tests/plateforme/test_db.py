@@ -82,6 +82,20 @@ def test_inventaire_remplace_l_instantane_precedent(base):
     assert base.inventaire() == [(PY, "requests", "2.32.4")]
 
 
+def test_un_inventaire_refuse_ne_laisse_pas_la_base_bloquee(base, tmp_path):
+    """B, A2 : sans ROLLBACK, la transaction restait ouverte et plus rien n'était validé."""
+    e = dict(ecosysteme=PY, telechargements=1, dernier=T0)
+    base.enregistrer_inventaire([EntreeInventaire(nom="requests", version="2.31.0", **e)])
+    double = EntreeInventaire(nom="urllib3", version="2.2.0", **e)
+    with pytest.raises(sqlite3.IntegrityError):
+        base.enregistrer_inventaire([double, double])
+    assert base.inventaire() == [(PY, "requests", "2.31.0")]   # l'ancien instantané reste
+    base.enregistrer_version(version())
+    autre = Base(str(tmp_path / "sas.db"))                      # une autre connexion voit l'écriture
+    assert autre.lire_version(PY, "requests", "2.32.4") is not None
+    assert autre.verifier_journal() == (True, None)
+
+
 def test_le_journal_garde_chaque_changement_et_se_verifie(base, tmp_path):
     base.enregistrer_version(version())
     base.changer_etat(PY, "requests", "2.32.4", Etat.BLOQUEE, "signal bloquant")

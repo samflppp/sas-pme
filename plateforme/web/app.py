@@ -1,7 +1,8 @@
 """Interface web de la plateforme (A) : comptes et rôles, catalogue, demande de paquet, fiche.
 
 Lancer : `uvicorn plateforme.web.app:app --port 8000`
-Réglages : SAS_DB (chemin de la base), SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions),
+Réglages : SAS_DB (chemin de la base), SAS_CLE_JOURNAL (clé HMAC du journal, obligatoire),
+SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions),
 SAS_TRAITEMENT_INTERVALLE (secondes entre deux appels de `traiter`, 60 ; 0 l'arrête),
 SAS_ARCHIVES (dossier des archives téléchargées, `archives`).
 Au premier lancement (base sans compte), le compte `admin` est créé avec SAS_ADMIN_MOTDEPASSE ;

@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS inventaire (
     PRIMARY KEY (ecosysteme, nom, version)
 );
 
--- Journal append-only, chaîné : hash = sha256(hash_precedent + json canonique de l'entrée).
+-- Journal append-only, chaîné : hash = HMAC-SHA256(SAS_CLE_JOURNAL, hash_precedent + json canonique).
 CREATE TABLE IF NOT EXISTS journal (
     seq    INTEGER PRIMARY KEY AUTOINCREMENT,
     a      TEXT NOT NULL,
