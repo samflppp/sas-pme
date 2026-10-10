@@ -174,3 +174,22 @@ def test_inventaire_suit_publications_et_revocations(tmp_path):
         {"ecosysteme": "pypi", "nom": "requests", "version": "2.32.4", "telechargements": 1,
          "dernier": (MAINTENANT + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
          "machines": ["10.42.2.20"]}]
+
+
+def test_revocation_retire_roue_et_sdist_et_repond_200_meme_si_deja_absente(env):
+    """Demande de A (point A-revocation) : la wheel ET le sdist partent ; une révocation rejouée
+    sur une version déjà absente répond quand même 200 (rien à retirer)."""
+    client, depot, cle, _ = env
+    _publier(client, _publication(), cle)
+    (depot / "requests-2.32.4.tar.gz").write_bytes(b"sdist")          # sdist posé à côté
+    (depot / "Requests-2.32.4.zip").write_bytes(b"ancien sdist")      # casse différente
+    m = _revocation()
+    r = client.post("/v1/revoke", data={"manifeste": canonique(m).decode(),
+                                        "signature": ed25519.signer(m, cle)})
+    assert r.status_code == 200
+    assert sorted(r.json()["retire"]) == ["Requests-2.32.4.zip", ROUE, "requests-2.32.4.tar.gz"]
+    assert list(depot.iterdir()) == []
+    m2 = _revocation(nonce="d" * 32)                                  # nouveau nonce, déjà absente
+    r2 = client.post("/v1/revoke", data={"manifeste": canonique(m2).decode(),
+                                         "signature": ed25519.signer(m2, cle)})
+    assert (r2.status_code, r2.json()["retire"]) == (200, [])
