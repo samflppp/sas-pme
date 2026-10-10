@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block titre %}Tableau de bord{% endblock %}
+{% block contenu %}
+<h1>Tableau de bord</h1>
+
+<div class="compteurs">
+  {% for etat, n in compteurs.items() %}
+  <div class="compteur"><span class="etat etat-{{ etat.value }}">{{ etat.value }}</span>
+    <strong data-etat="{{ etat.value }}">{{ n }}</strong></div>
+  {% endfor %}
+  <div class="compteur"><span>total</span><strong data-total>{{ total }}</strong></div>
+</div>
+
+{% if journal %}
+{% if journal.intact %}
+<p class="raison ok"><strong>Journal intact</strong> : {{ journal.entrees }} entrées, chaîne de hash
+vérifiée. <a href="/journal">Voir le journal</a></p>
+{% else %}
+<p class="raison ko"><strong>Journal falsifié</strong> : la chaîne de hash casse à l'entrée
+n° {{ journal.casse }}. <a href="/journal?verifier=1">Voir le journal</a></p>
+{% endif %}
+{% endif %}
+
+<h2>À trancher</h2>
+{% if a_trancher %}
+<table>
+  <thead><tr><th>Paquet</th><th>Version</th><th>Raison</th></tr></thead>
+  <tbody>
+  {% for v, raison in a_trancher %}
+    <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a></td>
+        <td>{{ v.version }}</td><td>{{ raison }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="vide">Aucune version à revoir.</p>{% endif %}
+
+<h2>Derniers blocages</h2>
+{% if derniers %}
+<table>
+  <thead><tr><th>Paquet</th><th>Version</th><th>État</th><th>Raison</th></tr></thead>
+  <tbody>
+  {% for v, raison in derniers %}
+    <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a></td>
+        <td>{{ v.version }}</td>
+        <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value }}</span></td>
+        <td>{{ raison }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="vide">Aucune version bloquée ni révoquée.</p>{% endif %}
+{% endblock %}
