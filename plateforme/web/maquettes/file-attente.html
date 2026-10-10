@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File d'attente — sas-pme</title><link rel="stylesheet" href="maquette.css"></head>
+<body>
+<header><span class="marque">sas-pme</span>
+  <nav><a href="catalogue.html">Catalogue</a><a class="actif" href="file-attente.html">File d'attente</a><a href="#">Demander un paquet</a><a href="journal.html">Journal</a><a href="comptes.html">Comptes</a></nav>
+  <span class="droite">sam <span class="role">admin</span> <a href="#">Se déconnecter</a></span></header>
+<main>
+<div class="note">Maquette M1 — données fictives.</div>
+<h1>File d'attente</h1>
+<p class="sous">Chaque nouvelle version attend 3 jours après sa publication sur Internet. Pendant ce temps, la veille lit ce que le monde en dit. À la fin du délai, l'analyse démarre.</p>
+
+<table>
+  <thead><tr><th>Paquet</th><th>Version</th><th>Publiée sur Internet</th><th>Analyse dans</th><th>Veille</th><th>Utilisée par</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#">requests</a> <span class="mono">pypi</span></td><td>2.32.5</td><td>08/10/2026 14:02</td>
+        <td><span class="rebours">1 j 02 h 41 min</span><div class="barre"><span style="width:64%"></span></div></td>
+        <td>rien de signalé</td><td>4 serveurs</td></tr>
+    <tr><td><a href="#">colorama-utils</a> <span class="mono">pypi</span></td><td>1.1</td><td>09/10/2026 22:15</td>
+        <td><span class="rebours">2 j 10 h 53 min</span><div class="barre"><span style="width:20%"></span></div></td>
+        <td><span class="niveau n-fort">article : « malware in colorama-utils 1.1 »</span></td><td>1 serveur</td></tr>
+    <tr><td><a href="#">express</a> <span class="mono">npm</span></td><td>5.1.1</td><td>10/10/2026 08:30</td>
+        <td><span class="rebours">2 j 21 h 08 min</span><div class="barre"><span style="width:4%"></span></div></td>
+        <td>rien de signalé</td><td>2 serveurs</td></tr>
+    <tr><td><a href="#">urllib3</a> <span class="mono">pypi</span></td><td>2.5.1</td><td>07/10/2026 11:00</td>
+        <td><span class="etat en_analyse">en analyse</span><div class="mono">sandbox en cours, 38 s</div></td>
+        <td>rien de signalé</td><td>4 serveurs</td></tr>
+  </tbody>
+</table>
+
+<h2>Bloquées pendant l'attente</h2>
+<table>
+  <tr><td><a href="fiche-bloquee.html">reqeusts</a> <span class="mono">pypi</span> 2.31.0</td><td><span class="etat bloquee">bloquée</span></td>
+      <td>Avis OpenSSF <span class="ref">MAL-2026-1234</span> publié pendant le délai : le paquet n'a jamais atteint la passerelle.</td></tr>
+</table>
+</main></body></html>
