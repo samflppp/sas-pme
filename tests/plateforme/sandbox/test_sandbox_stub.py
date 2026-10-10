@@ -5,7 +5,8 @@ import pytest
 from plateforme.sandbox import Ecosysteme, RapportSandbox, executer
 
 
-def test_executer_renvoie_un_rapport_vide(tmp_path):
+def test_executer_renvoie_un_rapport_vide(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAS_SANDBOX", "stub")
     archive = tmp_path / "requests-2.32.4-py3-none-any.whl"
     archive.write_bytes(b"faux")
 
