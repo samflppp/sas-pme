@@ -15,10 +15,14 @@ DOMAINE=${DOMAINE:-pipelad.tech}
 SSH="ssh -F ../secrets/ssh_config"
 
 echo "== 1. DNS : $DOMAINE et demo.$DOMAINE doivent pointer sur $IP_PLAT"
-for n in "$DOMAINE" "demo.$DOMAINE"; do
-  ip=$(dig +short A "$n" @1.1.1.1 | tail -1)
+# Interrogé depuis la plateforme : c'est elle que Let's Encrypt doit trouver, et le poste de C
+# peut ne pas joindre de DNS extérieur.
+dns() { $SSH sas-plateforme "dig +short +time=3 $1 $2 @1.1.1.1" 2>/dev/null; }
+$SSH sas-plateforme 'command -v dig >/dev/null || sudo apt-get install -yq dnsutils >/dev/null'
+for n in "$DOMAINE" "www.$DOMAINE" "demo.$DOMAINE"; do
+  ip=$(dns A "$n" | tail -1)
   [ "$ip" = "$IP_PLAT" ] || { echo "  $n → « ${ip:-rien} » : pas encore $IP_PLAT (zone DNS, propagation)"; exit 1; }
-  [ -z "$(dig +short AAAA "$n" @1.1.1.1)" ] || { echo "  $n a un AAAA : le retirer (Let's Encrypt essaierait l'IPv6)"; exit 1; }
+  [ -z "$(dns AAAA "$n")" ] || { echo "  $n a un AAAA : le retirer (Let's Encrypt essaierait l'IPv6)"; exit 1; }
   echo "  OK  $n → $ip"
 done
 
