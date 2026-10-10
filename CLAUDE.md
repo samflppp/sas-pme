@@ -26,10 +26,9 @@ Puis rester dans les dossiers de cette personne (`docs/organisation.md` § 3).
    hors de la sandbox.
 7. Rester dans le périmètre du jalon en cours (`docs/roadmap.md`). Une idée hors périmètre se note,
    elle ne se code pas.
-8. **Journal d'avancement** (`docs/journal/`) : au début d'une tâche, après `git pull`, lire les
-   journaux des deux autres, ne pas refaire leur travail, et **signaler à l'utilisateur les demandes
-   qui le visent**. À la fin, ajouter une entrée en haut du sien (`a.md`, `b.md` ou `c.md`) dans la
-   même PR, avec ses demandes aux autres et ses réponses aux leurs. Format : `docs/journal/README.md`.
+8. Points d'avancement (`docs/points/README.md`) : au début d'une tâche, après `git pull`, lire les
+   points des autres parus depuis le dernier et signaler à l'utilisateur les demandes qui le visent.
+   Avant chaque PR, proposer d'ajouter son point (fait / disponible / demandes) dans la même branche.
 
 ## Contexte importé
 
