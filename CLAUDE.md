@@ -26,6 +26,9 @@ Puis rester dans les dossiers de cette personne (`docs/organisation.md` § 3).
    hors de la sandbox.
 7. Rester dans le périmètre du jalon en cours (`docs/roadmap.md`). Une idée hors périmètre se note,
    elle ne se code pas.
+8. **Journal d'avancement** (`docs/journal/`) : au début d'une tâche, lire les journaux des
+   deux autres pour ne pas empiéter sur leur travail ; à la fin, ajouter une entrée en haut du
+   sien (`a.md`, `b.md` ou `c.md`), dans la même PR. Format : `docs/journal/README.md`.
 
 ## Contexte importé
 
