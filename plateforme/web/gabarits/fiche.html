@@ -18,6 +18,24 @@ approuver ni bloquer seul.</p>
 <div class="raison">{{ fiche.raison }}</div>
 {% endif %}
 
+{% if erreur %}<p class="raison ko">{{ erreur }}</p>{% endif %}
+{% if trancher %}
+<h2>Décision humaine</h2>
+<form method="post" action="/decision">
+  <input type="hidden" name="ecosysteme" value="{{ v.ecosysteme.value }}">
+  <input type="hidden" name="nom" value="{{ v.nom }}">
+  <input type="hidden" name="version" value="{{ v.version }}">
+  <p><label>Raison (obligatoire, inscrite au journal)<br>
+  <textarea name="raison" rows="3" cols="60" maxlength="500" required></textarea></label></p>
+  <p class="ligne">
+    <button type="submit" name="decision" value="approuvee">Approuver</button>
+    <button type="submit" name="decision" value="bloquee">Bloquer</button>
+  </p>
+  <p class="note">Une approbation lève un signal fort, jamais un signal bloquant : la politique
+  décide ensuite avec toutes les preuves. Une version approuvée est publiée au tour suivant.</p>
+</form>
+{% endif %}
+
 <h2>Preuves</h2>
 {% if signaux %}
 <table>

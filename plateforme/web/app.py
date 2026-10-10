@@ -26,6 +26,8 @@ from plateforme.db.acces import Base, Compte, Role
 from plateforme.web.fond import TacheDeFond
 
 Demander = Callable[[Ecosysteme, str], None]
+# decider(base, eco, nom, version, etat, raison, acteur) : pipeline.decision_humaine (B)
+Decider = Callable[[Base, Ecosysteme, str, str, Etat, str, str], object]
 Traiter = Callable[[Base], object]
 Horloge = Callable[[], datetime]
 Delai = Callable[[], timedelta]
@@ -55,6 +57,12 @@ def _demander_par_defaut(base: Base) -> Demander:
                                              publiee_le=maintenant, detectee_le=maintenant,
                                              etat=Etat.EN_ATTENTE), acteur="faux-pipeline")
         return faux
+
+
+def _decider_par_defaut(*args) -> object:
+    """Le vrai `pipeline.decision_humaine` (B), importé seulement au premier clic."""
+    from plateforme.pipeline import decision_humaine
+    return decision_humaine(*args)
 
 
 def duree_lisible(d: timedelta) -> str:
@@ -110,7 +118,8 @@ def _texte_delai(d: timedelta) -> str:
 def creer_app(base: Base, mot_de_passe: str, secret: str,
               demander: Demander | None = None,
               traiter: Traiter | None = None, intervalle: float = 60,
-              horloge: Horloge | None = None, delai: Delai | None = None) -> FastAPI:
+              horloge: Horloge | None = None, delai: Delai | None = None,
+              decider: Decider | None = None) -> FastAPI:
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -132,6 +141,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     demander = demander or _demander_par_defaut(base)
     horloge = horloge or (lambda: datetime.now(timezone.utc))
     delai = delai or _delai_par_defaut
+    decider = decider or _decider_par_defaut
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -218,7 +228,10 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
 
     @app.get("/versions/{ecosysteme}/{nom:path}/{version}", response_class=HTMLResponse)
     def fiche(request: Request, ecosysteme: str, nom: str, version: str):
-        compte = exiger(request)
+        return afficher_fiche(request, exiger(request), ecosysteme, nom, version)
+
+    def afficher_fiche(request: Request, compte: Compte, ecosysteme: str, nom: str, version: str,
+                       code: int = 200, erreur: str | None = None):
         try:
             eco = Ecosysteme(ecosysteme)
         except ValueError:
@@ -233,9 +246,30 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             "fichiers": _compter(r.fichiers_sensibles), "leurres": _compter(r.leurres_lus),
             "processus": _compter(r.processus), "rapport": r}
         autres = [v for v in base.versions_du_paquet(eco, nom) if v.version != version]
-        return page(request, "fiche.html", compte, fiche=f, sandbox=sandbox, autres=autres,
+        trancher = compte.role is Role.ADMIN and f.version.etat is Etat.A_REVOIR
+        return page(request, "fiche.html", compte, code, fiche=f, sandbox=sandbox, autres=autres,
                     signaux=[(s, _lien_sur(s.preuve.get("url"))) for s in signaux],
-                    historique=base.historique(eco, nom, version))
+                    historique=base.historique(eco, nom, version), trancher=trancher,
+                    erreur=erreur)
+
+    # --- décision humaine (admin) -------------------------------------------------
+    @app.post("/decision")
+    def decision(request: Request, ecosysteme: str = Form(...), nom: str = Form(...),
+                 version: str = Form(...), decision: str = Form(...), raison: str = Form("")):
+        admin = exiger(request, Role.ADMIN)
+        try:
+            eco, etat = Ecosysteme(ecosysteme), Etat(decision)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Décision invalide.")
+        raison = raison.strip()[:500]
+        # Les refus de pipeline.decision_humaine (B) se disent sur la fiche, pas en erreur 500.
+        try:
+            decider(base, eco, nom, version, etat, raison, admin.identifiant)
+        except KeyError:
+            raise HTTPException(status_code=404)
+        except ValueError as e:
+            return afficher_fiche(request, admin, ecosysteme, nom, version, 400, str(e))
+        return RedirectResponse(f"/versions/{eco.value}/{nom}/{version}", status_code=303)
 
     # --- file d'attente ---------------------------------------------------------
     @app.get("/file-attente", response_class=HTMLResponse)
