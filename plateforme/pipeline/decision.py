@@ -32,5 +32,7 @@ def decision_humaine(base: Base, eco: Ecosysteme | str, nom: str, version: str,
     base.ajouter_signal(s)
     verdict = politique.decider([*fiche.signaux, s])
     base.enregistrer_verdict(eco, nom, version, verdict, acteur=acteur)
-    base.changer_etat(eco, nom, version, verdict.etat, verdict.raison, acteur=acteur)
+    # Une autre décision a pu passer depuis la lecture de la fiche : refusée, pas écrasée (A4).
+    base.changer_etat(eco, nom, version, verdict.etat, verdict.raison, acteur=acteur,
+                      attendu=Etat.A_REVOIR)
     return verdict

@@ -166,16 +166,29 @@ class Base:
         return [self._version(r) for r in rows]
 
     def changer_etat(self, eco: Ecosysteme, nom: str, version: str, etat: Etat, raison: str,
-                     acteur: str = "pipeline") -> None:
+                     acteur: str = "pipeline", attendu: Etat | None = None) -> None:
+        """`attendu` : l'état de départ exigé (ValueError sinon), pour qu'une décision concurrente
+        soit refusée au lieu d'écraser la première. L'UPDATE et le journal vont ensemble ou pas."""
+        sql = ("UPDATE versions SET etat=?, raison=?, maj_le=? "
+               "WHERE ecosysteme=? AND nom=? AND version=?")
+        args = [etat.value, raison, _iso(_maintenant()), eco.value, nom, version]
+        if attendu is not None:
+            sql, args = sql + " AND etat=?", args + [attendu.value]
         with self._verrou:
-            cur = self._c.execute(
-                "UPDATE versions SET etat=?, raison=?, maj_le=? "
-                "WHERE ecosysteme=? AND nom=? AND version=?",
-                (etat.value, raison, _iso(_maintenant()), eco.value, nom, version))
-            if cur.rowcount == 0:
-                raise KeyError(_cle(eco, nom, version))
-            self._journaliser(acteur, "etat_change", _cle(eco, nom, version),
-                              {"etat": etat.value, "raison": raison})
+            self._c.execute("BEGIN IMMEDIATE")
+            try:
+                if self._c.execute(sql, args).rowcount == 0:
+                    actuelle = self.lire_version(eco, nom, version)
+                    if actuelle is None:
+                        raise KeyError(_cle(eco, nom, version))
+                    raise ValueError(f"{_cle(eco, nom, version)} est {actuelle.etat.value}, "
+                                     f"attendu {attendu.value}")
+                self._journaliser(acteur, "etat_change", _cle(eco, nom, version),
+                                  {"etat": etat.value, "raison": raison})
+            except BaseException:
+                self._c.execute("ROLLBACK")
+                raise
+            self._c.execute("COMMIT")
 
     # --- signaux, verdicts, rapports -----------------------------------------
     def ajouter_signal(self, s: Signal) -> int:
