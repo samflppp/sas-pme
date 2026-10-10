@@ -49,11 +49,14 @@ def depuis_osv(avis: dict) -> Document | None:
     ref = avis["id"]
     paquets = sorted({a["package"]["name"] for a in avis.get("affected", []) if "package" in a})
     details = re.sub(r"\s+", " ", _BRUIT.sub("", avis.get("details", ""))).strip()
+    cwes = _cwes(avis)
+    if not details and not cwes:
+        return None   # « Malicious code in X » seul : rien qu'un passage puisse expliquer
     lignes = [f"{ref} — {avis.get('summary') or 'sans résumé'}",
               f"Paquets PyPI : {', '.join(paquets) or '?'}"]
     if avis.get("aliases"):
         lignes.append(f"Alias : {', '.join(avis['aliases'])}")
-    if cwes := _cwes(avis):
+    if cwes:
         lignes.append(f"Faiblesses : {', '.join(cwes)}")
     lignes.append(details)
     texte = "\n".join(lignes)
