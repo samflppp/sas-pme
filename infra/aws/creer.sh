@@ -67,6 +67,7 @@ fermer_sortie() {  # retire la règle par défaut « tout sortant »
 # Plateforme : SSH et web depuis votre IP seulement ; sortie libre (elle seule parle à Internet).
 entree "$SG_PLAT" 22  "$MON_IP/32"
 entree "$SG_PLAT" 443 "$MON_IP/32"
+entree "$SG_PLAT" 3129 "$SG_PASS"          # relais d'API (M2) : depuis la passerelle seulement
 # Passerelle : SSH (stub scp M0) et récepteur 8443 depuis la plateforme ; dépôts depuis le serveur.
 entree "$SG_PASS" 22   "$SG_PLAT"
 entree "$SG_PASS" 8443 "$SG_PLAT"

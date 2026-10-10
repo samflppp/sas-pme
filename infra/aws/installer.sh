@@ -107,6 +107,7 @@ ufw allow from 10.42.1.10 to any port 22   proto tcp   # SSH : plateforme (basti
 ufw allow from 10.42.1.10 to any port 8443 proto tcp   # récepteur : plateforme seulement
 ufw allow from 10.42.2.20 to any port 8080 proto tcp   # pypiserver : serveur seulement
 ufw allow from 10.42.2.20 to any port 4873 proto tcp   # verdaccio (npm, si prévu) : serveur
+ufw allow from 10.42.2.20 to any port 3128 proto tcp   # relais d'API (M2) : serveur
 ufw --force enable
 ufw status verbose
 EOF
@@ -129,6 +130,40 @@ set -euo pipefail
 command -v ollama >/dev/null || curl -fsSL https://ollama.com/install.sh | sh >/dev/null
 for i in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:11434/api/tags && break; sleep 1; done
 for m in qwen2.5-coder:7b qwen2.5-coder:3b nomic-embed-text; do ollama pull "$m" >/dev/null && echo "  $m OK"; done
+EOF
+
+echo "== 11. Relais d'API en liste fermée (M2) : serveur → passerelle :3128 → plateforme :3129"
+$SCP -q ../../passerelle/relais.py ../plateforme/relais-plateforme.service \
+  ../plateforme/relais_autorises.txt sas-plateforme:/tmp/
+$SSH sas-plateforme sudo bash -s <<'EOF'
+set -euo pipefail
+id relais >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin relais
+install -d /opt/relais /etc/sas
+install -m 644 /tmp/relais.py /opt/relais/relais.py
+install -m 644 /tmp/relais_autorises.txt /etc/sas/relais_autorises.txt
+install -m 644 /tmp/relais-plateforme.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now relais-plateforme && systemctl restart relais-plateforme
+EOF
+$SCP -q ../passerelle/relais-passerelle.service sas-passerelle:/tmp/
+$SSH sas-passerelle sudo bash -s <<'EOF'
+set -euo pipefail
+id relais >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin relais
+install -m 644 /tmp/relais-passerelle.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now relais-passerelle && systemctl restart relais-passerelle
+EOF
+$SSH sas-serveur bash -s <<'EOF'
+set -euo pipefail
+# Les outils du serveur passent par le relais pour HTTPS ; pip reste en direct sur la passerelle.
+for v in "HTTPS_PROXY=http://passerelle:3128" "https_proxy=http://passerelle:3128" \
+         "NO_PROXY=passerelle,10.42.2.10,localhost" "no_proxy=passerelle,10.42.2.10,localhost"; do
+  grep -qxF "$v" /etc/environment || echo "$v" | sudo tee -a /etc/environment >/dev/null
+done
+sleep 2
+export HTTPS_PROXY=http://passerelle:3128
+code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 https://api.github.com || true)
+[[ $code == 200 ]] && echo "  api.github.com (autorisée) : $code" || echo "  ERREUR api.github.com : $code"
+if curl -s -o /dev/null -m 15 https://pypi.org; then echo "  ERREUR : pypi.org joignable par le relais"
+else echo "  pypi.org (hors liste) : refusé (attendu)"; fi
 EOF
 
 echo
