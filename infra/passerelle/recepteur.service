@@ -14,14 +14,17 @@ Environment=SAS_NONCES=/var/lib/sas/nonces.txt
 ExecStart=/usr/bin/python3 -m uvicorn passerelle.recepteur:app --host 10.42.2.10 --port 8443 \
   --ssl-keyfile /etc/sas/passerelle.key --ssl-certfile /etc/sas/passerelle.pem \
   --ssl-ca-certs /etc/sas/ca.pem --ssl-cert-reqs 2
-StateDirectory=sas
+# Voir pypiserver.service : /var/lib/sas est partagé (pypi:pypi, 2770), créé par installer.sh.
+# Pas de StateDirectory= (sinon systemd en ferait recepteur:recepteur au démarrage, cassant
+# l'écriture du journal par pypi). ReadWritePaths suffit : le récepteur y écrit nonces.txt via le
+# bit group-write, et y lit le journal via son appartenance au groupe pypi (SupplementaryGroups).
+ReadWritePaths=/var/lib/sas /srv/pypi/packages
 UMask=0022
 Restart=on-failure
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-ReadWritePaths=/srv/pypi/packages
 
 [Install]
 WantedBy=multi-user.target

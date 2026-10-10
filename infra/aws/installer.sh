@@ -33,6 +33,9 @@ $SSH sas-passerelle sudo bash -s <<'EOF'
 set -euo pipefail
 id pypi >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin pypi
 mkdir -p /srv/pypi/packages
+# Répertoire d'état partagé passerelle : journal d'accès (écrit par pypi) et nonces (écrits par le
+# récepteur, membre du groupe pypi). 2770 = setgid (héritage du groupe pypi) + group-write.
+install -d -o pypi -g pypi -m 2770 /var/lib/sas
 PIP=$(ls /tmp/wheels/pip-*.whl)
 rm -rf /opt/pypiserver
 python3 "$PIP/pip" install -q --no-index --find-links /tmp/wheels --target /opt/pypiserver pypiserver

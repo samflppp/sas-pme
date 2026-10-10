@@ -28,6 +28,26 @@ Reprise du poste de C (l'ancien est perdu). Clone neuf, `main` à jour, `pytest 
 - **À vérifier sur AWS** (prochaine séance) : un port non prévu refusé, et `verifier_h3.sh`
   toujours 5 OK. Non testable en local (pas de passerelle Linux ici).
 
+### 3. Correctif : répertoire d'état `/var/lib/sas` (bug trouvé en relecture)
+- pypiserver écrit son journal dans `/var/lib/sas` sous `ProtectSystem=strict`. Les deux units
+  (`pypiserver`, `recepteur`) déclaraient `StateDirectory=sas` **mais tournent sous des
+  utilisateurs différents** (`pypi`, `recepteur`) : systemd réécrit le propriétaire du répertoire
+  au démarrage de chaque service, donc le dernier démarré **cassait l'écriture de l'autre** (le
+  journal n'aurait pas été écrit, ou les nonces). Sur AWS, le constat inventaire aurait échoué.
+- Corrigé : `installer.sh` crée `/var/lib/sas` en `pypi:pypi` mode **2770** (setgid + group-write) ;
+  le récepteur, membre du groupe `pypi`, y écrit ses nonces. Les deux units utilisent
+  `ReadWritePaths=/var/lib/sas` au lieu de `StateDirectory=`, ce qui ouvre l'écriture sans
+  réimposer de propriétaire.
+
+### 4. Kit de validation AWS en une commande (`infra/aws/verifier_m1.sh`, nouveau)
+- Jumeau de `verifier_h3.sh`. Enchaîne les 3 constats restants et sort un verdict `OK`/`KO` :
+  1. inventaire : `pip install` depuis le serveur, puis `/v1/inventory` (TLS mutuel) liste le
+     paquet et expose la machine ;
+  2. durcissement : un port non prévu (9999, et 8443 depuis le serveur) refusé, le port légitime
+     (8080 depuis le serveur) préservé, `ufw status` tracé, puis `verifier_h3.sh` → 5 OK ;
+  3. `pytest -m "docker or ollama"` sur la plateforme (le script y pousse une archive du code).
+- Objectif : la séance AWS devient « lancer `verifier_m1.sh`, coller la sortie dans ce point ».
+
 ## Disponible pour vous
 - **A** : `GET /v1/inventory` renvoie `[{ecosysteme, nom, version, telechargements, dernier,
   machines}]`. Les 5 premiers champs suivent `EntreeInventaire` ; `machines` est en plus (voir
@@ -53,11 +73,23 @@ Reprise du poste de C (l'ancien est perdu). Clone neuf, `main` à jour, `pytest 
   après un vrai `pip install`.
 - **(A, m1-valide : durcissement ufw)** Fait dans `installer.sh`. Reste la vérif AWS.
 
-## Ensuite
-- **Séance AWS** pour clore le M1 côté C : `creer.sh` + `installer.sh` (infra repart de zéro, les
-  secrets de l'ancien poste sont perdus), puis vérifier l'inventaire après un `pip install` depuis
-  le serveur, le refus d'un port non prévu, `verifier_h3.sh` 5 OK, et lancer
-  `pytest -m "docker or ollama"` sur la plateforme (coller le résultat).
+## Ensuite — séance AWS pour clore le M1 côté C (une commande)
+Tout le code est fait et poussé ; il ne reste que les constats, qui exigent une infra vivante.
+Les secrets de l'ancien poste sont perdus → l'infra repart de zéro. Marche à suivre :
+
+```sh
+cd infra/aws
+aws configure                       # identifiants workshop (jamais dans Git) ; région us-east-1
+cp config.env.exemple config.env    # puis régler MON_IP (curl -s https://checkip.amazonaws.com)
+bash creer.sh                       # VPC public/privé, 3 instances, clé SSH, SG
+bash installer.sh                   # pypiserver + récepteur signé + ufw + Ollama ; crée /var/lib/sas
+bash verifier_m1.sh | tee /tmp/m1.txt   # les 3 constats d'un coup ; coller la sortie dans ce point
+bash detruire.sh                    # NE PAS OUBLIER en fin de séance (~0,8 €/h sinon)
+```
+
+Attendu : `verifier_m1.sh` finit sur « M1 côté C : TOUS LES CONSTATS PASSENT ». Coller sa sortie
+ici (sections 1 à 4) clôt le M1 côté C.
+
 - **AWS nettoyé** : l'infra de la dernière séance (VPC `sas-pme` orphelin en us-east-1, 3 SG, 2
   subnets, IGW, key pair — toutes les instances étaient déjà `terminated`) a été détruite à la
   main (`etat.env` perdu, donc `detruire.sh` inutilisable). Compte propre, rien ne facture.
