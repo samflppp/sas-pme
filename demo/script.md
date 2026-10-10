@@ -40,8 +40,10 @@ export SAS_TLS_CA=~/sas/tls/ca.pem SAS_TLS_CERT=~/sas/tls/plateforme.pem SAS_TLS
 # LLM local (B) ; Ollama installé sur la plateforme par C. 7B retenu (point A-modele-7b) ;
 # repli sur qwen2.5-coder:3b si son temps de réponse ne tient pas dans la démo.
 export SAS_MODELE=qwen2.5-coder:7b SAS_OLLAMA_URL=http://127.0.0.1:11434
-# Source amont de démo (B, H10 seulement) : le faux PyPI de demo/paquets/. Sans, le vrai PyPI.
-export SAS_PYPI_URL=<adresse du faux PyPI de démo>
+# Source amont de démo (B) : le faux PyPI de demo/paquets/, qui sert demo-horodatage et relaie
+# tout autre nom vers pypi.org (lecture seule). Sans SAS_PYPI_URL : le vrai PyPI.
+.venv/bin/python demo/paquets/faux_pypi.py > ~/faux_pypi.log 2>&1 &   # 127.0.0.1:8081
+export SAS_PYPI_URL=http://127.0.0.1:8081
 .venv/bin/uvicorn plateforme.web.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -82,16 +84,18 @@ elles ne passent pas par la file d'attente. Une version qui **attend** arrive pa
 |---|---|---|
 | Comptes, file d'attente, fiche, journal, décision humaine | A | sur `main` |
 | Veille, délai, statique, sandbox → signaux, LLM, politique, `decision_humaine` | B | sur `main` |
-| Faux PyPI de démo (`demo/paquets/`) : `requests` et ses dépendances, une **nouvelle version saine** à « sortir » pendant la démo, la **version piégée** | B | à faire |
+| Faux PyPI de démo (`demo/paquets/faux_pypi.py`) : `demo-horodatage` 1.0 (ancienne), 1.1 (saine) et 1.2 (piégée), sorties à la demande | B | sur `main` |
 | Publication signée en TLS mutuel, récepteur, `demo/forger.sh` | C | sur `main` |
 | Sandbox v1 (Docker sans réseau, faux DNS qui enregistre, leurres) | C | branche `c/sandbox-v1`, pas encore en PR |
 | Ollama + `qwen2.5-coder:7b` (et `:3b` en repli) sur la plateforme, temps de réponse mesuré | C | à faire |
 
 ### Avant de commencer (5 minutes avant)
 
-1. Plateforme lancée (§ 3) avec `SAS_PYPI_URL` sur le faux PyPI, base neuve.
-2. `requests` déjà demandé et `publiee` (étape H3) : il est au catalogue, donc la veille suit ses
-   nouvelles versions.
+1. Plateforme lancée (§ 3), faux PyPI compris, base neuve. Le faux PyPI vient d'être démarré :
+   1.1 et 1.2 ne sont pas encore sorties.
+2. « Demander un paquet » : `pypi`, `requests`, puis `pypi`, `demo-horodatage`. Attendre que
+   `requests` (et ses dépendances) et `demo-horodatage` 1.0 soient `publiee`. `demo-horodatage`
+   est alors au catalogue : la veille suit ses nouvelles versions.
 3. Deux terminaux ouverts :
    - **serveur** : `ssh -F infra/secrets/ssh_config sas-serveur` ;
    - **plateforme** : `ssh -F infra/secrets/ssh_config sas-plateforme`, dans `~/sas-pme`.
@@ -112,29 +116,46 @@ pip install requests               # marche : il vient de la passerelle
 > « Ce serveur n'a aucun accès à Internet. Il installe pourtant ses paquets : ils viennent de la
 > passerelle, qui ne reçoit que ce que la plateforme a vérifié et signé. »
 
-**2. Une nouvelle version saine attend, puis passe (50 s)** — juste avant, sortir la nouvelle
-version saine de `requests` sur le faux PyPI (commande de B, `demo/paquets/`).
+**2. Une nouvelle version saine attend, puis passe (50 s)** — juste avant, dans le terminal
+plateforme, la mise à jour saine sort, puis la version piégée 30 s plus tard (leurs attentes se
+chevauchent, ce qui fait tenir la démo en 3 minutes) :
 
-- « File d'attente » : la version apparaît avec son compte à rebours de 2 minutes.
+```bash
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.1
+sleep 30
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.2
+```
+
+- « File d'attente » : `demo-horodatage` 1.1, puis 1.2, apparaissent avec leur compte à rebours
+  de 2 minutes (au tour suivant de la veille, 10 s au plus).
   > « En vrai, 3 jours : la plupart des paquets piégés sont retirés par la communauté dans ce délai. »
-- Pendant l'attente, ouvrir la fiche d'une version déjà publiée (preuves vides, historique).
-- À la fin du compte à rebours : `en_analyse`, `approuvee`, puis `publiee`. Ouvrir sa fiche :
-  « Aucun signal fort ni bloquant », l'historique montre la signature et la publication.
-- Terminal serveur : `pip install -U requests` installe la nouvelle version.
+- Pendant l'attente, ouvrir la fiche de `demo-horodatage` 1.0 (publiée : aucun signal,
+  historique) et montrer « Autres versions ».
+- À la fin du compte à rebours, 1.1 passe `en_analyse`, `approuvee`, puis `publiee`. Ouvrir sa
+  fiche : « Aucun signal fort ni bloquant » ; l'historique montre la signature et la publication.
+- Terminal serveur : `pip install -U demo-horodatage` installe la 1.1.
 
-**3. Une version piégée est bloquée, avec ses preuves (60 s)** — la version piégée de B est sortie
-au début de l'étape 2 : son attente se termine en même temps, ou juste après.
+**3. Une version piégée est bloquée, avec ses preuves (60 s)** — 1.2 finit son attente 30 s après
+la 1.1.
+
+> « Le compte d'un mainteneur a été repris. La version 1.2 ajoute du code qui, dès l'import,
+> lit les identifiants AWS et les envoie à un serveur de l'attaquant. »
 
 - Elle passe `bloquee`. Ouvrir sa fiche, de haut en bas :
-  - la phrase en français (« Bloquée : leurres lus : … ») et l'explication du LLM ;
+  - la phrase de la politique (« Bloquée : … ») et l'explication du LLM en français ;
   - la note « Décision prise par la politique (code). Le LLM explique et cite ; il ne peut ni
     approuver ni bloquer seul. » ;
-  - les preuves, la plus grave d'abord : le leurre lu (sandbox), la ligne de `setup.py` qui lit un
-    secret et appelle le réseau (statique), le domaine de l'attaquant ;
-  - la sandbox : la requête DNS vers le domaine de l'attaquant, comptée (« ×6 »), le faux jeton lu.
-  > « Elle n'a jamais touché le serveur. La sandbox l'a vue appeler son serveur et lire un faux
-  > jeton. Le LLM explique, mais c'est le code qui décide. »
-- Terminal serveur : `pip install <paquet piégé>` échoue (introuvable sur la passerelle).
+  - les preuves, la plus grave d'abord :
+    - statique : `exfiltration` (lecture de `~/.aws/credentials` **et** appel réseau au même
+      point d'exécution, nouveau par rapport à 1.1), avec le fichier et la ligne ;
+    - sandbox (v1 de C) : `lit_leurre` (le faux `~/.aws/credentials` lu) et `dns` vers
+      `collecte.attaquant-demo.invalid` ;
+    - `mainteneur_change` : aucun courriel en commun avec la 1.1 ;
+  - la section Sandbox : la requête DNS vers le domaine de l'attaquant, le leurre lu.
+  > « Elle n'a jamais touché le serveur. L'analyse a vu le code, la sandbox l'a vue lire un faux
+  > secret et appeler son serveur. Le LLM explique, mais c'est le code qui décide. »
+- Terminal serveur : `pip install demo-horodatage==1.2` échoue (introuvable sur la passerelle) ;
+  `pip show demo-horodatage` affiche toujours 1.1.
 
 **4. Une publication forgée est refusée (30 s)** — terminal plateforme :
 
@@ -165,8 +186,8 @@ bloquant.
 |---|---|---|
 | La version reste `approuvee` | sa fiche : raison de l'échec de publication | retentée au tour suivant (10 s) ; sinon `curl -k https://10.42.2.10:8443/v1/health` depuis la plateforme |
 | Pas d'explication du LLM | journal : `llm_indisponible` ou `llm_hors_schema` | la décision reste celle du code : le dire, c'est le message de la démo |
-| La version piégée n'est pas bloquée | sa fiche : signaux sandbox absents | vérifier que la sandbox v1 tourne (`docker ps`) ; montrer les preuves statiques |
-| La file reste vide | la veille n'a pas vu la nouvelle version | vérifier `SAS_PYPI_URL` et que la version est bien « sortie » sur le faux PyPI |
+| Pas de preuve de sandbox sur 1.2 | sa fiche : aucun signal `SANDBOX` | 1.2 reste bloquée par l'analyse statique (`exfiltration`) : montrer cette preuve ; ensuite, vérifier la sandbox v1 (`docker ps`) |
+| La file reste vide | la veille n'a pas vu la nouvelle version | `curl localhost:8081/pypi/demo-horodatage/json` doit lister 1.1 / 1.2 ; sinon relancer le `curl -X POST …/demo/publier/…` ; voir `~/faux_pypi.log` et `SAS_PYPI_URL` |
 | Le compte à rebours affiche une erreur | `SAS_DELAI` illisible | entier en secondes : `SAS_DELAI=120` |
 
 ### Vérifier le point H10 (`docs/roadmap.md`)
