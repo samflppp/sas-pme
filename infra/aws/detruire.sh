@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Détruit tout ce que creer.sh a créé (lit etat.env). La g4dn coûte cher : à lancer après chaque séance.
+# Détruit tout ce que creer.sh a créé (lit etat.env). La plateforme coûte cher : à lancer après chaque séance.
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./config.env
