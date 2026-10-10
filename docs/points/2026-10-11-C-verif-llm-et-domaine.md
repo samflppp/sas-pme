@@ -45,3 +45,19 @@ Les deux sont en HTTPS (Caddy, Let's Encrypt). L'interface reste derrière la co
 | A (Sam) | Derrière HTTPS : passer `https_only=True` au `SessionMiddleware` quand le web est servi en HTTPS (variable d'environnement ?). Le cookie de session n'a pas le drapeau `Secure` aujourd'hui | domaine public | ok / non |
 | A (Sam) | Pas de limite aux essais de connexion : avec l'interface publique, un compte « jury » en rôle `dev` et des mots de passe longs ; une limite par IP serait mieux | domaine public | ok / non |
 | B | Rien de bloquant : juste regarder `requests` pendant le H16 | H16 | — |
+
+## Mise à jour : en ligne
+- **https://pipelad.tech** : la vitrine. **https://demo.pipelad.tech** : l'interface de la
+  plateforme, derrière la connexion (la base H16, `~/h16.sh`).
+- Certificat Let's Encrypt valide jusqu'au 2027-01-08 ; `http` redirige en 308 vers `https`. HSTS,
+  CSP (vitrine) et `X-Frame-Options` sont présents.
+- La connexion passe par le proxy : un mauvais mot de passe donne 401 ; une `Origin` étrangère, 403
+  (le contrôle CSRF de A tient derrière Caddy).
+- Depuis l'extérieur, les ports 8000, 8081 et 11434 sont fermés ; 22 n'est ouvert que pour l'IP de
+  l'admin.
+- `domaine.sh` interroge le DNS depuis la plateforme, car le poste de C ne joint pas de DNS
+  extérieur.
+- **Limite :** l'IP de la plateforme n'est pas fixe. Après un arrêt et une relance de l'instance,
+  il faut changer la zone DNS chez OVH.
+- **A :** pour le jury, créer un compte `dev` dans « Comptes ». Le mot de passe `admin` est dans
+  `~/.sas-admin-mdp` sur la plateforme.
