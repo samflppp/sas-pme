@@ -224,9 +224,9 @@ sur AWS, puis on gèle les fonctions (`docs/roadmap.md`). Consignes de C :
 
 1. Redéployer `main` (§ 2). L'index `rag_index/` n'est pas dans l'archive : il reste dans
    `~/sas-pme`, ne pas l'effacer.
-2. Reconstruire l'image de la sandbox, pour qu'elle ait C1 et C2 :
-   `docker rmi sas-sandbox:2`. Elle se reconstruit à la première analyse ; la lancer une fois avant
-   la démo pour ne pas payer la construction pendant.
+2. Image de la sandbox : rien à faire, sauf si `plateforme/sandbox/Dockerfile` a changé. Le
+   Dockerfile ne copie aucun script : `lancer.sh` et le reste sont montés depuis le dépôt à chaque
+   analyse, donc C1 et C2 arrivent avec le redéploiement (point `C-m3-reseau`).
 3. Lancer le web (§ 3) avec une **base neuve** (`SAS_DB` vers un fichier qui n'existe pas) et
    `SAS_SANDBOX_ATTENTE=10`.
 4. **Relancer le faux PyPI** (port 8081) après le redéploiement, pour qu'il connaisse la 1.3. Ses
