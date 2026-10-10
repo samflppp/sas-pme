@@ -20,6 +20,7 @@ def commandes(monkeypatch):
     monkeypatch.setenv("SAS_PASSERELLE_SSH", "ubuntu@10.42.2.10")
     monkeypatch.setenv("SAS_PASSERELLE_DEPOT", "/srv/pypi/packages")
     monkeypatch.delenv("SAS_PASSERELLE_CLE", raising=False)
+    monkeypatch.delenv("SAS_PASSERELLE_URL", raising=False)
     return lancees
 
 
