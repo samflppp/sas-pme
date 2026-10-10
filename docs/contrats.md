@@ -67,8 +67,8 @@ refuse de démarrer sans elle (`RuntimeError`) ; les tests la posent dans `tests
 ```python
 base.enregistrer_version(v: Version, acteur="pipeline") -> bool          # True si nouvelle
 base.versions_a_traiter(maintenant, delai=timedelta(days=3)) -> list[Version]  # en_attente, délai écoulé
-base.changer_etat(eco, nom, version, etat: Etat, raison: str, acteur="pipeline", attendu: Etat | None = None) -> None
-    # KeyError si inconnue ; ValueError si `attendu` est donné et que l'état actuel diffère
+base.changer_etat(eco, nom, version, etat: Etat, raison: str, acteur="pipeline",
+                  attendu: Etat | None = None) -> None  # KeyError si inconnue ; ValueError si pas « attendu »
 base.ajouter_signal(s: Signal) -> int
 base.enregistrer_verdict(eco, nom, version, v: Verdict, acteur="pipeline") -> int  # id repris dans le manifeste
 base.enregistrer_rapport_sandbox(eco, nom, version, r: RapportSandbox) -> None

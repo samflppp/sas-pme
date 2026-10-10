@@ -131,6 +131,20 @@ def test_un_echec_de_la_passerelle_laisse_la_version_publiee(base, echec, attend
     assert dernier.action == "revocation_echouee" and dernier.acteur == "admin"
 
 
+def test_un_changement_d_etat_pendant_la_revocation_n_est_pas_ecrase(base):
+    """A4 : pendant l'appel à la passerelle, quelqu'un d'autre change l'état ; la révocation ne
+    l'écrase pas et le dit."""
+    version(base)
+
+    def pendant(*a):
+        base.changer_etat(ECO, "demo-horodatage", "1.1", Etat.BLOQUEE, "autre admin : bloquée",
+                          acteur="autre")
+
+    r = revoquer(connecte(base, revoquer=pendant))
+    assert r.status_code == 409 and "a changé pendant la révocation" in r.text
+    assert etat(base) is Etat.BLOQUEE
+
+
 def test_une_version_inconnue(base):
     assert revoquer(connecte(base)).status_code == 404
 
