@@ -9,10 +9,14 @@
 - Sa réponse est validée par le schéma `VerdictLLM` : des signaux de niveau **au plus FORT**, une
   explication en français, des références. Aucun champ ne permet d'approuver ni d'abaisser un
   risque. Une référence absente des passages fournis est écartée (pas de citation inventée).
+- Un signal FORT du LLM doit s'appuyer sur le paquet observé : son extrait recoupe une ligne
+  relevée par les contrôles ou un élément du rapport de sandbox. Sinon (passage du RAG recopié,
+  phrase vague), il redescend à MOYEN : le LLM seul ne met pas une version « à revoir » sur du vent.
 - Une réponse hors schéma est ignorée et journalisée ; Ollama injoignable ne donne rien.
 """
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -98,6 +102,45 @@ def messages(v: Version, signaux: list[Signal], rapport: RapportSandbox,
     return [{"role": "system", "content": SYSTEME}, {"role": "user", "content": corps}]
 
 
+ANCRE_MIN = 6            # caractères : un morceau plus court recouperait n'importe quoi
+_BORDS = " \t\n\"'`«»“”…."
+
+
+def _norm(texte: str) -> str:
+    return re.sub(r"\s+", " ", str(texte)).lower().strip(_BORDS)
+
+
+def _morceaux(signaux: list[Signal], rapport: RapportSandbox) -> list[str]:
+    """Ce que le paquet a montré : lignes relevées, fichiers, domaines, et le rapport de sandbox."""
+    bruts = [s.preuve[k] for s in signaux for k in ("extrait", "domaine", "fichier")
+             if isinstance(s.preuve.get(k), str)]
+    for cle in ("requetes_dns", "connexions", "fichiers_sensibles", "leurres_lus", "processus"):
+        bruts.extend(getattr(rapport, cle))
+    morceaux = []
+    for b in map(_norm, bruts):
+        # Un chemin du HOME se cite aussi « ~/.aws/credentials » : on garde la partie après le HOME.
+        morceaux.extend([b, re.sub(r"^(/root|/home/[^/]+|~)/", "", b)])
+    return [m for m in morceaux if len(m) >= ANCRE_MIN]
+
+
+_TECHNIQUE = re.compile(r"[\w~./@:-]*[./@:][\w~./@:-]*")   # chemin, domaine, fichier, hôte:port
+
+
+def _ancre(extrait: str, morceaux: list[str], v: Version) -> bool:
+    e = _norm(extrait)
+    if any(m in e or (len(e) >= 2 * ANCRE_MIN and e in m) for m in morceaux):
+        return True
+    # Un chemin ou un domaine cité en abrégé (« ~/.aws ») ; le nom et la version du paquet sont
+    # partout dans le rapport (pip install …) : les citer ne prouve rien.
+    banals = {_norm(v.nom), _norm(v.version)}
+    for jeton in _TECHNIQUE.findall(e):
+        jeton = re.sub(r"^(/root|/home/[^/]+|~)/", "", jeton.strip(_BORDS + ":-/"))
+        if (len(jeton) >= 4 and not any(b in jeton for b in banals)
+                and any(jeton in m for m in morceaux)):
+            return True
+    return False
+
+
 def analyser(base: Base, v: Version, signaux: list[Signal], rapport: RapportSandbox, *,
              client: httpx.Client, url: str, modele: str,
              passages: list[tuple[str, str]] | tuple = ()) -> ResultatLLM:
@@ -119,9 +162,16 @@ def analyser(base: Base, v: Version, signaux: list[Signal], rapport: RapportSand
                          {"erreur": str(e)[:300], "reponse": contenu[:500]})
         return ResultatLLM()
     connues = {ref for ref, _ in passages}
+    morceaux = _morceaux(signaux, rapport)
+
+    def signal(s: SignalLLM) -> Signal:
+        niveau, preuve = Niveau(s.niveau), {"extrait": s.extrait}
+        if niveau is Niveau.FORT and not _ancre(s.extrait, morceaux, v):
+            niveau, preuve = Niveau.MOYEN, {**preuve, "non_ancre": True}
+        return Signal(ecosysteme=v.ecosysteme, nom=v.nom, version=v.version, source=Source.LLM,
+                      niveau=niveau, sorte=s.sorte, preuve=preuve)
+
     return ResultatLLM(
-        signaux=[Signal(ecosysteme=v.ecosysteme, nom=v.nom, version=v.version, source=Source.LLM,
-                        niveau=Niveau(s.niveau), sorte=s.sorte, preuve={"extrait": s.extrait})
-                 for s in sortie.signaux],
+        signaux=[signal(s) for s in sortie.signaux],
         explication=sortie.explication.strip(),
         refs_rag=[ref for ref in sortie.refs_rag if ref in connues])
