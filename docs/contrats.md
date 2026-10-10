@@ -141,6 +141,26 @@ def lire_inventaire() -> list[EntreeInventaire]
 | GET | `/v1/inventory` | — | 200 `[{"ecosysteme","nom","version","telechargements","dernier"}]` |
 | GET | `/v1/health` | — | 200 `{"pypi": true, "npm": true}` |
 
+**L'inventaire (`/v1/inventory`, `lire_inventaire()`)** : ce que les serveurs ont réellement
+installé. Format : `EntreeInventaire` (§ 1), inchangé. Son sens (proposé par A, à valider par C) :
+- **Source :** le journal d'accès de pypiserver (journald ou `--log-file`, au choix de C). Un
+  téléchargement est une requête `GET` d'un **fichier** du dépôt (`/packages/<fichier>`) avec la
+  réponse 200. Les pages d'index (`/simple/…`) et les réponses 404 ne comptent pas.
+- **`nom`** normalisé comme PyPI (PEP 503 : minuscules, `_` et `.` deviennent `-`) ; **`version`**
+  lue dans le nom du fichier (roue ou source).
+- **`telechargements`** : le total depuis l'installation de la passerelle, toutes machines et tous
+  fichiers de la version confondus (une roue et un sdist de la même version comptent ensemble).
+- **`dernier`** : la date UTC du dernier téléchargement, ou `null` si jamais téléchargée.
+- **Quelles entrées :** chaque version présente dans le dépôt (même jamais téléchargée :
+  `telechargements` = 0, `dernier` = `null`), plus chaque version téléchargée au moins une fois puis
+  révoquée (elle reste visible : un serveur l'a peut-être encore).
+- **Ordre :** `ecosysteme`, puis `nom`, puis `version` (ordre du texte). Pas de pagination : la liste
+  est petite.
+- Une ligne de journal illisible est ignorée, jamais une erreur 500.
+- **Usage (A, M2) :** la page « Inventaire » croise ces entrées avec l'état de chaque version
+  (publiée, révoquée, bloquée depuis) : « installée sur les serveurs, mais révoquée ou bloquée
+  depuis » est l'alerte qui compte.
+
 **Règles de la passerelle :**
 - signature vérifiée avec la seule clé publique de la plateforme, posée à l'installation ;
 - chaque fichier hashé et comparé au manifeste ;
