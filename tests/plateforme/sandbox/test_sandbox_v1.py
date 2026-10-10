@@ -76,7 +76,8 @@ def _roue(dossier, nom, code):
 def test_un_paquet_sage_donne_un_rapport_propre(tmp_path, monkeypatch):
     monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "1")
     r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "sage", "VALEUR = 1\n"), "sage")
-    assert (r.requetes_dns, r.connexions, r.fichiers_sensibles, r.leurres_lus) == ([], [], [], [])
+    assert (r.requetes_dns, r.connexions, r.fichiers_sensibles, r.leurres_lus, r.processus) == \
+        ([], [], [], [], [])
     assert r.code_sortie == 0 and not r.delai_depasse
 
 

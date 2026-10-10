@@ -22,7 +22,8 @@ def _installer(chemin: str) -> None:
         if restant[0] <= 0:
             return
         restant[0] -= 1
-        os.write(fd, (json.dumps({"e": e, "v": v[:500]}) + "\n").encode())
+        ligne = {"e": e, "v": v[:500], "p": os.environ.get("SAS_PHASE", "")}
+        os.write(fd, (json.dumps(ligne) + "\n").encode())
 
     def crochet(evenement: str, args: tuple) -> None:
         if occupe[0]:

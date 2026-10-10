@@ -11,7 +11,8 @@ SCP="scp -F ../secrets/ssh_config"
 echo "== 1. Plateforme : outils, wheels pour la passerelle, clé SSH du stub publier()"
 $SSH sas-plateforme bash -s <<'EOF'
 set -euo pipefail
-sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-venv
+sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-venv docker.io
+sudo usermod -aG docker ubuntu           # sandbox : l'appli lance ses conteneurs (nouvelle session SSH)
 rm -rf ~/wheels && mkdir -p ~/wheels
 pip3 download -q --only-binary=:all: -d ~/wheels pip pypiserver \
   fastapi uvicorn python-multipart cryptography pydantic

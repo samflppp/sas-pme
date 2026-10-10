@@ -128,3 +128,10 @@ def test_les_lignes_illisibles_sont_ignorees_et_les_listes_bornees():
 def test_le_dns_interne_n_est_pas_compte():
     r = _construire(trace=[{"e": "dns", "v": "localhost:80"}], reseau=[{"t": "dns", "nom": "localhost"}])
     assert r.requetes_dns == [] and r.connexions == []
+
+
+def test_les_commandes_de_pip_a_l_installation_ne_sont_pas_des_alertes():
+    r = _construire(trace=[{"e": "processus", "v": "uname -rs", "p": "installation"},
+                           {"e": "processus", "v": "uname -rs", "p": "import"},
+                           {"e": "processus", "v": "curl evil", "p": "installation"}])
+    assert r.processus == ["uname -rs", "curl evil"]

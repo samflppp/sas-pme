@@ -12,9 +12,11 @@ printf 'https://bot:%s@github.com\n' "$L_GIT" > "$H/.git-credentials"
 unset L_ID L_AWS L_SSH L_NPMRC L_PYPIRC L_GIT
 
 export SAS_TRACE=/journal/trace.jsonl PYTHONPATH=/outils
+export SAS_PHASE=installation
 python -m pip install -q --no-deps --no-index --no-build-isolation --disable-pip-version-check \
   --target /tmp/site "/entree/$SAS_ARCHIVE" > /journal/installation.log 2>&1
 echo $? > /journal/code_installation
+export SAS_PHASE=import
 python /outils/importer.py "$SAS_MODULE" > /journal/import.log 2>&1
 echo $? > /journal/code_import
 sleep "$SAS_ATTENTE"

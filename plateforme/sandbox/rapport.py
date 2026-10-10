@@ -20,6 +20,8 @@ SENSIBLES_ABSOLUS = ("/etc/shadow", "/etc/passwd", "/etc/sudoers", "/root/")
 # Fichiers leurres que la sandbox pose dans le HOME.
 FICHIERS_LEURRES = (".aws/credentials", ".ssh/id_rsa", ".npmrc", ".pypirc", ".git-credentials")
 NOMS_LOCAUX = ("localhost", "ip6-localhost", "")
+# Commandes que pip lance lui-même pendant l'installation (détection de la plateforme).
+PROCESSUS_DE_PIP = ("lsb_release -a", "uname -rs")
 
 
 def _lignes(lignes: Iterable[str]) -> list[dict]:
@@ -97,7 +99,8 @@ def construire(trace: Iterable[str], reseau: Iterable[str], leurres: dict[str, s
                 if s[2:] in FICHIERS_LEURRES:
                     lus.ajouter(s)
         elif sorte == "processus":
-            processus.ajouter(v)
+            if not (e.get("p") == "installation" and v in PROCESSUS_DE_PIP):
+                processus.ajouter(v)
         elif sorte == "dns":
             hote = v.rsplit(":", 1)[0]
             if not _local(hote):

@@ -105,15 +105,19 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
         {LEURRES_FICHIERS[n]: valeurs[n] for n in LEURRES_FICHIERS}
 
     with tempfile.TemporaryDirectory(prefix="sas-sandbox-") as tmp:
+        # Les conteneurs tournent sans aucune capacité : même leur root est un « autre » pour ces
+        # dossiers. Lecture seule pour les entrées ; écriture pour les deux journaux seulement.
         d = Path(tmp)
-        for sous in ("entree", "outils", "journal", "piege"):
+        d.chmod(0o711)
+        for sous, mode in (("entree", 0o755), ("outils", 0o755), ("journal", 0o777),
+                           ("piege", 0o777)):
             (d / sous).mkdir()
-        (d / "journal").chmod(0o777)
-        shutil.copy(archive, d / "entree" / archive.name)
-        for f in (ICI / "trace").iterdir():
-            if f.is_file():
-                shutil.copy(f, d / "outils" / f.name)
-        shutil.copy(ICI / "piege.py", d / "piege" / "piege.py")
+            (d / sous).chmod(mode)
+        copies = [(archive, d / "entree" / archive.name), (ICI / "piege.py", d / "piege" / "piege.py")]
+        copies += [(f, d / "outils" / f.name) for f in (ICI / "trace").iterdir() if f.is_file()]
+        for source, cible_ in copies:
+            shutil.copyfile(source, cible_)
+            cible_.chmod(0o644)
 
         _docker("network", "create", "--internal", reseau)
         debut, depasse = time.monotonic(), False
@@ -124,6 +128,7 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
                     "python", "/piege/piege.py", "/piege/reseau.jsonl")
             ip = _attendre_piege(d / "piege" / "reseau.jsonl")
             (d / "resolv.conf").write_text(f"nameserver {ip}\n")
+            (d / "resolv.conf").chmod(0o644)
             debut = time.monotonic()
             try:
                 subprocess.run(commande_cible(cible, reseau, image, str(d), archive.name, module,
