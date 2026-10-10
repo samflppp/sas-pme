@@ -82,9 +82,39 @@ def _sensible(chemin: str, home: str) -> str | None:
     return None
 
 
+# --- v2 : lignes de `strace -f -e trace=openat,execve,connect` -------------------------------------
+# Elles voient aussi le code natif et ctypes, que le traceur Python ne voit pas.
+_ST_OPENAT = re.compile(r'^\d+\s+openat\([^,]+, "((?:[^"\\]|\\.)*)", [^)]*\) = (\d+)')
+_ST_EXECVE = re.compile(r'^\d+\s+execve\("[^"]*", \[(.*?)\](?:\.\.\.)?, .*\) = 0')
+_ST_CONNECT = re.compile(r'^\d+\s+connect\(\d+, \{sa_family=AF_INET6?, sin6?_port=htons\((\d+)\), '
+                         r'(?:sin_addr=inet_addr\("([^"]+)"\)|.*?inet_pton\(AF_INET6, "([^"]+)")')
+_ST_ARG = re.compile(r'"((?:[^"\\]|\\.)*)"')
+# Les commandes de l'analyse elle-même (pas celles du paquet).
+_ST_RACINES = ("/outils/importer.py", "-m pip install")
+
+
+def _strace(lignes: Iterable[str]) -> list[tuple[str, str]]:
+    """[(sorte, valeur)] : ("open", chemin ouvert avec succès), ("processus", commande),
+    ("connect", "ip:port")."""
+    sortie = []
+    for ligne in lignes:
+        if not isinstance(ligne, str):
+            continue
+        if (m := _ST_OPENAT.match(ligne)):
+            sortie.append(("open", m.group(1)))
+        elif (m := _ST_EXECVE.match(ligne)):
+            commande = " ".join(_ST_ARG.findall(m.group(1)))
+            if not any(r in commande for r in _ST_RACINES):
+                sortie.append(("processus", commande))
+        elif (m := _ST_CONNECT.match(ligne)):
+            sortie.append(("connect", f"{m.group(2) or m.group(3)}:{m.group(1)}"))
+    return sortie
+
+
 def construire(trace: Iterable[str], reseau: Iterable[str], leurres: dict[str, str], home: str,
                code_sortie: int, duree_s: float, delai_depasse: bool,
-               ip_piege: str | None = None) -> RapportSandbox:
+               ip_piege: str | None = None, strace_installation: Iterable[str] = (),
+               strace_import: Iterable[str] = ()) -> RapportSandbox:
     dns, connexions, fichiers, lus, processus = _Liste(), _Liste(), _Liste(), _Liste(), _Liste()
     textes_reseau: list[str] = []      # ce qui est sorti du conteneur : on y cherche les leurres
     vues_par_le_piege: list[str] = []
@@ -121,6 +151,20 @@ def construire(trace: Iterable[str], reseau: Iterable[str], leurres: dict[str, s
             hote = v.rsplit(":", 1)[0]
             if not _local(hote) and hote != ip_piege:
                 connexions.ajouter(v)
+
+    for phase, lignes in (("installation", strace_installation), ("import", strace_import)):
+        for sorte, v in _strace(lignes):
+            v = v[:MAX_TEXTE]
+            if sorte == "open" and (sensible := _sensible(v, home)):
+                fichiers.ajouter(sensible)
+                if sensible[2:] in FICHIERS_LEURRES:
+                    lus.ajouter(sensible)
+            elif sorte == "processus" and not (phase == "installation" and _de_pip(v)):
+                processus.ajouter(v)
+            elif sorte == "connect":
+                hote = v.rsplit(":", 1)[0]
+                if not _local(hote) and hote != ip_piege:
+                    connexions.ajouter(v)
 
     for cnx in vues_par_le_piege:
         connexions.ajouter(cnx)
