@@ -89,3 +89,13 @@ def test_l_approbation_humaine_ne_leve_jamais_un_signal_bloquant():
 @pytest.mark.parametrize("source", [Source.LLM, Source.VEILLE, Source.STATIQUE, Source.SANDBOX])
 def test_une_approbation_qui_ne_vient_pas_d_un_humain_ne_compte_pas(source):
     assert politique.decider([signal(Niveau.FORT), approbation(source)]).etat is Etat.A_REVOIR
+
+
+def test_deux_decisions_simultanees_la_seconde_est_refusee(base, monkeypatch):
+    """A4 : la seconde décision a lu la fiche « à revoir » avant que la première n'écrive."""
+    perimee = base.fiche(P, "reqeusts", "1.0")
+    pipeline.decision_humaine(base, P, "reqeusts", "1.0", Etat.BLOQUEE, "typosquat", acteur="bob")
+    monkeypatch.setattr(base, "fiche", lambda *a: perimee)
+    with pytest.raises(ValueError):
+        pipeline.decision_humaine(base, P, "reqeusts", "1.0", Etat.APPROUVEE, "ok", acteur="alice")
+    assert base.lire_version(P, "reqeusts", "1.0").etat is Etat.BLOQUEE
