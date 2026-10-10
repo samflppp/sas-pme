@@ -7,37 +7,77 @@
  · détectée le {{ v.detectee_le.strftime("%d/%m/%Y %H:%M") }}</p>
 
 {% if fiche.verdict %}
-<div class="raison"><strong>Verdict :</strong> {{ fiche.verdict.raison }}
+<div class="raison"><strong>{{ fiche.verdict.raison }}</strong>
   {% if fiche.verdict.explication_llm %}<p>{{ fiche.verdict.explication_llm }}</p>{% endif %}
-  {% if fiche.verdict.refs_rag %}<p>Références : {{ fiche.verdict.refs_rag | join(", ") }}</p>{% endif %}
+  {% if fiche.verdict.refs_rag %}<p>Références : {% for ref in fiche.verdict.refs_rag %}<code>{{ ref }}</code> {% endfor %}</p>{% endif %}
 </div>
+<p class="note">Décision prise par la politique (code). Le LLM explique et cite ; il ne peut ni
+approuver ni bloquer seul.</p>
+{% if fiche.raison and fiche.raison != fiche.verdict.raison %}<p>État actuel : {{ fiche.raison }}</p>{% endif %}
 {% elif fiche.raison %}
 <div class="raison">{{ fiche.raison }}</div>
 {% endif %}
 
-<h2>Signaux</h2>
-{% if fiche.signaux %}
+<h2>Preuves</h2>
+{% if signaux %}
 <table>
-  <thead><tr><th>Source</th><th>Niveau</th><th>Sorte</th><th>Preuve</th></tr></thead>
+  <thead><tr><th>Source</th><th>Niveau</th><th>Constat</th><th>Preuve</th></tr></thead>
   <tbody>
-  {% for s in fiche.signaux %}
-    <tr><td>{{ s.source.value }}</td><td>{{ s.niveau.value }}</td><td>{{ s.sorte }}</td>
-        <td>{% for k, val in s.preuve.items() %}<code>{{ k }}</code> {{ val }}<br>{% endfor %}</td></tr>
+  {% for s, lien in signaux %}
+    <tr>
+      <td>{{ s.source.value }}</td>
+      <td><span class="niveau niveau-{{ s.niveau.value }}">{{ s.niveau.value }}</span></td>
+      <td>{{ s.sorte }}{% if not s.structure %}<br><small>(source libre : met à revoir, ne bloque pas seule)</small>{% endif %}</td>
+      <td>
+        {% if s.preuve.fichier %}<code>{{ s.preuve.fichier }}{% if s.preuve.ligne %}:{{ s.preuve.ligne }}{% endif %}</code> {% endif %}
+        {% if s.preuve.extrait %}{{ s.preuve.extrait }}{% endif %}
+        {% if lien %}<br><a href="{{ lien }}" rel="noopener noreferrer" target="_blank">{{ lien }}</a>
+        {% elif s.preuve.url %}<br><code>{{ s.preuve.url }}</code>{% endif %}
+        {% for k, val in s.preuve.items() if k not in ("fichier", "ligne", "extrait", "url") %}
+          <br><code>{{ k }}</code> {{ val }}
+        {% endfor %}
+      </td>
+    </tr>
   {% endfor %}
   </tbody>
 </table>
 {% else %}<p class="vide">Aucun signal.</p>{% endif %}
 
 <h2>Sandbox</h2>
-{% set r = fiche.rapport_sandbox %}
-{% if r %}
+{% if sandbox %}
+{% set r = sandbox.rapport %}
 <table>
-  <tr><th>Requêtes DNS</th><td>{{ r.requetes_dns | join(", ") or "aucune" }}</td></tr>
-  <tr><th>Connexions tentées</th><td>{{ r.connexions | join(", ") or "aucune" }}</td></tr>
-  <tr><th>Fichiers sensibles lus</th><td>{{ r.fichiers_sensibles | join(", ") or "aucun" }}</td></tr>
-  <tr><th>Leurres lus</th><td>{{ r.leurres_lus | join(", ") or "aucun" }}</td></tr>
-  <tr><th>Processus</th><td>{{ r.processus | join(", ") }}</td></tr>
+  <tr><th>Requêtes DNS</th><td>{{ sandbox.dns | join(", ") or "aucune" }}</td></tr>
+  <tr><th>Connexions tentées</th><td>{{ sandbox.connexions | join(", ") or "aucune" }}</td></tr>
+  <tr><th>Fichiers sensibles lus</th><td>{{ sandbox.fichiers | join(", ") or "aucun" }}</td></tr>
+  <tr><th>Leurres lus</th><td>{{ sandbox.leurres | join(", ") or "aucun" }}</td></tr>
+  <tr><th>Processus</th><td>{{ sandbox.processus | join(", ") or "aucun" }}</td></tr>
+  <tr><th>Code de sortie</th><td>{{ r.code_sortie }}</td></tr>
   <tr><th>Durée</th><td>{{ "%.1f"|format(r.duree_s) }} s{% if r.delai_depasse %} (délai dépassé){% endif %}</td></tr>
 </table>
 {% else %}<p class="vide">Pas encore passée en sandbox.</p>{% endif %}
+
+<h2>Historique</h2>
+{% if historique %}
+<table>
+  <thead><tr><th>Date</th><th>Par</th><th>Action</th><th>Détail</th></tr></thead>
+  <tbody>
+  {% for e in historique %}
+    <tr><td>{{ e.a.strftime("%d/%m/%Y %H:%M:%S") }}</td><td>{{ e.acteur }}</td><td>{{ e.action }}</td>
+        <td>{% if e.charge.etat %}<span class="etat etat-{{ e.charge.etat }}">{{ e.charge.etat }}</span> {% endif %}{{ e.charge.raison or "" }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="vide">Rien au journal.</p>{% endif %}
+
+<h2>Autres versions</h2>
+{% if autres %}
+<table>
+  {% for a in autres %}
+  <tr><td><a href="/versions/{{ a.ecosysteme.value }}/{{ a.nom }}/{{ a.version }}">{{ a.version }}</a></td>
+      <td><span class="etat etat-{{ a.etat.value }}">{{ a.etat.value }}</span></td>
+      <td>publiée le {{ a.publiee_le.strftime("%d/%m/%Y") }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}<p class="vide">Aucune autre version connue.</p>{% endif %}
 {% endblock %}
