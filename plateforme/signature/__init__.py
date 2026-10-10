@@ -14,6 +14,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from commun.modeles import EntreeInventaire
+
 __all__ = ["publier", "revoquer", "lire_inventaire"]
 
 _NOM_SUR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -56,5 +58,5 @@ def revoquer(ecosysteme, nom: str, version: str, raison: str) -> None:
     subprocess.run(["ssh", *options, hote, f"rm -f -- {motifs}"], check=True, timeout=60)
 
 
-def lire_inventaire() -> list:
+def lire_inventaire() -> list[EntreeInventaire]:
     return []  # M1 : GET /v1/inventory sur la passerelle

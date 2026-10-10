@@ -5,10 +5,7 @@ La v1 (M1) lancera un conteneur Docker sans réseau, avec faux DNS/HTTP et leurr
 
 from pathlib import Path
 
-try:
-    from commun.modeles import Ecosysteme, RapportSandbox
-except ImportError:  # commun/ pas encore dans main
-    from ._contrat_provisoire import Ecosysteme, RapportSandbox
+from commun.modeles import Ecosysteme, RapportSandbox
 
 __all__ = ["Ecosysteme", "RapportSandbox", "executer"]
 
