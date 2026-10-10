@@ -275,3 +275,15 @@ def test_le_code_deja_present_dans_la_version_publiee_precedente_ne_compte_pas(b
         del CODE["ancien"]
     fiche = base.fiche(Ecosysteme.PYPI, "ancien", "1.0")
     assert "exfiltration" not in [s.sorte for s in fiche.signaux]
+
+
+def test_un_leurre_lu_en_sandbox_bloque_la_version_avec_la_preuve_sur_la_fiche(base, faux):
+    deps, appels = faux
+    vu = VIDE.model_copy(update={"requetes_dns": ["collecte.attaquant-demo.invalid"],
+                                 "leurres_lus": ["/root/.aws/credentials"]})
+    resultats = traitement.traiter(base, MAINTENANT,
+                                   **{**deps, "executer": lambda *a, **k: vu})
+    assert [(v.nom, e) for v, e in resultats] == [("mure", Etat.BLOQUEE)]
+    fiche = base.fiche(Ecosysteme.PYPI, "mure", "1.0")
+    assert {"lit_leurre", "dns"} <= {s.sorte for s in fiche.signaux}
+    assert "leurres lus" in fiche.raison and appels["publier"] == []

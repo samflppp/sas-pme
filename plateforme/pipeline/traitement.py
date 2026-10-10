@@ -14,6 +14,7 @@ from packaging.version import InvalidVersion, Version as VersionPep440
 from commun.modeles import Etat, RapportSandbox, Signal, Version
 from plateforme.db.acces import Base
 from plateforme.pipeline import politique, pypi, veille
+from plateforme.pipeline.sandbox_signaux import signaux_sandbox
 from plateforme.pipeline.statique.code import controler_code
 from plateforme.pipeline.statique.meta import controler_metadonnees
 from plateforme.pipeline.statique.nom import controler_nom
@@ -137,7 +138,8 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
                        *controler_code(v.ecosysteme, v.nom, v.version, archives,
                                        precedentes=sorted(ici.iterdir())
                                        if ici and ici.is_dir() else None),
-                       *controler_meta(v, precedente, maintenant)]
+                       *controler_meta(v, precedente, maintenant),
+                       *signaux_sandbox(v.ecosysteme, v.nom, v.version, rapport)]
             for s in signaux:
                 base.ajouter_signal(s)
             verdict = politique.decider(signaux)
