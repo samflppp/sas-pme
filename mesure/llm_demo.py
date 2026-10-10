@@ -4,6 +4,7 @@
 
     python3 -m mesure.llm_demo                                   # SAS_MODELE, sinon le 7B
     python3 -m mesure.llm_demo --modele qwen2.5-coder:3b         # le repli, pour comparer
+    python3 -m mesure.llm_demo --rag                             # avec l'index du RAG (SAS_RAG)
 
 Pour `demo-horodatage` 1.1 (saine) puis 1.2 (piégée), il envoie au LLM exactement ce que le
 pipeline lui envoie : les constats statiques réels (archives du faux PyPI, lues comme données,
@@ -23,7 +24,7 @@ import httpx
 
 from commun.modeles import Ecosysteme, Etat, RapportSandbox, Version
 from plateforme.db.acces import Base
-from plateforme.pipeline import llm
+from plateforme.pipeline import llm, rag
 from plateforme.pipeline.sandbox_signaux import signaux_sandbox
 from plateforme.pipeline.statique.code import controler_code
 
@@ -49,6 +50,7 @@ class Essai:
     erreur: str = ""
     signaux: list[str] = field(default_factory=list)
     explication: str = ""
+    refs: list[str] = field(default_factory=list)
 
 
 def _faux_pypi():
@@ -59,7 +61,8 @@ def _faux_pypi():
     return module
 
 
-def verifier(client: httpx.Client, url: str, modele: str, dossier: Path) -> list[Essai]:
+def verifier(client: httpx.Client, url: str, modele: str, dossier: Path,
+             ix=None) -> list[Essai]:
     fp = _faux_pypi()
     base = Base(str(dossier / "verif_llm.db"))
     archives = {}
@@ -77,14 +80,15 @@ def verifier(client: httpx.Client, url: str, modele: str, dossier: Path) -> list
                    + signaux_sandbox(P, fp.NOM, v, RAPPORTS[v]))
         avant = len(base.journal())
         debut = time.monotonic()
+        passages = rag.passages(base, version, signaux, RAPPORTS[v], ix) if ix else []
         r = llm.analyser(base, version, signaux, RAPPORTS[v], client=client, url=url,
-                         modele=modele)
+                         modele=modele, passages=passages)
         duree = time.monotonic() - debut
         echecs = [e for e in base.journal()[avant:] if e.action.startswith("llm_")]
         essais.append(Essai(v, duree, not echecs,
                             erreur=echecs[0].action if echecs else "",
                             signaux=[f"{s.niveau.value} {s.sorte}" for s in r.signaux],
-                            explication=r.explication))
+                            explication=r.explication, refs=r.refs_rag))
     return essais
 
 
@@ -92,9 +96,14 @@ def main(argv: list[str] | None = None, dossier: Path | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--modele", default=llm.modele())
     p.add_argument("--url", default=llm.url())
+    p.add_argument("--rag", action="store_true", help="passages de l'index du RAG (SAS_RAG)")
     a = p.parse_args(argv)
+    ix = rag.ouvrir() if a.rag else None
+    if a.rag and ix is None:
+        print("Index du RAG absent : python3 -I -m plateforme.pipeline.rag.construire")
+        return 1
     with tempfile.TemporaryDirectory() as tmp, httpx.Client(timeout=600) as client:
-        essais = verifier(client, a.url.rstrip("/"), a.modele, dossier or Path(tmp))
+        essais = verifier(client, a.url.rstrip("/"), a.modele, dossier or Path(tmp), ix)
     print(f"Modèle {a.modele} ({a.url})")
     for e in essais:
         etat = ("conforme" if e.conforme else
@@ -102,6 +111,8 @@ def main(argv: list[str] | None = None, dossier: Path | None = None) -> int:
         print(f"- demo-horodatage {e.version} : {etat}, {e.duree_s:.1f} s")
         print(f"  signaux : {', '.join(e.signaux) or 'aucun'}")
         print(f"  phrase  : {e.explication or '(vide)'}")
+        if a.rag:
+            print(f"  cite    : {', '.join(e.refs) or 'rien'}")
     return 0 if all(e.conforme for e in essais) else 1
 
 

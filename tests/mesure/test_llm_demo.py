@@ -61,3 +61,17 @@ def test_tout_conforme_donne_le_code_de_sortie_0(tmp_path, capsys):
     respx.post(f"{OLLAMA}/api/chat").mock(side_effect=repondre([BONNE, BONNE]))
     assert llm_demo.main(["--url", OLLAMA, "--modele", "m"], dossier=tmp_path) == 0
     assert "La version lit" in capsys.readouterr().out
+
+
+@respx.mock
+def test_avec_le_rag_les_passages_vont_dans_le_prompt_et_les_refs_citees_sont_gardees(tmp_path):
+    class Index:
+        def chercher(self, requete, n):
+            return [("MAL-2024-1", "Paquet qui volait des clés AWS.")]
+
+    cite = {**BONNE, "refs_rag": ["MAL-2024-1", "CWE-999"]}
+    route = respx.post(f"{OLLAMA}/api/chat").mock(side_effect=repondre([cite, cite]))
+    with httpx.Client() as client:
+        essais = llm_demo.verifier(client, OLLAMA, "m", tmp_path, ix=Index())
+    assert "MAL-2024-1" in json.loads(route.calls[1].request.content)["messages"][1]["content"]
+    assert essais[1].refs == ["MAL-2024-1"]                 # CWE-999 inventée : écartée

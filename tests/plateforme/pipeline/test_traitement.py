@@ -334,3 +334,26 @@ def test_le_llm_ne_peut_pas_faire_approuver_une_version_bloquee(base, faux):
     resultats = dict((v.nom, e) for v, e in traitement.traiter(base, MAINTENANT,
                                                                **{**deps, "llm": rassurant}))
     assert resultats["piege"] is Etat.BLOQUEE
+
+
+def test_le_llm_du_pipeline_recoit_les_passages_du_rag(base, monkeypatch):
+    """M2 : les cas connus proches de la version sont donnés au LLM, qui peut les citer."""
+    from plateforme.pipeline import llm as llm_local, rag
+
+    class Index:
+        def chercher(self, requete, n):
+            assert requete.startswith("pypi mure") and n == rag.N_PASSAGES
+            return [("MAL-2024-1", "Paquet qui volait des clés AWS.")]
+
+    recu = {}
+
+    def analyser(base, v, signaux, rapport, *, client, url, modele, passages=()):
+        recu["passages"] = passages
+        return ResultatLLM(refs_rag=["MAL-2024-1"])
+
+    monkeypatch.setattr(rag, "ouvrir", lambda: Index())
+    monkeypatch.setattr(llm_local, "analyser", analyser)
+    v = base.lire_version(Ecosysteme.PYPI, "mure", "1.0")
+    r = traitement._llm_reseau(base, v, [], VIDE)
+    assert recu["passages"] == [("MAL-2024-1", "Paquet qui volait des clés AWS.")]
+    assert r.refs_rag == ["MAL-2024-1"]

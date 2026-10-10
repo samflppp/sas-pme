@@ -10,3 +10,4 @@ corpus/samples/
 .env
 *.db-shm
 *.db-wal
+rag_index/

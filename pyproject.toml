@@ -17,6 +17,7 @@ dependencies = [
     "rapidfuzz>=3.9",
     "packaging>=24.0",
     "feedparser>=6.0",
+    "chromadb>=1.0",          # index du RAG (télémétrie coupée dans le code)
     # --- C (STEUSSO) : réseau, passerelle, signature, sandbox ---
     "cryptography>=43.0",
 ]
@@ -47,4 +48,4 @@ markers = [
 [tool.setuptools.package-data]
 "plateforme.db" = ["*.sql"]
 "plateforme.web" = ["gabarits/*.html"]
-"plateforme.pipeline" = ["donnees/*.txt"]
+"plateforme.pipeline" = ["donnees/*.txt", "donnees/*.json"]
