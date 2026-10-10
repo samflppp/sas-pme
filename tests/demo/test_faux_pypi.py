@@ -126,3 +126,50 @@ def test_parcours_de_demo_de_bout_en_bout(client, tmp_path):
     fiche = base.fiche(P, NOM, "1.2")
     assert fiche.version.etat is Etat.BLOQUEE and publiees == [(NOM, "1.1")]
     assert "exfiltration" in {s.sorte for s in fiche.signaux}
+
+
+# --- 1.3 (H16, demande de A) : passe « à revoir » à coup sûr, pour montrer la décision humaine ---
+def test_la_1_3_leve_un_seul_signal_fort_et_rien_de_bloquant(client, tmp_path):
+    from plateforme.pipeline import politique
+    for v in ("1.1", "1.2", "1.3"):
+        client.post(f"/demo/publier/{NOM}/{v}")
+    a = {v: pypi.telecharger(NOM, v, tmp_path / v, client=client, base=str(client.base_url))
+         for v in ("1.1", "1.2", "1.3")}
+    for prec in ("1.1", "1.2"):                  # quelle que soit la version de comparaison
+        signaux = controler_code(P, NOM, "1.3", a["1.3"], precedentes=a[prec])
+        assert [s.sorte for s in signaux if s.niveau.rang >= Niveau.FORT.rang] == ["domaine_suspect"]
+        assert politique.decider(signaux).etat is Etat.A_REVOIR
+    # Rien ne part à l'import : la sandbox ne voit rien, le code n'est qu'une fonction non appelée.
+    assert "\n_rapport(" not in fp.CODE["1.3"] and "\nenvoyer_rapport(" not in fp.CODE["1.3"]
+
+
+def test_parcours_h16_la_1_3_passe_a_revoir_puis_un_admin_tranche(client, tmp_path):
+    from plateforme import pipeline
+    base = Base(str(tmp_path / "sas.db"))
+    base.enregistrer_version(Version(ecosysteme=P, nom=NOM, version="1.0",
+                                     publiee_le=MAINTENANT - timedelta(days=400),
+                                     detectee_le=MAINTENANT, etat=Etat.PUBLIEE))
+    url, publiees = str(client.base_url), []
+    vide = RapportSandbox(requetes_dns=[], connexions=[], fichiers_sensibles=[], leurres_lus=[],
+                          processus=[], code_sortie=0, duree_s=1.0, delai_depasse=False)
+
+    def tour(minutes):
+        return traitement.traiter(
+            base, datetime.now(timezone.utc) + timedelta(minutes=minutes),
+            delai=timedelta(minutes=2), dossier=tmp_path / "archives",
+            telecharger=lambda n, v, d: pypi.telecharger(n, v, d, client=client, base=url),
+            executer=lambda *a, **k: vide,
+            publier=lambda eco, n, v, archives, vid: publiees.append((n, v)),
+            veiller=lambda b, m: veille.veiller(b, m, client=client, pypi_url=url,
+                                                osv_url="http://osv.absent"),
+            controler_meta=lambda v, prec, m: [], llm=lambda *a: ResultatLLM())
+
+    for i, v in enumerate(("1.1", "1.2", "1.3")):        # dans l'ordre de la démo
+        client.post(f"/demo/publier/{NOM}/{v}")
+        tour(6 * i), tour(6 * i + 3)
+    assert base.lire_version(P, NOM, "1.2").etat is Etat.BLOQUEE
+    assert base.lire_version(P, NOM, "1.3").etat is Etat.A_REVOIR
+    assert (NOM, "1.3") not in publiees
+    v = pipeline.decision_humaine(base, P, NOM, "1.3", Etat.BLOQUEE,
+                                  "tunnel ngrok inconnu de l'équipe", acteur="admin")
+    assert v.etat is Etat.BLOQUEE
