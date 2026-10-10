@@ -15,7 +15,7 @@ sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y
 sudo usermod -aG docker ubuntu           # sandbox : l'appli lance ses conteneurs (nouvelle session SSH)
 rm -rf ~/wheels && mkdir -p ~/wheels
 pip3 download -q --only-binary=:all: -d ~/wheels pip pypiserver \
-  fastapi uvicorn python-multipart cryptography pydantic
+  fastapi uvicorn python-multipart cryptography pydantic packaging
 [[ -f ~/.ssh/sas_passerelle ]] || ssh-keygen -q -t ed25519 -N "" -C plateforme-publier -f ~/.ssh/sas_passerelle
 EOF
 PUB=$($SSH sas-plateforme cat .ssh/sas_passerelle.pub)
@@ -66,6 +66,8 @@ $SSH sas-plateforme bash -s <<'EOF'
 set -euo pipefail
 umask 077 && mkdir -p ~/sas/tls
 [[ -f ~/sas/signature.pem ]] || openssl genpkey -algorithm ed25519 -out ~/sas/signature.pem
+# Clé HMAC du journal chaîné (A1, SAS_CLE_JOURNAL) : tirée ici, jamais dans Git, lue par le web.
+[[ -f ~/.sas-cle-journal ]] || openssl rand -hex 32 > ~/.sas-cle-journal
 EOF
 $SCP -q $T/ca.pem $T/plateforme.pem $T/plateforme.key sas-plateforme:sas/tls/
 $SSH sas-plateforme 'openssl pkey -in ~/sas/signature.pem -pubout' > $T/plateforme_signature.pub
@@ -78,10 +80,11 @@ $SSH sas-passerelle sudo bash -s <<'EOF'
 set -euo pipefail
 id recepteur >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin -G pypi recepteur
 rm -rf /opt/recepteur && mkdir -p /opt/recepteur/code /etc/sas
+install -d -o recepteur -g recepteur -m 700 /var/lib/sas-recepteur   # nonces, registre (B : C6)
 tar xzf /tmp/sas-code.tar.gz -C /opt/recepteur/code
 PIP=$(ls /tmp/wheels/pip-*.whl)
 python3 "$PIP/pip" install -q --no-index --find-links /tmp/wheels --target /opt/recepteur/lib \
-  fastapi uvicorn python-multipart cryptography pydantic
+  fastapi uvicorn python-multipart cryptography pydantic packaging
 install -m 644 /tmp/ca.pem /tmp/passerelle.pem /tmp/plateforme_signature.pub /etc/sas/
 install -m 640 -g recepteur /tmp/passerelle.key /etc/sas/
 rm -f /tmp/passerelle.key
@@ -170,4 +173,5 @@ echo
 echo "Fini. Variables pour l'appli sur la plateforme (publication signée, M1) :"
 echo "  export SAS_PASSERELLE_URL=https://10.42.2.10:8443 SAS_CLE_SIGNATURE=~/sas/signature.pem"
 echo "  export SAS_TLS_CA=~/sas/tls/ca.pem SAS_TLS_CERT=~/sas/tls/plateforme.pem SAS_TLS_CLE=~/sas/tls/plateforme.key"
+echo "  export SAS_CLE_JOURNAL=\$(cat ~/.sas-cle-journal)     # clé HMAC du journal, tirée sur la plateforme"
 echo "Stub M0 (scp), si besoin : SAS_PASSERELLE_SSH=ubuntu@10.42.2.10 SAS_PASSERELLE_CLE=~/.ssh/sas_passerelle"

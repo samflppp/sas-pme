@@ -9,18 +9,17 @@ SupplementaryGroups=pypi
 Environment=PYTHONPATH=/opt/recepteur/code:/opt/recepteur/lib
 Environment=SAS_DEPOT=/srv/pypi/packages
 Environment=SAS_CLE_PUBLIQUE=/etc/sas/plateforme_signature.pub
-Environment=SAS_NONCES=/var/lib/sas/nonces.txt
+Environment=SAS_NONCES=/var/lib/sas-recepteur/nonces.txt
 Environment=SAS_JOURNAL_ACCES=/var/lib/sas/pypiserver-acces.log
-Environment=SAS_REGISTRE=/var/lib/sas/registre.txt
+Environment=SAS_REGISTRE=/var/lib/sas-recepteur/registre.txt
 # --ssl-cert-reqs 2 : certificat client exigé, signé par l'autorité du lien (la plateforme seule).
 ExecStart=/usr/bin/python3 -m uvicorn passerelle.recepteur:app --host 10.42.2.10 --port 8443 \
   --ssl-keyfile /etc/sas/passerelle.key --ssl-certfile /etc/sas/passerelle.pem \
   --ssl-ca-certs /etc/sas/ca.pem --ssl-cert-reqs 2
-# Voir pypiserver.service : /var/lib/sas est partagé (pypi:pypi, 2770), créé par installer.sh.
-# Pas de StateDirectory= (sinon systemd en ferait recepteur:recepteur au démarrage, cassant
-# l'écriture du journal par pypi). ReadWritePaths suffit : le récepteur y écrit nonces.txt via le
-# bit group-write, et y lit le journal via son appartenance au groupe pypi (SupplementaryGroups).
-ReadWritePaths=/var/lib/sas /srv/pypi/packages
+# Nonces et registre dans /var/lib/sas-recepteur, réservé au seul compte recepteur (0700, B : C6) :
+# un pypiserver compromis ne peut ni vider les nonces (rejeu) ni fausser l'inventaire. Le journal
+# d'accès reste dans /var/lib/sas (écrit par pypi, lu ici via le groupe pypi).
+ReadWritePaths=/var/lib/sas-recepteur /srv/pypi/packages
 UMask=0022
 Restart=on-failure
 NoNewPrivileges=yes
