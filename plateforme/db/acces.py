@@ -4,11 +4,14 @@ Contrat : docs/contrats.md § 2. Chaque changement d'état, chaque verdict et ch
 écrit une entrée dans le journal chaîné.
 """
 import hashlib
+import hmac
 import json
+import os
 import sqlite3
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from enum import StrEnum
 from pathlib import Path
 
 from commun.modeles import (
@@ -18,6 +21,21 @@ from commun.modeles import (
 DELAI_PAR_DEFAUT = timedelta(days=3)
 _SCHEMA = Path(__file__).with_name("schema.sql")
 _GENESE = "0" * 64
+_SCRYPT = (2**14, 8, 1)  # n, r, p : 16 Mo et quelques dizaines de ms par essai
+
+
+class Role(StrEnum):
+    ADMIN = "admin"  # tout, plus les comptes et (M1) la décision humaine
+    DEV = "dev"      # catalogue, fiches, demander un paquet
+
+
+@dataclass(frozen=True)
+class Compte:
+    identifiant: str
+    role: Role
+    actif: bool
+    doit_changer: bool
+    derniere_connexion: datetime | None
 
 
 @dataclass(frozen=True)
@@ -50,6 +68,23 @@ def _maintenant() -> datetime:
 
 def _cle(eco: Ecosysteme, nom: str, version: str) -> str:
     return f"{eco.value}:{nom}@{version}"
+
+
+def _empreinte(mot_de_passe: str) -> str:
+    n, r, p = _SCRYPT
+    sel = os.urandom(16)
+    h = hashlib.scrypt(mot_de_passe.encode("utf-8"), salt=sel, n=n, r=r, p=p, dklen=32)
+    return f"scrypt${n}${r}${p}${sel.hex()}${h.hex()}"
+
+
+def _verifier_empreinte(mot_de_passe: str, empreinte: str) -> bool:
+    _, n, r, p, sel, h = empreinte.split("$")
+    calcule = hashlib.scrypt(mot_de_passe.encode("utf-8"), salt=bytes.fromhex(sel), n=int(n),
+                             r=int(r), p=int(p), dklen=len(h) // 2)
+    return hmac.compare_digest(calcule.hex(), h)
+
+
+_EMPREINTE_LEURRE = _empreinte("leurre")  # même coût pour un identifiant inconnu
 
 
 def _hash(prec: str, a: str, acteur: str, action: str, sujet: str, charge: str) -> str:
@@ -173,6 +208,89 @@ class Base:
     def inventaire(self) -> list[tuple[Ecosysteme, str, str]]:
         return [(Ecosysteme(r["ecosysteme"]), r["nom"], r["version"]) for r in self._c.execute(
             "SELECT ecosysteme, nom, version FROM inventaire ORDER BY ecosysteme, nom, version")]
+
+    # --- comptes ------------------------------------------------------------
+    def creer_compte(self, identifiant: str, role: Role, mot_de_passe: str, *, acteur: str,
+                     doit_changer: bool = True) -> Compte:
+        """ValueError si l'identifiant existe déjà."""
+        with self._verrou:
+            try:
+                self._c.execute(
+                    "INSERT INTO comptes (identifiant, empreinte, role, doit_changer, cree_le) "
+                    "VALUES (?,?,?,?,?)", (identifiant, _empreinte(mot_de_passe), Role(role).value,
+                                           int(doit_changer), _iso(_maintenant())))
+            except sqlite3.IntegrityError:
+                raise ValueError(f"le compte {identifiant!r} existe déjà") from None
+            self._journaliser(acteur, "compte_cree", f"compte:{identifiant}", {"role": role.value})
+        return self.lire_compte(identifiant)
+
+    def authentifier(self, identifiant: str, mot_de_passe: str) -> Compte | None:
+        """Le compte si le mot de passe est bon et le compte actif ; sinon None."""
+        r = self._c.execute("SELECT empreinte, actif FROM comptes WHERE identifiant = ?",
+                            (identifiant,)).fetchone()
+        bon = _verifier_empreinte(mot_de_passe, r["empreinte"] if r else _EMPREINTE_LEURRE)
+        if r is None or not bon or not r["actif"]:
+            return None
+        with self._verrou:
+            self._c.execute("UPDATE comptes SET derniere_connexion = ? WHERE identifiant = ?",
+                            (_iso(_maintenant()), identifiant))
+        return self.lire_compte(identifiant)
+
+    def lire_compte(self, identifiant: str) -> Compte | None:
+        r = self._c.execute("SELECT * FROM comptes WHERE identifiant = ?", (identifiant,)).fetchone()
+        return self._compte(r) if r else None
+
+    def lister_comptes(self) -> list[Compte]:
+        return [self._compte(r) for r in
+                self._c.execute("SELECT * FROM comptes ORDER BY identifiant")]
+
+    def changer_role(self, identifiant: str, role: Role, *, acteur: str) -> None:
+        """ValueError si on retirerait le dernier admin actif ; KeyError si le compte est inconnu."""
+        with self._verrou:
+            avant = self._exiger_compte(identifiant)
+            if avant["role"] == Role.ADMIN and role is not Role.ADMIN:
+                self._garder_un_admin(identifiant)
+            self._c.execute("UPDATE comptes SET role = ? WHERE identifiant = ?",
+                            (Role(role).value, identifiant))
+            self._journaliser(acteur, "compte_role", f"compte:{identifiant}",
+                              {"de": avant["role"], "vers": role.value})
+
+    def desactiver(self, identifiant: str, *, acteur: str) -> None:
+        """ValueError si c'est le dernier admin actif ; KeyError si le compte est inconnu."""
+        with self._verrou:
+            avant = self._exiger_compte(identifiant)
+            if avant["role"] == Role.ADMIN:
+                self._garder_un_admin(identifiant)
+            self._c.execute("UPDATE comptes SET actif = 0 WHERE identifiant = ?", (identifiant,))
+            self._journaliser(acteur, "compte_desactive", f"compte:{identifiant}", {})
+
+    def changer_mot_de_passe(self, identifiant: str, nouveau: str, *, acteur: str,
+                             doit_changer: bool = False) -> None:
+        with self._verrou:
+            self._exiger_compte(identifiant)
+            self._c.execute("UPDATE comptes SET empreinte = ?, doit_changer = ? WHERE identifiant = ?",
+                            (_empreinte(nouveau), int(doit_changer), identifiant))
+            self._journaliser(acteur, "compte_mot_de_passe", f"compte:{identifiant}",
+                              {"doit_changer": doit_changer})
+
+    def _exiger_compte(self, identifiant: str) -> sqlite3.Row:
+        r = self._c.execute("SELECT * FROM comptes WHERE identifiant = ?", (identifiant,)).fetchone()
+        if r is None:
+            raise KeyError(identifiant)
+        return r
+
+    def _garder_un_admin(self, sauf: str) -> None:
+        autres = self._c.execute(
+            "SELECT COUNT(*) FROM comptes WHERE role = 'admin' AND actif = 1 AND identifiant != ?",
+            (sauf,)).fetchone()[0]
+        if autres == 0:
+            raise ValueError("il doit rester au moins un admin actif")
+
+    @staticmethod
+    def _compte(r: sqlite3.Row) -> Compte:
+        dc = r["derniere_connexion"]
+        return Compte(r["identifiant"], Role(r["role"]), bool(r["actif"]), bool(r["doit_changer"]),
+                      datetime.fromisoformat(dc) if dc else None)
 
     # --- journal -------------------------------------------------------------
     def journaliser(self, acteur: str, action: str, sujet: str, charge: dict) -> None:

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titre %}Comptes{% endblock %}
+{% block contenu %}
+<h1>Comptes</h1>
+<p>Mots de passe hachés (scrypt), jamais affichés. Chaque création, changement de rôle ou
+désactivation est écrit dans le journal.</p>
+{% if erreur %}<p class="erreur">{{ erreur }}</p>{% endif %}
+{% if mot_de_passe %}
+<div class="raison">
+  Compte <strong>{{ cree }}</strong> créé. Mot de passe initial, affiché <strong>une seule fois</strong> :
+  <code data-mot-de-passe="{{ mot_de_passe }}">{{ mot_de_passe }}</code><br>
+  Transmettez-le en privé ; il devra être changé à la première connexion.
+</div>
+{% endif %}
+<table>
+  <tr><th>Identifiant</th><th>Rôle</th><th>Dernière connexion</th><th>État</th><th></th></tr>
+  {% for c in comptes %}
+  <tr>
+    <td>{{ c.identifiant }}</td>
+    <td>
+      <form method="post" action="/comptes/{{ c.identifiant }}/role" style="display:inline">
+        <select name="role">{% for r in roles %}<option value="{{ r.value }}"{% if r == c.role %} selected{% endif %}>{{ r.value }}</option>{% endfor %}</select>
+        <button class="lien">Changer</button>
+      </form>
+    </td>
+    <td>{{ c.derniere_connexion.strftime("%d/%m/%Y %H:%M") if c.derniere_connexion else "jamais" }}</td>
+    <td>{{ "actif" if c.actif else "désactivé" }}{% if c.actif and c.doit_changer %} (mot de passe à changer){% endif %}</td>
+    <td>{% if c.actif and c.identifiant != utilisateur %}
+      <form method="post" action="/comptes/{{ c.identifiant }}/desactiver"><button class="lien">Désactiver</button></form>
+    {% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+<h2>Nouveau compte</h2>
+<form class="carte" method="post" action="/comptes">
+  <label>Identifiant <input name="identifiant" placeholder="mouabd" required></label>
+  <label>Rôle <select name="role">{% for r in roles %}<option value="{{ r.value }}">{{ r.value }}</option>{% endfor %}</select></label>
+  <button type="submit">Créer</button>
+</form>
+<p>Le mot de passe initial est tiré au hasard, affiché une seule fois, et doit être changé à la
+première connexion.</p>
+{% endblock %}

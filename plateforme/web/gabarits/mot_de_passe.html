@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titre %}Mot de passe{% endblock %}
+{% block contenu %}
+<h1>Changer mon mot de passe</h1>
+{% if oblige %}<p class="raison">Première connexion : choisissez votre mot de passe avant de continuer.</p>{% endif %}
+<form class="carte" method="post" action="/mot-de-passe">
+  <label>Mot de passe actuel <input name="actuel" type="password" autocomplete="current-password" required></label>
+  <label>Nouveau (12 caractères au moins) <input name="nouveau" type="password" autocomplete="new-password" minlength="12" required></label>
+  <label>Confirmation <input name="confirmation" type="password" autocomplete="new-password" minlength="12" required></label>
+  {% if erreur %}<p class="erreur">{{ erreur }}</p>{% endif %}
+  <button type="submit">Enregistrer</button>
+</form>
+{% endblock %}

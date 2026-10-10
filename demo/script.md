@@ -1,14 +1,16 @@
 # Script de démo (A)
 
-## H3 — preuve de vie
+## H3 — preuve de vie (atteint le 2026-10-10, 5 OK sur 5 : `docs/points/2026-10-10-C-h3-ok.md`)
 
 But (`docs/roadmap.md`, M0) : une personne demande `requests` dans le web ; la plateforme le
-télécharge, l'approuve (politique factice) et le copie sur la passerelle ; sur le serveur,
+télécharge, l'approuve (politique déterministe : aucun signal fort) et le copie sur la passerelle ; sur le serveur,
 `pip install requests` marche alors que `curl https://pypi.org` échoue.
 
 ### 1. Infra (C)
 
-Depuis le poste de STEUSSO, voir `infra/README.md` : `creer.sh`, puis `installer.sh`.
+Depuis le poste de STEUSSO, voir `infra/README.md` : `creer.sh`, puis `installer.sh`. La région se
+règle dans `infra/aws/config.env` (us-east-1 pour le compte du workshop) ; la plateforme est sur
+CPU (`c7i.4xlarge`).
 
 ### 2. Déployer l'application sur la plateforme
 
@@ -30,7 +32,7 @@ ssh -F infra/secrets/ssh_config sas-plateforme 'rm -rf ~/sas-pme && mkdir ~/sas-
 ssh -F infra/secrets/ssh_config sas-plateforme
 cd ~/sas-pme
 export SAS_DB=~/sas.db SAS_ARCHIVES=~/archives
-export SAS_ADMIN_MOTDEPASSE='<à choisir>'
+export SAS_ADMIN_MOTDEPASSE='<à choisir>'  # ne sert qu'au premier lancement (base neuve)
 export SAS_PASSERELLE_SSH=ubuntu@10.42.2.10 SAS_PASSERELLE_CLE=~/.ssh/sas_passerelle
 export SAS_TRAITEMENT_INTERVALLE=10        # démo : on voit les états changer vite
 .venv/bin/uvicorn plateforme.web.app:app --host 127.0.0.1 --port 8000
@@ -47,7 +49,7 @@ puis <http://localhost:8000> dans le navigateur.
 
 ### 4. La démo
 
-1. Se connecter (`admin`, le mot de passe choisi).
+1. Se connecter (`admin`, le mot de passe choisi). Les autres comptes se créent dans « Comptes ».
 2. « Demander un paquet » : `pypi`, `requests`. Le catalogue montre `requests` et ses dépendances
    (`urllib3`, `idna`, `certifi`, `charset-normalizer`) `en_attente`.
 3. Attendre un tour de `traiter()` : chacune passe `en_analyse`, `approuvee`, puis `publiee`. Une

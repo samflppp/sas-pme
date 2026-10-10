@@ -57,3 +57,14 @@ CREATE TRIGGER IF NOT EXISTS journal_sans_modification BEFORE UPDATE ON journal
 BEGIN SELECT RAISE(ABORT, 'journal append-only'); END;
 CREATE TRIGGER IF NOT EXISTS journal_sans_suppression BEFORE DELETE ON journal
 BEGIN SELECT RAISE(ABORT, 'journal append-only'); END;
+
+-- Comptes du web (M1). Le mot de passe n'est stocké qu'en empreinte scrypt salée.
+CREATE TABLE IF NOT EXISTS comptes (
+    identifiant        TEXT PRIMARY KEY,
+    empreinte          TEXT NOT NULL,   -- scrypt$n$r$p$sel$hash
+    role               TEXT NOT NULL CHECK (role IN ('admin', 'dev')),
+    actif              INTEGER NOT NULL DEFAULT 1,
+    doit_changer       INTEGER NOT NULL DEFAULT 1,
+    cree_le            TEXT NOT NULL,
+    derniere_connexion TEXT
+);

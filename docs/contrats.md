@@ -78,6 +78,14 @@ base.fiche(eco, nom, version) -> Fiche | None    # version, raison, signaux, ver
 base.journaliser(acteur, action, sujet, charge: dict) -> None
 base.journal(limite=500) -> list[EntreeJournal]
 base.verifier_journal() -> tuple[bool, int | None]
+# comptes du web (A seul) : Role.ADMIN | Role.DEV, mot de passe en empreinte scrypt salée
+base.creer_compte(identifiant, role, mot_de_passe, *, acteur, doit_changer=True) -> Compte  # ValueError si existe
+base.authentifier(identifiant, mot_de_passe) -> Compte | None   # None si faux ou désactivé
+base.lire_compte(identifiant) -> Compte | None
+base.lister_comptes() -> list[Compte]
+base.changer_role(identifiant, role, *, acteur) -> None          # ValueError : dernier admin actif
+base.desactiver(identifiant, *, acteur) -> None                  # idem ; KeyError si inconnu
+base.changer_mot_de_passe(identifiant, nouveau, *, acteur, doit_changer=False) -> None
 ```
 
 Ces trois méthodes écrivent elles-mêmes dans le journal chaîné : `enregistrer_version`, `changer_etat`
