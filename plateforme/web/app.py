@@ -28,6 +28,8 @@ from plateforme.web.fond import TacheDeFond
 Demander = Callable[[Ecosysteme, str], None]
 # decider(base, eco, nom, version, etat, raison, acteur) : pipeline.decision_humaine (B)
 Decider = Callable[[Base, Ecosysteme, str, str, Etat, str, str], object]
+# revoquer(eco, nom, version, raison) : signature.revoquer (C), qui retire l'archive de la passerelle
+Revoquer = Callable[[Ecosysteme, str, str, str], None]
 Traiter = Callable[[Base], object]
 Horloge = Callable[[], datetime]
 Delai = Callable[[], timedelta]
@@ -63,6 +65,12 @@ def _decider_par_defaut(*args) -> object:
     """Le vrai `pipeline.decision_humaine` (B), importé seulement au premier clic."""
     from plateforme.pipeline import decision_humaine
     return decision_humaine(*args)
+
+
+def _revoquer_par_defaut(*args) -> None:
+    """Le vrai `signature.revoquer` (C), importé seulement au premier clic."""
+    from plateforme.signature import revoquer
+    revoquer(*args)
 
 
 def duree_lisible(d: timedelta) -> str:
@@ -135,7 +143,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
               demander: Demander | None = None,
               traiter: Traiter | None = None, intervalle: float = 60,
               horloge: Horloge | None = None, delai: Delai | None = None,
-              decider: Decider | None = None) -> FastAPI:
+              decider: Decider | None = None, revoquer: Revoquer | None = None) -> FastAPI:
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -158,6 +166,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     horloge = horloge or (lambda: datetime.now(timezone.utc))
     delai = delai or _delai_par_defaut
     decider = decider or _decider_par_defaut
+    revoquer = revoquer or _revoquer_par_defaut
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -263,10 +272,12 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             "processus": _compter(r.processus), "rapport": r}
         autres = [v for v in base.versions_du_paquet(eco, nom) if v.version != version]
         trancher = compte.role is Role.ADMIN and f.version.etat is Etat.A_REVOIR
+        retirer = compte.role is Role.ADMIN and f.version.etat is Etat.PUBLIEE
         return page(request, "fiche.html", compte, code, fiche=f, sandbox=sandbox, autres=autres,
                     signaux=[(s, _lien_sur(s.preuve.get("url"))) for s in signaux],
                     historique=base.historique(eco, nom, version), trancher=trancher,
-                    erreur=erreur, publication=etat_publication(f.version.etat, f.raison))
+                    retirer=retirer, erreur=erreur,
+                    publication=etat_publication(f.version.etat, f.raison))
 
     # --- décision humaine (admin) -------------------------------------------------
     @app.post("/decision")
@@ -285,6 +296,38 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             raise HTTPException(status_code=404)
         except ValueError as e:
             return afficher_fiche(request, admin, ecosysteme, nom, version, 400, str(e))
+        return RedirectResponse(f"/versions/{eco.value}/{nom}/{version}", status_code=303)
+
+    # --- révocation (admin) ---------------------------------------------------------
+    @app.post("/revocation")
+    def revocation(request: Request, ecosysteme: str = Form(...), nom: str = Form(...),
+                   version: str = Form(...), raison: str = Form("")):
+        admin = exiger(request, Role.ADMIN)
+        try:
+            eco = Ecosysteme(ecosysteme)
+        except ValueError:
+            raise HTTPException(status_code=404)
+        v = base.lire_version(eco, nom, version)
+        if v is None:
+            raise HTTPException(status_code=404)
+        raison = raison.strip()[:500]
+        if v.etat is not Etat.PUBLIEE:
+            return afficher_fiche(request, admin, ecosysteme, nom, version, 400,
+                                  "Révocation refusée : cette version n'est pas publiée.")
+        if not raison:
+            return afficher_fiche(request, admin, ecosysteme, nom, version, 400,
+                                  "Révocation refusée : une raison est obligatoire.")
+        # La passerelle d'abord : la version n'est notée révoquée qu'une fois l'archive retirée.
+        # Un échec (refus ou panne) la laisse publiée, journalisé, et le bouton reste là.
+        try:
+            revoquer(eco, nom, version, raison)
+        except Exception as e:  # noqa: BLE001 — refus, réseau, ssh : tout se dit sur la fiche
+            base.journaliser(admin.identifiant, "revocation_echouee", f"{eco.value}:{nom}@{version}",
+                             {"raison": raison, "erreur": str(e)[:300]})
+            return afficher_fiche(request, admin, ecosysteme, nom, version, 502,
+                                  f"Révocation échouée, la version reste publiée : {e}")
+        base.changer_etat(eco, nom, version, Etat.REVOQUEE, f"{admin.identifiant} : {raison}",
+                          acteur=admin.identifiant)
         return RedirectResponse(f"/versions/{eco.value}/{nom}/{version}", status_code=303)
 
     # --- file d'attente ---------------------------------------------------------

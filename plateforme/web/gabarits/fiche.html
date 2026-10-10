@@ -45,6 +45,19 @@ approuver ni bloquer seul.</p>
   décide ensuite avec toutes les preuves. Une version approuvée est publiée au tour suivant.</p>
 </form>
 {% endif %}
+{% if retirer %}
+<h2>Révocation</h2>
+<form method="post" action="/revocation">
+  <input type="hidden" name="ecosysteme" value="{{ v.ecosysteme.value }}">
+  <input type="hidden" name="nom" value="{{ v.nom }}">
+  <input type="hidden" name="version" value="{{ v.version }}">
+  <p><label>Raison (obligatoire, inscrite au journal)<br>
+  <textarea name="raison" rows="3" cols="60" maxlength="500" required></textarea></label></p>
+  <p class="ligne"><button type="submit">Révoquer cette version</button></p>
+  <p class="note">L'archive est retirée de la passerelle : les serveurs ne peuvent plus
+  l'installer. Les machines qui l'ont déjà installée restent visibles dans l'inventaire.</p>
+</form>
+{% endif %}
 
 <h2>Preuves</h2>
 {% if signaux %}
