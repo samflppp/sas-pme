@@ -2,7 +2,8 @@
 # Point H3 — preuve du cloisonnement :
 #   la table de routage privée n'a aucune route vers Internet ;
 #   serveur et passerelle ne joignent pas pypi.org ;
-#   le serveur installe requests via la passerelle.
+#   le serveur installe requests via la passerelle ;
+#   le serveur ne résout aucun nom (pas de fuite par DNS, constat C5 de B).
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./config.env; source ./etat.env
@@ -34,5 +35,11 @@ fi
 echo "5. Serveur : un paquet non publié est introuvable (pas de repli vers pypi.org)"
 $SSH sas-serveur '~/app/bin/pip install -q --no-cache-dir flask' >/dev/null 2>&1 \
   && ko "flask installé alors qu'il n'est pas publié" || ok "flask introuvable"
+
+echo "6. Serveur : aucune résolution DNS (sinon un paquet peut faire fuir des données par DNS)"
+NOM="sas-verif-$RANDOM.example.net"
+$SSH sas-serveur "sudo resolvectl flush-caches 2>/dev/null; timeout 8 getent hosts exemple.com \
+  || timeout 8 dig +short +time=2 +tries=1 @10.42.0.2 $NOM | grep -qE '^[0-9a-f.:]+$'" >/dev/null 2>&1 \
+  && ko "le serveur résout des noms (DNS du VPC actif ?)" || ok "aucune résolution DNS"
 
 exit $ECHEC

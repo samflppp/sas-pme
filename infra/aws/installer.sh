@@ -13,6 +13,11 @@ $SSH sas-plateforme bash -s <<'EOF'
 set -euo pipefail
 sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-venv docker.io
 sudo usermod -aG docker ubuntu           # sandbox : l'appli lance ses conteneurs (nouvelle session SSH)
+# DNS : la plateforme (seule reliée à Internet) passe par des résolveurs publics, car le DNS du VPC
+# est coupé à l'étape 12 (sinon le serveur privé pourrait faire fuir des données par DNS, B : C5).
+sudo mkdir -p /etc/systemd/resolved.conf.d
+printf '[Resolve]\nDNS=1.1.1.1 9.9.9.9\nDomains=~.\n' | sudo tee /etc/systemd/resolved.conf.d/sas-dns.conf >/dev/null
+sudo systemctl restart systemd-resolved
 rm -rf ~/wheels && mkdir -p ~/wheels
 pip3 download -q --only-binary=:all: -d ~/wheels pip pypiserver \
   fastapi uvicorn python-multipart cryptography pydantic packaging
@@ -173,6 +178,11 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 https://api.github.com || tr
 if curl -s -o /dev/null -m 15 https://pypi.org; then echo "  ERREUR : pypi.org joignable par le relais"
 else echo "  pypi.org (hors liste) : refusé (attendu)"; fi
 EOF
+
+echo "== 12. DNS du VPC coupé : le serveur et la passerelle ne résolvent plus aucun nom (B : C5)"
+( source ./config.env; source ./etat.env
+  aws ec2 modify-vpc-attribute --region "$REGION" --vpc-id "$VPC" --no-enable-dns-support )
+echo "  DNS du VPC désactivé (noms internes dans /etc/hosts ; plateforme sur 1.1.1.1 et 9.9.9.9)"
 
 echo
 echo "Fini. Variables pour l'appli sur la plateforme (publication signée, M1) :"
