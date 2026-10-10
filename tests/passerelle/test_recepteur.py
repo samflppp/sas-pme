@@ -119,6 +119,29 @@ def test_une_publication_ne_sert_pas_de_revocation(env):
     assert (depot / ROUE).exists()
 
 
-def test_inventaire_vide_en_attendant_les_journaux(env):
+def test_inventaire_vide_sans_journal(env):
     client, *_ = env
+    # creer_app sans journal_acces : la route répond [] (défaut).
     assert client.get("/v1/inventory").json() == []
+
+
+def test_inventaire_lit_le_journal_et_joint_les_machines(tmp_path):
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    cle = ed25519.generer_cle(tmp_path / "plateforme.pem")
+    journal = tmp_path / "acces.log"
+    journal.write_text(
+        '10.42.2.20 - - [11/Oct/2026:09:00:01 +0000] '
+        '"GET /packages/requests-2.32.4-py3-none-any.whl HTTP/1.1" 200 100\n'
+        '10.42.2.20 - - [11/Oct/2026:09:00:00 +0000] "GET /simple/requests/ HTTP/1.1" 200 500\n',
+        encoding="utf-8",
+    )
+    app = creer_app(depot, ed25519.cle_publique_pem(cle), tmp_path / "nonces.txt",
+                    horloge=lambda: MAINTENANT, journal_acces=journal)
+    inv = TestClient(app).get("/v1/inventory").json()
+    assert len(inv) == 1
+    assert inv[0]["nom"] == "requests"
+    assert inv[0]["version"] == "2.32.4"
+    assert inv[0]["telechargements"] == 1
+    assert inv[0]["ecosysteme"] == "pypi"
+    assert inv[0]["machines"] == ["10.42.2.20"]   # hors contrat EntreeInventaire

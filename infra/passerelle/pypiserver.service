@@ -8,7 +8,18 @@ Group=pypi
 Environment=PYTHONPATH=/opt/pypiserver
 # --disable-fallback : un paquet absent renvoie 404 au lieu d'une redirection vers pypi.org.
 # Pas de -P/-a : l'envoi (upload) reste refusé ; seules les copies de la plateforme publient.
-ExecStart=/usr/bin/python3 -m pypiserver run --host 0.0.0.0 --port 8080 --disable-fallback /srv/pypi/packages
+# Journal d'accès (lu par /v1/inventory). La date vient du préambule (--log-frmt, %(asctime)s) ;
+# le message de requête (--log-req-frmt) n'a que des clés du WSGI environ (REMOTE_ADDR = l'IP du
+# serveur, PATH_INFO = /packages/<archive>) — %(asctime)s n'y est PAS disponible. Le code HTTP
+# n'existe pas au moment du log de requête : passerelle/inventaire.py le tolère et ne compte que
+# les GET /packages/<archive> (une archive servie prouve une installation). Format d'une ligne :
+#   2026-10-11 09:00:01 10.42.2.20 - - "GET /packages/requests-2.32.4-...whl HTTP/1.1"
+Environment=SAS_JOURNAL_ACCES=/var/lib/sas/pypiserver-acces.log
+ExecStart=/usr/bin/python3 -m pypiserver run --host 0.0.0.0 --port 8080 --disable-fallback \
+  --log-file /var/lib/sas/pypiserver-acces.log \
+  --log-frmt "%(asctime)s %(message)s" \
+  --log-req-frmt "%(REMOTE_ADDR)s - - \"%(REQUEST_METHOD)s %(PATH_INFO)s %(SERVER_PROTOCOL)s\"" \
+  /srv/pypi/packages
 Restart=on-failure
 NoNewPrivileges=yes
 ProtectSystem=strict
