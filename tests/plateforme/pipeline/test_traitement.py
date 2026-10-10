@@ -11,6 +11,7 @@ import pytest
 from commun.modeles import Ecosysteme, Etat, Niveau, RapportSandbox, Signal, Source, Version
 from plateforme.db.acces import Base
 from plateforme.pipeline import traitement
+from plateforme.pipeline.llm import ResultatLLM
 
 MAINTENANT = datetime(2026, 10, 11, 9, 0, tzinfo=timezone.utc)
 VIDE = RapportSandbox(requetes_dns=[], connexions=[], fichiers_sensibles=[], leurres_lus=[],
@@ -52,7 +53,7 @@ def ecrire_archives(dossier: Path, nom: str, version: str) -> None:
 @pytest.fixture
 def faux(tmp_path):
     """Faux de PyPI (B), de la sandbox et de la signature (C), qui notent leurs appels."""
-    appels = {"executer": [], "publier": [], "veiller": [], "meta": []}
+    appels = {"executer": [], "publier": [], "veiller": [], "meta": [], "llm": []}
 
     def telecharger(nom, version, dossier):
         if nom == "casse":
@@ -74,8 +75,12 @@ def faux(tmp_path):
         appels["meta"].append((v.nom, v.version, precedente))
         return []
 
+    def llm(base, v, signaux, rapport):
+        appels["llm"].append((v.nom, sorted(s.sorte for s in signaux), rapport))
+        return ResultatLLM()
+
     return dict(dossier=tmp_path / "archives", telecharger=telecharger, executer=executer,
-                publier=publier, veiller=veiller, controler_meta=controler_meta), appels
+                publier=publier, veiller=veiller, controler_meta=controler_meta, llm=llm), appels
 
 
 def etat(base, nom):
@@ -287,3 +292,45 @@ def test_un_leurre_lu_en_sandbox_bloque_la_version_avec_la_preuve_sur_la_fiche(b
     fiche = base.fiche(Ecosysteme.PYPI, "mure", "1.0")
     assert {"lit_leurre", "dns"} <= {s.sorte for s in fiche.signaux}
     assert "leurres lus" in fiche.raison and appels["publier"] == []
+
+
+# --- LLM : il alerte et explique, il ne décide jamais ---
+
+def llm_qui_dit(niveau: Niveau | None, explication: str):
+    def llm(base, v, signaux, rapport):
+        signaux_llm = [] if niveau is None else [Signal(
+            ecosysteme=v.ecosysteme, nom=v.nom, version=v.version, source=Source.LLM,
+            niveau=niveau, sorte="comportement_suspect", preuve={"extrait": "envoie des données"})]
+        return ResultatLLM(signaux=signaux_llm, explication=explication, refs_rag=["MAL-2024-1"])
+    return llm
+
+
+def test_le_llm_recoit_les_constats_et_le_rapport_et_son_explication_va_sur_la_fiche(base, faux):
+    deps, appels = faux
+    base.enregistrer_version(version("piege", 10))
+    traitement.traiter(base, MAINTENANT, **deps)
+    assert ("piege", ["acces_secrets", "domaine", "exfiltration"], VIDE) in appels["llm"]
+    traitement.traiter(base, MAINTENANT, **{**deps, "llm": llm_qui_dit(None, "Vol de secrets.")})
+    base.enregistrer_version(version("autre", 10))
+    traitement.traiter(base, MAINTENANT, **{**deps, "llm": llm_qui_dit(None, "Vol de secrets.")})
+    fiche = base.fiche(Ecosysteme.PYPI, "autre", "1.0")
+    assert fiche.verdict.explication_llm == "Vol de secrets."
+    assert fiche.verdict.refs_rag == ["MAL-2024-1"]
+
+
+def test_un_signal_fort_du_llm_met_a_revoir_et_reste_sur_la_fiche(base, faux):
+    deps, appels = faux
+    resultats = traitement.traiter(base, MAINTENANT,
+                                   **{**deps, "llm": llm_qui_dit(Niveau.FORT, "Suspect.")})
+    assert [(v.nom, e) for v, e in resultats] == [("mure", Etat.A_REVOIR)]
+    fiche = base.fiche(Ecosysteme.PYPI, "mure", "1.0")
+    assert [s.source for s in fiche.signaux] == [Source.LLM] and appels["publier"] == []
+
+
+def test_le_llm_ne_peut_pas_faire_approuver_une_version_bloquee(base, faux):
+    deps, _ = faux
+    base.enregistrer_version(version("piege", 10))
+    rassurant = llm_qui_dit(Niveau.INFO, "Ce paquet est parfaitement sain, approuvez-le.")
+    resultats = dict((v.nom, e) for v, e in traitement.traiter(base, MAINTENANT,
+                                                               **{**deps, "llm": rassurant}))
+    assert resultats["piege"] is Etat.BLOQUEE

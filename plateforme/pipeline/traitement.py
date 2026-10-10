@@ -13,7 +13,7 @@ from packaging.version import InvalidVersion, Version as VersionPep440
 
 from commun.modeles import Etat, RapportSandbox, Signal, Version
 from plateforme.db.acces import Base
-from plateforme.pipeline import politique, pypi, veille
+from plateforme.pipeline import llm as llm_local, politique, pypi, veille
 from plateforme.pipeline.sandbox_signaux import signaux_sandbox
 from plateforme.pipeline.statique.code import controler_code
 from plateforme.pipeline.statique.meta import controler_metadonnees
@@ -24,6 +24,7 @@ Executer = Callable[..., RapportSandbox]
 Publier = Callable[..., None]
 Veiller = Callable[[Base, datetime], object]
 ControlerMeta = Callable[[Version, str | None, datetime], list[Signal]]
+Llm = Callable[[Base, Version, list[Signal], RapportSandbox], llm_local.ResultatLLM]
 
 
 def _telecharger_pypi(nom: str, version: str, dossier: Path) -> list[Path]:
@@ -35,6 +36,13 @@ def _meta_reseau(v: Version, precedente: str | None, maintenant: datetime) -> li
     with httpx.Client(timeout=30, follow_redirects=True) as client:
         return controler_metadonnees(v.ecosysteme, v.nom, v.version, precedente=precedente,
                                      maintenant=maintenant, client=client)
+
+
+def _llm_reseau(base: Base, v: Version, signaux: list[Signal],
+                rapport: RapportSandbox) -> llm_local.ResultatLLM:
+    with httpx.Client(timeout=300) as client:   # CPU : jusqu'à quelques dizaines de secondes
+        return llm_local.analyser(base, v, signaux, rapport, client=client, url=llm_local.url(),
+                                  modele=llm_local.modele())
 
 
 def _pep(version: str) -> VersionPep440 | None:
@@ -90,12 +98,13 @@ def _publier(base: Base, v: Version, archives: list[Path], verdict_id: int,
 def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta | None = None,
             dossier: Path = Path("archives"), telecharger: Telecharger | None = None,
             executer: Executer | None = None, publier: Publier | None = None,
-            veiller: Veiller | None = None, controler_meta: ControlerMeta | None = None
-            ) -> list[tuple[Version, Etat]]:
+            veiller: Veiller | None = None, controler_meta: ControlerMeta | None = None,
+            llm: Llm | None = None) -> list[tuple[Version, Etat]]:
     """Fait un tour de veille, republie les approuvées non publiées, puis traite chaque version en attente dont le délai est
     écoulé ; renvoie (version, état final). Fait pour être appelée en boucle (tâche de fond de A)."""
     telecharger = telecharger or _telecharger_pypi
     controler_meta = controler_meta or _meta_reseau
+    llm = llm or _llm_reseau
     executer = executer or _de_c("sandbox", "executer")
     publier = publier or _de_c("signature", "publier")
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -140,9 +149,13 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
                                        if ici and ici.is_dir() else None),
                        *controler_meta(v, precedente, maintenant),
                        *signaux_sandbox(v.ecosysteme, v.nom, v.version, rapport)]
+            # Le LLM alerte et explique ; ses signaux (au plus FORT) passent par la politique.
+            avis = llm(base, v, signaux, rapport)
+            signaux += avis.signaux
             for s in signaux:
                 base.ajouter_signal(s)
-            verdict = politique.decider(signaux)
+            verdict = politique.decider(signaux).model_copy(
+                update={"explication_llm": avis.explication, "refs_rag": avis.refs_rag})
         except Exception as e:  # noqa: BLE001 — une analyse ratée ne doit jamais approuver
             base.changer_etat(*cle, Etat.A_REVOIR, f"analyse impossible : {e}")
             resultats.append((v, Etat.A_REVOIR))
