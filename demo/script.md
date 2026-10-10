@@ -38,6 +38,7 @@ export SAS_ADMIN_MOTDEPASSE='<à choisir>'  # 12 caractères au moins ; ne sert 
 export SAS_CLE_JOURNAL=$(cat ~/.sas-cle-journal)
 export SAS_TRAITEMENT_INTERVALLE=10        # démo : on voit les états changer vite
 export SAS_DELAI=120                       # démo : 2 minutes d'attente au lieu de 3 jours
+export SAS_SANDBOX_ATTENTE=10              # démo : 10 s de battement après l'import (60 par défaut)
 # Publication signée en TLS mutuel (C) ; sans SAS_PASSERELLE_URL, copie scp du M0.
 export SAS_PASSERELLE_URL=https://10.42.2.10:8443 SAS_CLE_SIGNATURE=~/sas/signature.pem
 export SAS_TLS_CA=~/sas/tls/ca.pem SAS_TLS_CERT=~/sas/tls/plateforme.pem SAS_TLS_CLE=~/sas/tls/plateforme.key
@@ -203,3 +204,167 @@ bloquant.
 3. Une publication mal signée est refusée par la passerelle : étape 4.
 
 Après la séance : `infra/aws/detruire.sh`.
+
+## H16 — la démo complète (M2)
+
+Le déroulé H10, plus ce que le M2 ajoute : le tableau de bord, le RAG cité par le LLM, la
+révocation et l'inventaire, la décision humaine, et le relais d'API. On le répète une fois à trois
+sur AWS, puis on gèle les fonctions (`docs/roadmap.md`). Consignes de C :
+`docs/points/2026-10-11-C-h16-preparation.md`.
+
+### Ce qui doit être prêt avant
+
+| Pièce | Qui | État au 2026-10-11 |
+|---|---|---|
+| Révocation depuis la fiche, tableau de bord, page « Inventaire », correctifs A1 à A5 | A | sur `main` |
+| RAG (16 473 documents dans `rag_index/`), veille RSS, sandbox v2 → signaux FORT, `decision_humaine` avec l'état attendu | B | sur `main` |
+| Sandbox v2 (image `sas-sandbox:2`), relais d'API, sauvegardes, C1 à C7 | C | sur `main` |
+
+### Préparer la plateforme (C, le jour même, environ 15 minutes)
+
+1. Redéployer `main` (§ 2). L'index `rag_index/` n'est pas dans l'archive : il reste dans
+   `~/sas-pme`, ne pas l'effacer.
+2. Reconstruire l'image de la sandbox, pour qu'elle ait C1 et C2 :
+   `docker rmi sas-sandbox:2`. Elle se reconstruit à la première analyse ; la lancer une fois avant
+   la démo pour ne pas payer la construction pendant.
+3. Lancer le web (§ 3) avec une **base neuve** (`SAS_DB` vers un fichier qui n'existe pas) et
+   `SAS_SANDBOX_ATTENTE=10`.
+4. **Relancer le faux PyPI** (port 8081) après le redéploiement, pour qu'il connaisse la 1.3. Ses
+   versions vivent en mémoire : le relancer remet aussi 1.1, 1.2 et 1.3 « non sorties ». À faire
+   avant de commencer, jamais pendant.
+5. Vérifier l'index du RAG (1 s, sans Ollama ; attendu : `…/sas-pme/rag_index 16473 documents`) :
+   `.venv/bin/python -I -c "from plateforme.pipeline.rag.index import Index, dossier; print(dossier().resolve(), Index(dossier(), None).compter(), 'documents')"`
+
+### Avant de commencer (5 minutes avant)
+
+Comme au H10 (requests et demo-horodatage 1.0 `publiee`, deux terminaux, navigateur sur
+<http://localhost:8000> en `admin`). Ouvrir en plus les onglets « Tableau de bord » et
+« Inventaire ». La préparation prend environ 7 minutes (mesuré par C : 98 s pour la 1.0, 330 s
+pour requests et ses dépendances).
+
+À la répétition à blanc de C, **certifi et idna sont passées « à revoir »** sur une seule alerte du
+LLM (fausses alertes, signalées à B). Si c'est encore le cas, ne pas les trancher avant : elles
+servent à l'étape 7.
+
+### Minutage
+
+Mesuré à la répétition à blanc de C (2026-10-11, 7B sur CPU, `SAS_DELAI=120`,
+`SAS_SANDBOX_ATTENTE=10`) : la 1.1 est publiée 140 s après sa sortie ; la 1.2 est bloquée 72 s
+après la fin de son délai ; **les étapes 2 et 3 prennent 252 s** depuis la sortie de la 1.1.
+
+Pour la présentation de 3 minutes : sortir la 1.1, la 1.2 et la 1.3 **avant de prendre la
+parole**, et commencer par les étapes 0 et 1 pendant que la plateforme travaille. Pour la vidéo :
+couper les attentes au montage. Compter **8 à 10 minutes** pour la répétition complète.
+
+| Étape | Durée |
+|---|---|
+| 0. Tableau de bord | 20 s |
+| 1. Le serveur ne parle jamais à Internet, sauf aux API autorisées | 40 s |
+| 2. Une version saine attend, puis passe | 140 s depuis sa sortie (120 s de délai) |
+| 3. Une version piégée est bloquée, le LLM cite le RAG | 72 s après son délai (252 s pour 2 et 3) |
+| 4. Révocation, puis l'alerte de l'inventaire | 60 s |
+| 5. Une publication forgée est refusée | 30 s |
+| 6. Le journal et le tableau de bord | 30 s |
+| 7. Décision humaine sur la 1.3 « à revoir » | 40 s (plus le délai et l'analyse, en parallèle) |
+
+### Déroulé
+
+**0. Le tableau de bord (20 s)** — onglet « Tableau de bord » : les compteurs par état (requests,
+ses dépendances et demo-horodatage 1.0 `publiee`, 0 bloquée ; certifi et idna peut-être « à
+revoir ») et « Journal intact ».
+
+> « La plateforme agréée : tout ce qui entre chez vous passe par ici, et tout y est tracé. »
+
+**1. Le serveur ne parle jamais à Internet, sauf aux API autorisées (40 s)** — terminal serveur.
+Le serveur a `HTTPS_PROXY=http://passerelle:3128` : un `curl` passe donc par le relais, qui refuse
+tout ce qui n'est pas sur sa liste.
+
+```bash
+curl -m 5 --noproxy '*' https://pypi.org          # échoue : pas de route vers Internet
+curl -s -o /dev/null -w '%{http_code}\n' -x http://passerelle:3128 https://api.github.com   # 200
+curl -m 5 -x http://passerelle:3128 https://pypi.org   # refusé : CONNECT tunnel failed, response 403
+pip install requests                               # marche : il vient de la passerelle
+```
+
+> « Ce serveur n'a aucun accès direct à Internet. Il parle à une API autorisée, ici GitHub, par un
+> relais en liste fermée qui ne déchiffre rien. Tout le reste est refusé. Ses paquets viennent de la
+> passerelle, qui ne reçoit que ce que la plateforme a vérifié et signé. »
+
+**2. Une nouvelle version saine attend, puis passe** — comme l'étape 2 du H10 (1.1, puis 1.2
+30 s plus tard, puis la 1.3 pour l'étape 7) :
+
+```bash
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.1
+sleep 30
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.2
+sleep 30
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.3
+```
+ Pendant l'attente, faire l'étape 1 si ce n'est pas déjà fait. À la fin, terminal
+serveur : `pip install -U demo-horodatage` installe la 1.1.
+
+**3. Une version piégée est bloquée, et le LLM cite ses sources (60 s)** — comme l'étape 3 du
+H10, avec en plus, sur la fiche de la 1.2, sous l'explication du LLM : « Références : » et les
+identifiants cités (au 2026-10-10 sur AWS : `CWE-522` et `T1552.005`).
+
+> « Le LLM ne parle pas de mémoire : il s'appuie sur une base locale d'avis et de techniques
+> d'attaque (OSV, GitHub, CWE, ATT&CK) et cite ce qu'il utilise. Il explique ; le code décide. »
+
+**4. Révocation, puis l'alerte de l'inventaire (60 s)** — un avis tombe après coup sur la 1.1, déjà
+installée sur le serveur.
+
+> « Trois jours, une sandbox et un LLM ne voient pas tout. Quand un avis arrive après coup, on
+> retire la version partout, et on sait où elle est déjà installée. »
+
+- Fiche de demo-horodatage 1.1, section « Révocation » : raison « Avis publié après coup :
+  mainteneur compromis. », puis « Révoquer ». La fiche passe `revoquee`, et l'historique garde la
+  raison et l'admin.
+- Onglet « Inventaire » (recharger) : la 1.1 est en tête, en rouge : « Révoquée depuis, et
+  téléchargée N fois : un serveur l'a peut-être encore. »
+- Terminal serveur : `pip download --no-deps -d /tmp/x demo-horodatage==1.1` échoue (retirée de la
+  passerelle) ; `pip show demo-horodatage` montre qu'elle est encore installée : c'est ce que
+  l'inventaire signale.
+
+La 1.2, bloquée, n'a jamais été sur la passerelle : elle n'apparaît pas dans l'inventaire.
+
+**5. Une publication forgée est refusée (30 s)** — comme l'étape 4 du H10 (`demo/forger.sh`).
+
+**6. Le journal et le tableau de bord (30 s)** — « Journal », « Vérifier la chaîne » : chaîne
+intègre. Puis « Tableau de bord » : 1 bloquée (1.2), 1 révoquée (1.1), « Journal intact ».
+
+> « Chaque décision, de la machine comme des personnes, est chaînée et signée avec une clé qui
+> n'est pas dans la base. Une ligne modifiée casse la chaîne, et on voit laquelle. »
+
+**7. Décision humaine sur la 1.3 (40 s)** — la 1.3 (sortie à l'étape 2) arrive **« à revoir »** à
+coup sûr : un seul signal FORT, `domaine_suspect`. Sa raison cite la ligne : « À revoir :
+RAPPORT_URL = "https://horodatage-debug.ngrok-free.app/rapport" ». La fonction qui l'utilise n'est
+jamais appelée à l'import : la sandbox ne voit rien.
+
+> « Outil de debug oublié, ou porte de sortie ? La machine ne devine pas : elle demande à un
+> humain. »
+
+- « Tableau de bord », section « À trancher » : la 1.3 (et certifi, idna si elles y sont).
+- Fiche de la 1.3 : raison « Tunnel ngrok vers l'extérieur, non justifié par le mainteneur. »,
+  puis « Bloquer ». La preuve « admin : raison » s'ajoute et le journal la garde. Un second admin
+  qui tranche la même version en même temps est refusé, pas écrasé.
+- Si certifi et idna sont « à revoir » : les approuver avec une raison (« Alerte du LLM seule,
+  rien en statique ni en sandbox. »). Une approbation ne lève jamais un signal bloquant.
+
+### Si quelque chose casse pendant la démo (en plus du tableau H10)
+
+| Symptôme | Où regarder | Repli |
+|---|---|---|
+| Pas de « Références » sous l'explication du LLM | `rag_index/` présent dans `~/sas-pme` ? | l'explication reste ; la décision ne dépend pas du RAG : le dire |
+| La révocation affiche « Révocation échouée » (502) | le message de la passerelle sur la fiche | la version reste `publiee` : réessayer ; `curl -k https://10.42.2.10:8443/v1/health` |
+| « Lecture de l'inventaire échouée » | `SAS_PASSERELLE_URL` et `SAS_TLS_*` exportées ? | montrer la fiche révoquée et `pip show` sur le serveur |
+| Une page renvoie 403 « elle ne vient pas d'une page de cette origine » | l'adresse dans le navigateur | ouvrir l'interface par <http://localhost:8000> (le tunnel), pas par une autre adresse |
+| Le `curl` vers `api.github.com` échoue | journal du relais sur la plateforme | `verifier_h3.sh` ; montrer le refus de `pypi.org`, qui est le message principal |
+| Une analyse prend plus d'une minute de plus | `SAS_SANDBOX_ATTENTE` oubliée | relancer le web avec `SAS_SANDBOX_ATTENTE=10` |
+
+### Vérifier le point H16 (`docs/roadmap.md`)
+
+1. La démo H10 passe toujours (étapes 2, 3, 5).
+2. Le M2 se voit : le RAG cité (étape 3), la révocation et l'inventaire (étape 4), le relais d'API
+   (étape 1), le tableau de bord (étapes 0 et 6).
+3. Chacun note ce qui casse et le temps de chaque étape, puis écrit son point H16. Ensuite, on gèle
+   les fonctions.
