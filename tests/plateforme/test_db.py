@@ -119,3 +119,36 @@ def test_le_journal_refuse_modification_et_suppression(base, tmp_path):
             c.execute("DELETE FROM journal")
         with pytest.raises(sqlite3.DatabaseError):
             c.execute("UPDATE journal SET acteur = 'x'")
+
+
+# --- A4 (relecture de B) : état attendu, UPDATE et journal dans une même transaction ------------
+def test_changer_etat_avec_l_etat_attendu(base):
+    base.enregistrer_version(version())
+    base.changer_etat(PY, "requests", "2.32.4", Etat.A_REVOIR, "x", attendu=Etat.EN_ATTENTE)
+    assert base.lire_version(PY, "requests", "2.32.4").etat is Etat.A_REVOIR
+
+
+def test_changer_etat_refuse_un_etat_de_depart_inattendu(base):
+    base.enregistrer_version(version())
+    base.changer_etat(PY, "requests", "2.32.4", Etat.BLOQUEE, "bloquée d'abord")
+    n = base.compter_journal()
+    with pytest.raises(ValueError, match="bloquee"):
+        base.changer_etat(PY, "requests", "2.32.4", Etat.APPROUVEE, "x", attendu=Etat.A_REVOIR)
+    assert base.lire_version(PY, "requests", "2.32.4").etat is Etat.BLOQUEE
+    assert base.compter_journal() == n
+    with pytest.raises(KeyError):
+        base.changer_etat(PY, "inconnu", "1.0", Etat.BLOQUEE, "x", attendu=Etat.A_REVOIR)
+
+
+def test_changer_etat_sans_journal_ne_change_rien(base, monkeypatch):
+    base.enregistrer_version(version())
+
+    def panne(*a, **k):
+        raise sqlite3.OperationalError("disque plein")
+    monkeypatch.setattr(base, "_journaliser", panne)
+    with pytest.raises(sqlite3.OperationalError):
+        base.changer_etat(PY, "requests", "2.32.4", Etat.APPROUVEE, "x")
+    monkeypatch.undo()
+    assert base.lire_version(PY, "requests", "2.32.4").etat is Etat.EN_ATTENTE
+    base.changer_etat(PY, "requests", "2.32.4", Etat.BLOQUEE, "la base n'est pas restée bloquée")
+    assert base.verifier_journal() == (True, None)
