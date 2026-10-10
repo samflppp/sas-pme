@@ -13,6 +13,9 @@ from plateforme.pipeline.rag.documents import Document
 TAILLE_PASSAGE = 500          # caractères par passage donné au LLM (5 passages ≈ 800 tokens)
 LOT = 64
 COLLECTION = "sas_rag"
+REFERENTIEL = ["cwe", "capec", "attack", "rapport"]
+N_REFERENTIEL = 2             # places réservées aux fiches CWE / CAPEC / ATT&CK
+CANDIDATS = 8                 # candidats lus par place, pour écarter les textes répétés
 Plonger = Callable[[list[str]], list[list[float]]]
 
 
@@ -68,7 +71,22 @@ class Index:
                                    documents=[d.texte for d in lot],
                                    metadatas=[{"source": d.source} for d in lot])
 
+    def _interroger(self, vecteur, n: int, ou: dict) -> list[tuple[str, str]]:
+        r = self.collection.query(query_embeddings=vecteur, n_results=n, where=ou,
+                                  include=["documents"])
+        return list(zip(r["ids"][0], r["documents"][0]))
+
     def chercher(self, requete: str, n: int = 5) -> list[tuple[str, str]]:
-        r = self.collection.query(query_embeddings=self.plonger_requete([requete]),
-                                  n_results=n, include=["documents"])
-        return [(ref, texte[:TAILLE_PASSAGE]) for ref, texte in zip(r["ids"][0], r["documents"][0])]
+        """Les cas connus les plus proches, un seul par texte (une campagne répète le sien sur
+        des milliers d'avis), puis jusqu'à `N_REFERENTIEL` fiches CWE / CAPEC / ATT&CK."""
+        vecteur = self.plonger_requete([requete])
+        fiches = (self._interroger(vecteur, min(N_REFERENTIEL, n - 1),
+                                   {"source": {"$in": REFERENTIEL}}) if n > 1 else [])
+        cas, vus = [], set()
+        for ref, texte in self._interroger(vecteur, n * CANDIDATS,
+                                           {"source": {"$nin": REFERENTIEL}}):
+            corps = texte.rstrip().rsplit("\n", 1)[-1]
+            if corps not in vus:
+                vus.add(corps)
+                cas.append((ref, texte))
+        return [(ref, texte[:TAILLE_PASSAGE]) for ref, texte in cas[:n - len(fiches)] + fiches]

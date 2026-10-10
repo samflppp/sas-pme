@@ -74,6 +74,14 @@ def test_un_avis_retire_n_est_pas_indexe():
     assert documents.depuis_osv({**GHSA, "withdrawn": "2026-01-01T00:00:00Z"}) is None
 
 
+def test_un_avis_qui_ne_dit_rien_n_est_pas_indexe():
+    # 2 100 avis de l'export (10/10) se réduisent à « Malicious code in X » : rien à expliquer.
+    vide = {**MAL, "details": "\n---\n_-= Per source details. Do not edit below this line.=-_\n",
+            "affected": [{"package": {"name": "dider", "ecosystem": "PyPI"}}]}
+    assert documents.depuis_osv(vide) is None
+    assert documents.depuis_osv({**vide, "database_specific": {"cwe_ids": ["CWE-506"]}})
+
+
 def test_un_document_est_borne():
     d = documents.depuis_osv({**GHSA, "details": "x" * 50_000})
     assert len(d.texte) <= documents.TAILLE_DOCUMENT
@@ -153,6 +161,30 @@ def test_la_requete_decrit_la_version_par_ses_constats_les_plus_graves_d_abord()
     assert q.index("exfiltration") < q.index("domaine")
     assert "~/.aws/credentials" in q and "collecte.attaquant-demo.invalid" in q
     assert len(rag.requete(V, SIGNAUX * 200, RAPPORT)) <= rag.TAILLE_REQUETE
+
+
+def test_une_campagne_repetee_n_occupe_qu_un_passage(tmp_path):
+    # L'export répète le même texte sur des milliers d'avis (EsqueleSquad : 5 423).
+    ix = index.Index(tmp_path / "rag", plonger)
+    campagne = "spyware stealing aws credentials exfiltration"
+    ix.ajouter([documents.Document(f"MAL-{i}", "openssf", f"MAL-{i} — paquet{i}\n{campagne}")
+                for i in range(6)]
+               + [documents.Document("MAL-9", "openssf", "MAL-9 — x\nexfiltration of credentials")])
+    refs = [ref for ref, _ in ix.chercher(campagne, n=2)]
+    assert len(refs) == 2 and "MAL-9" in refs
+
+
+def test_deux_passages_sont_reserves_au_referentiel(tmp_path):
+    ix = index.Index(tmp_path / "rag", plonger)
+    ix.ajouter([documents.Document(f"MAL-{i}", "openssf", f"aws credentials exfiltration cas {i}")
+                for i in range(10)]
+               + [documents.Document("CWE-522", "cwe", "credentials protégés insuffisamment"),
+                  documents.Document("T1041", "attack", "exfiltration par le canal de commande")])
+    refs = [ref for ref, _ in ix.chercher("aws credentials exfiltration", n=5)]
+    assert len(refs) == 5 and set(refs[-2:]) == {"CWE-522", "T1041"}
+    assert all(r.startswith("MAL-") for r in refs[:3])
+    # Avec un seul passage, c'est le cas connu le plus proche.
+    assert ix.chercher("aws credentials exfiltration", n=1)[0][0].startswith("MAL-")
 
 
 def test_les_passages_sont_les_cas_connus_proches(tmp_path):
