@@ -102,6 +102,22 @@ def _lien_fiche(sujet: str) -> str | None:
     return f"/versions/{m[1]}/{m[2]}/{m[3]}" if m else None
 
 
+# traiter() (B) écrit « publication échouée : <message> » et laisse la version approuvée ;
+# un refus de la passerelle a pour message « passerelle <code> : <motif> » (PublicationRefusee, C).
+_ECHEC_PUBLICATION = re.compile(r"^publication échouée : (?:passerelle (\d{3}) : )?(.*)$", re.S)
+
+
+def etat_publication(etat: Etat, raison: str | None) -> dict | None:
+    """Pour une version approuvée mais pas publiée : un refus de la passerelle (signature,
+    hash, nonce…) n'est pas une panne réseau. None si la version n'est pas dans ce cas."""
+    m = _ECHEC_PUBLICATION.match(raison or "") if etat is Etat.APPROUVEE else None
+    if m is None:
+        return None
+    if m[1]:
+        return {"sorte": "refus", "code": m[1], "motif": m[2]}
+    return {"sorte": "panne", "motif": m[2]}
+
+
 def _delai_par_defaut() -> timedelta:
     """Le délai du pipeline (B), qui lit SAS_DELAI ; 3 jours sans le pipeline."""
     try:
@@ -250,7 +266,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         return page(request, "fiche.html", compte, code, fiche=f, sandbox=sandbox, autres=autres,
                     signaux=[(s, _lien_sur(s.preuve.get("url"))) for s in signaux],
                     historique=base.historique(eco, nom, version), trancher=trancher,
-                    erreur=erreur)
+                    erreur=erreur, publication=etat_publication(f.version.etat, f.raison))
 
     # --- décision humaine (admin) -------------------------------------------------
     @app.post("/decision")
