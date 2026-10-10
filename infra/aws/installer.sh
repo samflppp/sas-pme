@@ -81,6 +81,11 @@ set -euo pipefail
 id recepteur >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin -G pypi recepteur
 rm -rf /opt/recepteur && mkdir -p /opt/recepteur/code /etc/sas
 install -d -o recepteur -g recepteur -m 700 /var/lib/sas-recepteur   # nonces, registre (B : C6)
+for f in nonces.txt registre.txt; do   # passerelle déjà installée : on garde l'historique
+  if [[ -f /var/lib/sas/$f && ! -f /var/lib/sas-recepteur/$f ]]; then
+    mv /var/lib/sas/$f /var/lib/sas-recepteur/$f && chown recepteur:recepteur /var/lib/sas-recepteur/$f
+  fi
+done
 tar xzf /tmp/sas-code.tar.gz -C /opt/recepteur/code
 PIP=$(ls /tmp/wheels/pip-*.whl)
 python3 "$PIP/pip" install -q --no-index --find-links /tmp/wheels --target /opt/recepteur/lib \
