@@ -3,6 +3,7 @@
 Le code décide (politique), jamais le LLM. Une analyse qui échoue met « à revoir », jamais
 « approuvée ». Sans la sandbox ou la signature de C, rien n'est traité.
 """
+import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,17 +12,23 @@ import httpx
 
 from commun.modeles import Etat, RapportSandbox, Version
 from plateforme.db.acces import Base
-from plateforme.pipeline import politique, pypi
+from plateforme.pipeline import politique, pypi, veille
 from plateforme.pipeline.statique.nom import controler_nom
 
 Telecharger = Callable[[str, str, Path], list[Path]]
 Executer = Callable[..., RapportSandbox]
 Publier = Callable[..., None]
+Veiller = Callable[[Base, datetime], object]
 
 
 def _telecharger_pypi(nom: str, version: str, dossier: Path) -> list[Path]:
     with httpx.Client(timeout=60, follow_redirects=True) as client:
         return pypi.telecharger(nom, version, dossier, client=client)
+
+
+def _veiller_reseau(base: Base, maintenant: datetime) -> None:
+    with httpx.Client(timeout=30, follow_redirects=True) as client:
+        veille.veiller(base, maintenant, client=client)
 
 
 def _de_c(module: str, fonction: str):
@@ -54,15 +61,20 @@ def _publier(base: Base, v: Version, archives: list[Path], verdict_id: int,
 
 def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta | None = None,
             dossier: Path = Path("archives"), telecharger: Telecharger | None = None,
-            executer: Executer | None = None, publier: Publier | None = None
-            ) -> list[tuple[Version, Etat]]:
-    """Republie les approuvées non publiées, puis traite chaque version en attente dont le délai est
+            executer: Executer | None = None, publier: Publier | None = None,
+            veiller: Veiller | None = None) -> list[tuple[Version, Etat]]:
+    """Fait un tour de veille, republie les approuvées non publiées, puis traite chaque version en attente dont le délai est
     écoulé ; renvoie (version, état final). Fait pour être appelée en boucle (tâche de fond de A)."""
     telecharger = telecharger or _telecharger_pypi
     executer = executer or _de_c("sandbox", "executer")
     publier = publier or _de_c("signature", "publier")
     maintenant = maintenant or datetime.now(timezone.utc)
     delai = pypi.delai() if delai is None else delai
+    # La veille d'abord : nouvelles versions en attente, versions retirées ou malveillantes bloquées.
+    try:
+        (veiller or _veiller_reseau)(base, maintenant)
+    except Exception as e:  # noqa: BLE001 — sans veille ce tour-ci, l'analyse continue
+        print(f"[sas-pme] veille : {e!r}", file=sys.stderr)
     resultats = []
     # D'abord, les versions approuvées pas encore publiées (passerelle injoignable au tour d'avant).
     # Les archives vérifiées à l'analyse sont reprises : pas de nouveau téléchargement à chaque tour.
