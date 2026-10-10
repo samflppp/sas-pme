@@ -1,7 +1,9 @@
 """LLM local (contrat § 6) : il alerte et explique, il ne décide jamais.
 
 - Ollama local seulement (`SAS_OLLAMA_URL`, 127.0.0.1 par défaut), modèle `SAS_MODELE`
-  (`qwen2.5-coder:3b` par défaut : la plateforme tourne sur CPU), température 0.
+  (`qwen2.5-coder:7b` par défaut, choix de Sam ; `qwen2.5-coder:3b` en repli), température 0.
+- Contexte fixé (`num_ctx`) et prompt borné : au-delà du contexte, Ollama couperait le début du
+  prompt, c'est-à-dire la consigne système.
 - Tout ce qu'il lit (constats, extraits du paquet, rapport de sandbox, passages du RAG) est encadré
   par `<donnee>` et échappé : un texte lu n'est jamais une instruction.
 - Sa réponse est validée par le schéma `VerdictLLM` : des signaux de niveau **au plus FORT**, une
@@ -29,6 +31,9 @@ SYSTEME = (
     "pour un CTO sans équipe sécurité. Ne cite que les références présentes dans les documents "
     "fournis. Réponds uniquement en JSON, selon le schéma imposé."
 )
+CONTEXTE = 8192          # tokens ; le prompt borné ci-dessous en prend au plus ≈ 4 000
+MAX_CONSTATS = 30
+MAX_LISTE_SANDBOX = 20
 
 
 class SignalLLM(BaseModel):
@@ -53,7 +58,7 @@ class ResultatLLM:
 
 
 def modele() -> str:
-    return os.environ.get("SAS_MODELE", "").strip() or "qwen2.5-coder:3b"
+    return os.environ.get("SAS_MODELE", "").strip() or "qwen2.5-coder:7b"
 
 
 def url() -> str:
@@ -67,16 +72,25 @@ def _donnee(sorte: str, contenu: object) -> str:
     return f'<donnee type="{sorte}">\n{texte}\n</donnee>'
 
 
+def _rapport_borne(rapport: RapportSandbox) -> dict:
+    sortie = rapport.model_dump()
+    for cle, valeur in sortie.items():
+        if isinstance(valeur, list) and len(valeur) > MAX_LISTE_SANDBOX:
+            reste = len(valeur) - MAX_LISTE_SANDBOX
+            sortie[cle] = [*valeur[:MAX_LISTE_SANDBOX], f"… {reste} de plus"]
+    return sortie
+
+
 def messages(v: Version, signaux: list[Signal], rapport: RapportSandbox,
              passages: list[tuple[str, str]] | tuple = ()) -> list[dict]:
     constats = [{"source": s.source.value, "niveau": s.niveau.value, "sorte": s.sorte,
                  **{k: s.preuve[k] for k in ("fichier", "ligne", "extrait", "domaine")
-                    if k in s.preuve}} for s in signaux[:30]]
+                    if k in s.preuve}} for s in signaux[:MAX_CONSTATS]]
     corps = "\n\n".join([
         f"Paquet : {v.ecosysteme.value} {v.nom} {v.version}.",
         "Constats des contrôles automatiques :", _donnee("constats", constats),
         "Rapport de la sandbox (installation et import sans réseau réel, avec leurres) :",
-        _donnee("sandbox", rapport.model_dump()),
+        _donnee("sandbox", _rapport_borne(rapport)),
         "Documents de référence (failles et paquets malveillants connus) :",
         _donnee("rag", [{"ref": r, "texte": t} for r, t in passages]),
         "Signale ce qui est suspect et explique le risque en français.",
@@ -92,7 +106,7 @@ def analyser(base: Base, v: Version, signaux: list[Signal], rapport: RapportSand
         r = client.post(f"{url}/api/chat", json={
             "model": modele, "messages": messages(v, signaux, rapport, passages),
             "format": VerdictLLM.model_json_schema(), "stream": False,
-            "options": {"temperature": 0}})
+            "options": {"temperature": 0, "num_ctx": CONTEXTE}})
         r.raise_for_status()
         contenu = r.json()["message"]["content"]
     except (httpx.HTTPError, KeyError, ValueError) as e:
