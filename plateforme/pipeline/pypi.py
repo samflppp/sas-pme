@@ -5,6 +5,7 @@ par SAS_PYPI_URL (source amont de démo, voir docs/architecture.md § 7).
 """
 import hashlib
 import os
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -13,9 +14,13 @@ from packaging.version import InvalidVersion, Version as VersionPep440
 
 BASE = os.environ.get("SAS_PYPI_URL", "https://pypi.org")
 DELAI = timedelta(days=3)
+# Nom de projet PEP 508 : rien qui puisse sortir du chemin /pypi/<nom>/json.
+_NOM_VALIDE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9._-]{0,212}[A-Za-z0-9])?$")
 
 
 def metadonnees(nom: str, *, client: httpx.Client, base: str = BASE) -> dict:
+    if not _NOM_VALIDE.match(nom):
+        raise ValueError(f"nom de paquet invalide : {nom!r}")
     r = client.get(f"{base}/pypi/{nom}/json")
     if r.status_code == 404:
         raise LookupError(f"paquet inconnu sur PyPI : {nom}")
@@ -58,7 +63,8 @@ def telecharger(nom: str, version: str, dossier: Path, *, client: httpx.Client,
     if not fichiers:
         raise LookupError(f"aucun fichier pour {nom} {version}")
     for f in fichiers:
-        if Path(f["filename"]).name != f["filename"] or f["filename"].startswith("."):
+        if not f["filename"] or Path(f["filename"]).name != f["filename"] \
+                or f["filename"].startswith("."):
             raise ValueError(f"nom de fichier refusé : {f['filename']!r}")
     dossier.mkdir(parents=True, exist_ok=True)
     ecrits: list[Path] = []

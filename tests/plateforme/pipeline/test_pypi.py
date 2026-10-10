@@ -90,3 +90,20 @@ def test_telecharger_refuse_un_nom_de_fichier_qui_sort_du_dossier(tmp_path):
     respx.get(f"{BASE}/pypi/demo/json").respond(json=meta)
     with httpx.Client() as client, pytest.raises(ValueError, match="nom de fichier"):
         pypi.telecharger("demo", "1.0", tmp_path, client=client, base=BASE)
+
+
+@pytest.mark.parametrize("nom", ["../simple", "a/b", "", "-demo", "demo?x=1"])
+def test_nom_de_paquet_invalide_refuse_sans_appel_reseau(nom):
+    with respx.mock(assert_all_called=False) as routes, httpx.Client() as client:
+        with pytest.raises(ValueError, match="nom de paquet"):
+            pypi.metadonnees(nom, client=client, base=BASE)
+        assert routes.calls.call_count == 0
+
+
+@respx.mock
+def test_telecharger_refuse_un_nom_de_fichier_vide(tmp_path):
+    meta = metadonnees()
+    meta["releases"]["1.0"] = [fichier("", MAINTENANT)]
+    respx.get(f"{BASE}/pypi/demo/json").respond(json=meta)
+    with httpx.Client() as client, pytest.raises(ValueError, match="nom de fichier"):
+        pypi.telecharger("demo", "1.0", tmp_path, client=client, base=BASE)
