@@ -71,6 +71,19 @@ def duree_lisible(d: timedelta) -> str:
     return f"{s} s"
 
 
+def _compter(valeurs: list[str]) -> list[str]:
+    """« exfil.demo.invalid (×6) » : une ligne par valeur, dans l'ordre d'apparition."""
+    vues: dict[str, int] = {}
+    for v in valeurs:
+        vues[v] = vues.get(v, 0) + 1
+    return [f"{v} (×{n})" if n > 1 else v for v, n in vues.items()]
+
+
+def _lien_sur(url: object) -> str | None:
+    """Seuls http et https deviennent des liens : une preuve vient parfois d'Internet."""
+    return url if isinstance(url, str) and re.match(r"^https?://", url, re.I) else None
+
+
 def _delai_par_defaut() -> timedelta:
     """Le délai du pipeline (B), qui lit SAS_DELAI ; 3 jours sans le pipeline."""
     try:
@@ -203,7 +216,16 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         f = base.fiche(eco, nom, version)
         if f is None:
             raise HTTPException(status_code=404)
-        return page(request, "fiche.html", compte, fiche=f)
+        signaux = sorted(f.signaux, key=lambda s: -s.niveau.rang)  # le plus grave d'abord
+        r = f.rapport_sandbox
+        sandbox = None if r is None else {
+            "dns": _compter(r.requetes_dns), "connexions": _compter(r.connexions),
+            "fichiers": _compter(r.fichiers_sensibles), "leurres": _compter(r.leurres_lus),
+            "processus": _compter(r.processus), "rapport": r}
+        autres = [v for v in base.versions_du_paquet(eco, nom) if v.version != version]
+        return page(request, "fiche.html", compte, fiche=f, sandbox=sandbox, autres=autres,
+                    signaux=[(s, _lien_sur(s.preuve.get("url"))) for s in signaux],
+                    historique=base.historique(eco, nom, version))
 
     # --- file d'attente ---------------------------------------------------------
     @app.get("/file-attente", response_class=HTMLResponse)

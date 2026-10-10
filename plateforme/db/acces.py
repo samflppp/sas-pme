@@ -127,6 +127,12 @@ class Base:
                                    (etat.value,)).fetchall()
         return [self._version(r) for r in rows]
 
+    def versions_du_paquet(self, eco: Ecosysteme, nom: str) -> list[Version]:
+        """Toutes les versions connues d'un paquet, la plus récemment publiée d'abord."""
+        rows = self._c.execute("SELECT * FROM versions WHERE ecosysteme=? AND nom=? "
+                               "ORDER BY publiee_le DESC, version DESC", (eco.value, nom)).fetchall()
+        return [self._version(r) for r in rows]
+
     def lister_avec_raison(self, etats: list[Etat]) -> list[tuple[Version, str]]:
         """Versions dans ces états, avec la raison de leur dernier changement, par date de publication."""
         marques = ",".join("?" * len(etats))
@@ -307,6 +313,13 @@ class Base:
 
     def journal(self, limite: int = 500) -> list[EntreeJournal]:
         rows = self._c.execute("SELECT * FROM journal ORDER BY seq LIMIT ?", (limite,)).fetchall()
+        return [EntreeJournal(r["seq"], datetime.fromisoformat(r["a"]), r["acteur"], r["action"],
+                              r["sujet"], json.loads(r["charge"])) for r in rows]
+
+    def historique(self, eco: Ecosysteme, nom: str, version: str) -> list[EntreeJournal]:
+        """Les entrées du journal qui concernent une version, dans l'ordre."""
+        rows = self._c.execute("SELECT * FROM journal WHERE sujet = ? ORDER BY seq",
+                               (_cle(eco, nom, version),)).fetchall()
         return [EntreeJournal(r["seq"], datetime.fromisoformat(r["a"]), r["acteur"], r["action"],
                               r["sujet"], json.loads(r["charge"])) for r in rows]
 
