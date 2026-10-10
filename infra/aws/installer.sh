@@ -11,7 +11,7 @@ SCP="scp -F ../secrets/ssh_config"
 echo "== 1. Plateforme : outils, wheels pour la passerelle, clé SSH du stub publier()"
 $SSH sas-plateforme bash -s <<'EOF'
 set -euo pipefail
-sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-venv docker.io
+sudo apt-get update -q && sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-venv docker.io restic
 sudo usermod -aG docker ubuntu           # sandbox : l'appli lance ses conteneurs (nouvelle session SSH)
 # DNS : la plateforme (seule reliée à Internet) passe par des résolveurs publics, car le DNS du VPC
 # est coupé à l'étape 12 (sinon le serveur privé pourrait faire fuir des données par DNS, B : C5).

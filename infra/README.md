@@ -53,3 +53,14 @@ pypi.org. L'envoi (upload) est fermé : seule la plateforme publie, par copie da
 - `installer.sh` affiche les variables `SAS_PASSERELLE_URL`, `SAS_CLE_SIGNATURE`, `SAS_TLS_*` à
   donner au web. Sans `SAS_PASSERELLE_URL`, `publier()` reste sur le stub scp du M0.
 - Démo H10 étape 3 : `demo/forger.sh` sur la plateforme ; la passerelle répond 401.
+
+## Sauvegardes (M2)
+
+`infra/sauvegarde.sh sauver|restaurer|verifier`, sur la plateforme (`docs/sauvegardes.md`) :
+- `restic` vers un dépôt local chiffré (`RESTIC_REPOSITORY`, mot de passe dans
+  `RESTIC_PASSWORD_FILE`, 0600, hors Git), rétention de 30 jours ;
+- la base est prise par l'API de sauvegarde de SQLite : l'instantané est cohérent même base ouverte ;
+- les dossiers de `SAS_SAUVEGARDE_DOSSIERS` (listes fermées, certificats) sont joints, **sans** les
+  clés privées (signature, TLS, SSH) ni la clé HMAC du journal : une sauvegarde volée ne permet ni
+  de publier ni de réécrire le journal ;
+- `verifier` contrôle la chaîne du journal (il faut la même `SAS_CLE_JOURNAL`).
