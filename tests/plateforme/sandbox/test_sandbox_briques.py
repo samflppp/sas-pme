@@ -54,7 +54,7 @@ def test_le_traceur_note_fichiers_processus_et_reseau(tmp_path):
     leurre.parent.mkdir()
     leurre.write_text("[default]\n")
     code = (f"open({str(leurre)!r}).read()\n"
-            "import subprocess; subprocess.run(['true'])\n"
+            "import subprocess, sys; subprocess.run([sys.executable, '-c', 'pass', 'marqueur-sas'])\n"
             "import socket\n"
             "try: socket.getaddrinfo('evil.example.com', 443)\n"
             "except OSError: pass\n")
@@ -63,7 +63,7 @@ def test_le_traceur_note_fichiers_processus_et_reseau(tmp_path):
     evenements = [json.loads(l) for l in journal.read_text().splitlines()]
     sortes = {(e["e"], str(e.get("v"))) for e in evenements}
     assert ("open", str(leurre)) in sortes
-    assert any(e["e"] == "processus" and "true" in e["v"] for e in evenements)
+    assert any(e["e"] == "processus" and "marqueur-sas" in e["v"] for e in evenements)
     assert ("dns", "evil.example.com:443") in sortes
 
 
