@@ -36,16 +36,42 @@ def _archive_a_executer(archives: list[Path]) -> Path:
     return (roues or archives)[0]
 
 
+def _publier(base: Base, v: Version, archives: list[Path], verdict_id: int,
+             publier: Publier) -> Etat:
+    """Publie ; en cas d'échec, reste approuvée (retentée au tour suivant), sans répéter le journal."""
+    cle = (v.ecosysteme, v.nom, v.version)
+    try:
+        publier(v.ecosysteme, v.nom, v.version, archives, verdict_id)
+    except Exception as e:  # noqa: BLE001 — reste approuvée, à republier
+        raison = f"publication échouée : {e}"
+        if base.fiche(*cle).raison != raison:
+            base.changer_etat(*cle, Etat.APPROUVEE, raison)
+        return Etat.APPROUVEE
+    base.changer_etat(*cle, Etat.PUBLIEE, "signée et publiée dans la passerelle")
+    return Etat.PUBLIEE
+
+
 def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta = pypi.DELAI,
             dossier: Path = Path("archives"), telecharger: Telecharger | None = None,
             executer: Executer | None = None, publier: Publier | None = None
             ) -> list[tuple[Version, Etat]]:
-    """Traite chaque version en attente dont le délai est écoulé ; renvoie (version, état final)."""
+    """Republie les approuvées non publiées, puis traite chaque version en attente dont le délai est
+    écoulé ; renvoie (version, état final). Fait pour être appelée en boucle (tâche de fond de A)."""
     telecharger = telecharger or _telecharger_pypi
     executer = executer or _de_c("sandbox", "executer")
     publier = publier or _de_c("signature", "publier")
     maintenant = maintenant or datetime.now(timezone.utc)
     resultats = []
+    # D'abord, les versions approuvées pas encore publiées (passerelle injoignable au tour d'avant).
+    for v in base.lister_versions(Etat.APPROUVEE):
+        fiche = base.fiche(v.ecosysteme, v.nom, v.version)
+        if fiche.verdict_id is None:
+            continue
+        try:
+            archives = telecharger(v.nom, v.version, dossier / v.nom / v.version)
+        except Exception:  # noqa: BLE001 — on retentera au tour suivant
+            continue
+        resultats.append((v, _publier(base, v, archives, fiche.verdict_id, publier)))
     for v in base.versions_a_traiter(maintenant, delai):
         cle = (v.ecosysteme, v.nom, v.version)
         base.changer_etat(*cle, Etat.EN_ANALYSE, "analyse en cours")
@@ -63,11 +89,6 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
         base.changer_etat(*cle, verdict.etat, verdict.raison)
         etat = verdict.etat
         if etat is Etat.APPROUVEE:
-            try:
-                publier(v.ecosysteme, v.nom, v.version, archives, verdict_id)
-                base.changer_etat(*cle, Etat.PUBLIEE, "signée et publiée dans la passerelle")
-                etat = Etat.PUBLIEE
-            except Exception as e:  # noqa: BLE001 — reste approuvée, à republier
-                base.changer_etat(*cle, Etat.APPROUVEE, f"publication échouée : {e}")
+            etat = _publier(base, v, archives, verdict_id, publier)
         resultats.append((v, etat))
     return resultats
