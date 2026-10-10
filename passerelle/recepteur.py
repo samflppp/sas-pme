@@ -24,6 +24,7 @@ from fastapi import FastAPI, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from passerelle.inventaire import inventaire as _inventaire
+from passerelle.inventaire import meme_version
 from passerelle.verification import Refus, verifier
 
 _NOM_SUR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -96,10 +97,11 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
             m = _verifier(manifeste, signature, {}, "revocation")
             if not (_NOM_SUR.match(m.nom) and _NOM_SUR.match(m.version)):
                 raise HTTPException(400, "nom ou version interdit")
-            prefixes = {f"{n}-{m.version}{s}" for n in {m.nom, m.nom.replace("-", "_")}
-                        for s in ("-", ".tar", ".zip")}
+            # Même règle de noms que l'inventaire (PEP 503 / PEP 440). Rien à retirer → 200 quand
+            # même : la version est absente, c'est l'état voulu (sinon l'admin ne peut plus la
+            # marquer révoquée) ; `retire: []` le dit.
             retires = [p.name for p in depot.iterdir()
-                       if any(p.name.lower().startswith(x.lower()) for x in prefixes)]
+                       if p.is_file() and meme_version(p.name, m.nom, m.version)]
             for nom in retires:
                 (depot / nom).unlink()
             _noter("retire", retires)

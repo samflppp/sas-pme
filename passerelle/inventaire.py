@@ -205,3 +205,18 @@ def inventaire(lignes: Iterable[str], fichiers_depot: Iterable[str],
                               telechargements=compte.get((n, v), 0), dernier=dernier.get((n, v))),
              machines.get((n, v), []))
             for n, v in sorted(versions)]
+
+
+def meme_version(archive: str, nom: str, version: str) -> bool:
+    """L'archive appartient-elle à (nom, version) ? Même règle que l'inventaire : nom PEP 503,
+    version normalisée (PEP 440). Sert à la révocation (B, C4)."""
+    from packaging.utils import canonicalize_name, canonicalize_version
+
+    nv = _nom_version(archive)
+    if nv is None:
+        return False
+    try:
+        return nv[0] == canonicalize_name(nom) and \
+            canonicalize_version(nv[1]) == canonicalize_version(version)
+    except ValueError:
+        return False

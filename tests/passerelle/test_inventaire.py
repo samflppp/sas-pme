@@ -180,3 +180,13 @@ def test_une_action_inconnue_au_registre_est_ignoree():
     registre = ["2026-10-11T08:00:00+00:00 efface " + ROUE_R]
     v = _par_version(construire([_get(ROUE_R, "2026-10-11 09:00:00")], [ROUE_R], registre))
     assert v["requests", "2.32.4"][0] == 1
+
+
+def test_meme_version_normalise_nom_et_version():
+    from passerelle.inventaire import meme_version
+    roue = "zope_interface-6.0-cp312-cp312-manylinux_2_17_x86_64.whl"
+    assert meme_version(roue, "Zope.Interface", "6.0")
+    assert meme_version("zope.interface-6.0.tar.gz", "zope-interface", "6.0.0")
+    assert not meme_version(roue, "zope-interface", "6.0.1")
+    assert not meme_version("zope.interface.ext-6.0.tar.gz", "zope-interface", "6.0")
+    assert not meme_version("README", "zope-interface", "6.0")

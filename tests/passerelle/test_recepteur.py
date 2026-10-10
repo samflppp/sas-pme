@@ -193,3 +193,23 @@ def test_revocation_retire_roue_et_sdist_et_repond_200_meme_si_deja_absente(env)
     r2 = client.post("/v1/revoke", data={"manifeste": canonique(m2).decode(),
                                          "signature": ed25519.signer(m2, cle)})
     assert (r2.status_code, r2.json()["retire"]) == (200, [])
+
+
+def test_revocation_suit_la_regle_des_noms_de_l_inventaire(env):
+    """B (C4) : `zope.interface` → `zope.interface-6.0.tar.gz` et `zope_interface-6.0-…whl` ; la
+    règle « - devient _ » ratait le sdist. On garde les autres versions et les autres paquets."""
+    client, depot, cle, _ = env
+    for f in ("zope.interface-6.0.tar.gz", "zope_interface-6.0-cp312-cp312-manylinux_2_17_x86_64.whl",
+              "zope.interface-6.0.1.tar.gz", "zope.interface.ext-6.0.tar.gz",
+              "zope_interface-6.0.1-py3-none-any.whl"):
+        (depot / f).write_bytes(b"x")
+    m = Manifeste(type="revocation", ecosysteme=Ecosysteme.PYPI, nom="zope-interface",
+                  version="6.0", emis_le=MAINTENANT, nonce="z" * 32, raison="test")
+    r = client.post("/v1/revoke", data={"manifeste": canonique(m).decode(),
+                                        "signature": ed25519.signer(m, cle)})
+    assert r.status_code == 200
+    assert sorted(r.json()["retire"]) == ["zope.interface-6.0.tar.gz",
+                                          "zope_interface-6.0-cp312-cp312-manylinux_2_17_x86_64.whl"]
+    assert sorted(p.name for p in depot.iterdir()) == [
+        "zope.interface-6.0.1.tar.gz", "zope.interface.ext-6.0.tar.gz",
+        "zope_interface-6.0.1-py3-none-any.whl"]
