@@ -139,3 +139,22 @@ def test_dependances_absentes():
     respx.get(f"{BASE}/pypi/demo/1.1/json").respond(json={"info": {"requires_dist": None}})
     with httpx.Client() as client:
         assert pypi.dependances("demo", "1.1", client=client, base=BASE) == []
+
+
+# --- SAS_DELAI : délai réglable pour la démo (M1) ---
+
+def test_sans_sas_delai_le_delai_est_de_3_jours(monkeypatch):
+    monkeypatch.delenv("SAS_DELAI", raising=False)
+    assert pypi.delai() == timedelta(days=3)
+
+
+def test_sas_delai_se_donne_en_secondes(monkeypatch):
+    monkeypatch.setenv("SAS_DELAI", "120")
+    assert pypi.delai() == timedelta(minutes=2)
+
+
+@pytest.mark.parametrize("brut", ["deux minutes", "0", "-60", "1.5", "inf"])
+def test_un_sas_delai_invalide_est_refuse_plutot_que_d_annuler_l_attente(monkeypatch, brut):
+    monkeypatch.setenv("SAS_DELAI", brut)
+    with pytest.raises(ValueError, match="SAS_DELAI"):
+        pypi.delai()

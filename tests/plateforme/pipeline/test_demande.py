@@ -108,3 +108,22 @@ def test_trop_de_dependances_est_refuse(base, monkeypatch):
     with pytest.raises(ValueError, match="dépendances"):
         pipeline.demander(Ecosysteme.PYPI, "requests", maintenant=MAINTENANT, base=base)
     assert enregistrees(base) == []
+
+
+def test_demander_prend_le_delai_de_sas_delai(base, monkeypatch):
+    vus = []
+
+    def faux_choix(nom, maintenant, *, delai, specifier=None, **_):
+        vus.append(delai)
+        return ("1.1", PUBLIEE)
+
+    monkeypatch.setattr(pipeline.pypi, "derniere_version_mure", faux_choix)
+    monkeypatch.setenv("SAS_DELAI", "120")
+    pipeline.demander(Ecosysteme.PYPI, "demo", maintenant=MAINTENANT, base=base)
+    assert vus == [timedelta(minutes=2)]
+
+
+def test_le_message_d_erreur_donne_le_delai_de_la_demo(base, monkeypatch):
+    monkeypatch.setenv("SAS_DELAI", "120")
+    with pytest.raises(LookupError, match="120 s"):
+        pipeline.demander(Ecosysteme.PYPI, "absent", maintenant=MAINTENANT, base=base)

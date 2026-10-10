@@ -1,7 +1,7 @@
 """Client PyPI : lit l'API JSON publique, choisit la dernière version mûre, télécharge en vérifiant.
 
 Ne sortent vers Internet que le nom du paquet et des téléchargements publics. La base est réglable
-par SAS_PYPI_URL (source amont de démo, voir docs/architecture.md § 7).
+par SAS_PYPI_URL (source amont de démo, voir docs/architecture.md § 7), le délai par SAS_DELAI.
 """
 import hashlib
 import os
@@ -24,6 +24,24 @@ CIBLE = {**default_environment(), "python_version": "3.12", "python_full_version
          "sys_platform": "linux", "platform_system": "Linux", "os_name": "posix",
          "platform_machine": "x86_64", "extra": ""}
 _NOM_VALIDE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9._-]{0,212}[A-Za-z0-9])?$")
+
+
+def delai() -> timedelta:
+    """Délai d'attente : SAS_DELAI en secondes entières (démo : 120), sinon 3 jours.
+
+    Lu à chaque appel. Une valeur illisible ou nulle est refusée : elle ne doit jamais annuler
+    l'attente en silence.
+    """
+    brut = os.environ.get("SAS_DELAI", "").strip()
+    if not brut:
+        return DELAI
+    if not brut.isdigit() or int(brut) == 0:
+        raise ValueError(f"SAS_DELAI doit être un nombre entier de secondes > 0, pas {brut!r}")
+    return timedelta(seconds=int(brut))
+
+
+def texte_delai(d: timedelta) -> str:
+    return f"{d.days} jours" if d == timedelta(days=d.days) else f"{int(d.total_seconds())} s"
 
 
 def metadonnees(nom: str, *, client: httpx.Client, base: str = BASE) -> dict:

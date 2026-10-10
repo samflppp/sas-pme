@@ -164,3 +164,13 @@ def test_un_typosquat_n_est_pas_approuve_et_sa_preuve_est_sur_la_fiche(base, fau
     fiche = base.fiche(Ecosysteme.PYPI, "reqeusts", "1.0")
     assert [s.sorte for s in fiche.signaux] == ["typosquat"]
     assert fiche.verdict.etat is Etat.A_REVOIR and "requests" in fiche.raison
+
+
+def test_sas_delai_raccourcit_l_attente_pour_la_demo(base, faux, monkeypatch):
+    deps, _ = faux
+    monkeypatch.setenv("SAS_DELAI", "120")
+    base.enregistrer_version(Version(ecosysteme=Ecosysteme.PYPI, nom="demo-piegee", version="1.0",
+                                     publiee_le=MAINTENANT - timedelta(minutes=3),
+                                     detectee_le=MAINTENANT, etat=Etat.EN_ATTENTE))
+    traites = {v.nom for v, _ in traitement.traiter(base, MAINTENANT, **deps)}
+    assert traites == {"mure", "jeune", "demo-piegee"}   # 2 min écoulées pour tous

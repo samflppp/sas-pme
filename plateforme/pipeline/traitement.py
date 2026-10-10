@@ -52,7 +52,7 @@ def _publier(base: Base, v: Version, archives: list[Path], verdict_id: int,
     return Etat.PUBLIEE
 
 
-def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta = pypi.DELAI,
+def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta | None = None,
             dossier: Path = Path("archives"), telecharger: Telecharger | None = None,
             executer: Executer | None = None, publier: Publier | None = None
             ) -> list[tuple[Version, Etat]]:
@@ -62,6 +62,7 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
     executer = executer or _de_c("sandbox", "executer")
     publier = publier or _de_c("signature", "publier")
     maintenant = maintenant or datetime.now(timezone.utc)
+    delai = pypi.delai() if delai is None else delai
     resultats = []
     # D'abord, les versions approuvées pas encore publiées (passerelle injoignable au tour d'avant).
     # Les archives vérifiées à l'analyse sont reprises : pas de nouveau téléchargement à chaque tour.
