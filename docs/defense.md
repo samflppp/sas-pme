@@ -69,9 +69,30 @@ Les versions piégées sont le plus souvent repérées et retirées en quelques 
 veille lit OSV, PyPI et les flux de chercheurs. Le délai est réglable (`SAS_DELAI`).
 
 **« Et un correctif de sécurité urgent ? 3 jours, c'est long. »**
-Aujourd'hui, le délai s'applique à toutes les versions : **pas de voie d'urgence dans le MVP** (§ 6).
-La réponse prévue : un admin lève le délai d'une version précise, avec une raison. Le reste du
-parcours ne change pas (statique, sandbox, LLM, signature), et le geste est inscrit au journal.
+- **L'urgence est le meilleur déguisement d'une version piégée.** Un mainteneur compromis publie
+  rarement « une version piégée » : il publie « un correctif de sécurité, mettez à jour tout de
+  suite ». Si une étiquette « urgent » suffisait à sauter le délai, le délai ne protégerait plus.
+- **L'analyse ne prend pas de retard.** La version urgente passe la statique, la sandbox et le LLM
+  pendant son attente : on sait tôt si elle est saine. Le serveur garde entre-temps sa version
+  actuelle, qui marche.
+- **Le cloisonnement réduit le risque de l'attente, il ne l'annule pas.** Le serveur n'a pas de
+  sortie vers Internet : une faille exploitée pendant ces 3 jours peut difficilement exfiltrer des
+  données ou télécharger une seconde charge. Il ne bloque pas une attaque entrante : ne pas dire que
+  le serveur est intouchable.
+- **La sortie de secours, prévue juste après le hackathon : une voie d'urgence tracée.** Un admin lève
+  le délai d'**une** version, avec une raison écrite. L'analyse complète tourne quand même (statique,
+  sandbox, LLM, politique, signature) : une version piégée reste bloquée. Le geste est inscrit au
+  journal (qui, quand, pourquoi), pour l'auditeur.
+- **Aujourd'hui :** le délai se règle (`SAS_DELAI`), mais pour toutes les versions à la fois ; la levée
+  version par version n'existe pas encore (§ 6). Le dire si le jury insiste.
+
+> « Le délai protège justement contre les fausses urgences, le meilleur déguisement d'une version
+> piégée. Pour une vraie urgence, un admin lève le délai d'une seule version, avec sa raison ;
+> l'analyse complète tourne quand même, et le geste est signé au journal. On saute l'attente, jamais
+> la vérification. »
+
+À ne pas avancer : un chiffre sur le temps que met une PME à appliquer un correctif, ou un exemple
+réel de faux correctif d'urgence ; aucun n'est vérifié.
 
 ### L'efficacité défensive (25 %)
 
@@ -163,7 +184,8 @@ de l'eau et attendent 3 jours : ce temps ne gêne personne. Pas de GPU nécessai
 - **pip seulement.** npm (Verdaccio sans source amont) est conçu mais pas construit : coupé de la
   démo le 2026-10-11. Le parcours est le même ; seul le dépôt de la passerelle change.
 - **Pas de WireGuard.** La démo est sur un réseau local (AWS) ; le mode hors site vient ensuite.
-- **Pas de voie d'urgence** pour un correctif critique (§ 4).
+- **Pas de voie d'urgence** pour un correctif critique : le délai se règle pour toutes les versions
+  à la fois, pas pour une seule (§ 4).
 - **Fin du journal non ancrée** : effacer les dernières entrées n'est pas détecté (§ 4).
 - **Une plateforme réellement prise peut signer** : clé matérielle dans la version suivante.
 - **Mesure sur corpus**, pas en production. Les chiffres valent pour ces corpus, à leur date.
