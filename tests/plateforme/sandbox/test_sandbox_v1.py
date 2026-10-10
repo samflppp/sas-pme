@@ -157,3 +157,35 @@ def test_v2_un_import_lent_est_attendu_jusqu_au_bout(tmp_path, monkeypatch):
     r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "lent_demo", LENT), "lent_demo")
     assert "lent.attaquant-demo.example" in r.requetes_dns
     assert r.code_sortie == 0
+
+
+EFFACEUR = '''
+import os, time
+if os.fork() == 0:
+    os.setsid()
+    time.sleep(2)            # après la fin de l'import, pendant l'attente du battement
+    for f in ("/journal/trace.jsonl", "/journal/strace_import.txt"):
+        try:
+            os.truncate(f, 0)
+        except OSError:
+            pass
+    os._exit(0)
+'''
+
+
+@pytest.mark.docker
+@avec_docker
+def test_c2_un_paquet_qui_efface_ses_traces_est_signale(tmp_path, monkeypatch):
+    from plateforme.sandbox import rapport
+    monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "4")
+    r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "effaceur_demo", EFFACEUR), "effaceur_demo")
+    assert r.processus and r.processus[0] == rapport.TRACES_EFFACEES
+
+
+@pytest.mark.docker
+@avec_docker
+def test_c2_un_paquet_sage_n_est_pas_signale(tmp_path, monkeypatch):
+    from plateforme.sandbox import rapport
+    monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "1")
+    r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "sage2", "X = 1\n"), "sage2")
+    assert rapport.TRACES_EFFACEES not in r.processus

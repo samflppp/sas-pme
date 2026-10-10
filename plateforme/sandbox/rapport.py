@@ -21,6 +21,11 @@ SENSIBLES_ABSOLUS = ("/etc/shadow", "/etc/passwd", "/etc/sudoers", "/root/")
 # Fichiers leurres que la sandbox pose dans le HOME.
 FICHIERS_LEURRES = (".aws/credentials", ".ssh/id_rsa", ".npmrc", ".pypirc", ".git-credentials")
 NOMS_LOCAUX = ("localhost", "ip6-localhost", "")
+# Un journal réseau tronqué (déluge de requêtes) est lui-même une requête suspecte (B, C1).
+JOURNAL_TRONQUE = "(journal réseau tronqué : déluge de requêtes)"
+# Traces effacées ou réécrites : une marque de début ou de fin, avec le jeton secret de l'analyse,
+# manque dans un journal (B, C2). Mise en tête des processus, pour la politique de B.
+TRACES_EFFACEES = "(traces de la sandbox effacées ou réécrites par le paquet)"
 # Commandes que pip lance lui-même pendant l'installation : détection de la plateforme, et les
 # crochets de construction d'un sdist (le code de setup.py, lui, reste visible : fichiers, réseau,
 # et tout processus qu'il lance).
@@ -111,15 +116,28 @@ def _strace(lignes: Iterable[str]) -> list[tuple[str, str]]:
     return sortie
 
 
+def _traces_intactes(trace: list[str], strace_installation: list[str], strace_import: list[str],
+                     jeton: str) -> bool:
+    """Chaque journal porte les marques que lancer.sh y écrit avec le jeton (inconnu du paquet)."""
+    marques = {(e.get("e"), e.get("v")) for e in _lignes(trace)}
+    fin_strace = f"SAS-FIN {jeton}"
+    return (("debut", jeton) in marques and ("fin", jeton) in marques
+            and fin_strace in strace_installation and fin_strace in strace_import)
+
+
 def construire(trace: Iterable[str], reseau: Iterable[str], leurres: dict[str, str], home: str,
                code_sortie: int, duree_s: float, delai_depasse: bool,
                ip_piege: str | None = None, strace_installation: Iterable[str] = (),
-               strace_import: Iterable[str] = ()) -> RapportSandbox:
+               strace_import: Iterable[str] = (), jeton: str | None = None) -> RapportSandbox:
+    trace, strace_installation, strace_import = list(trace), list(strace_installation), list(strace_import)
     dns, connexions, fichiers, lus, processus = _Liste(), _Liste(), _Liste(), _Liste(), _Liste()
     textes_reseau: list[str] = []      # ce qui est sorti du conteneur : on y cherche les leurres
     vues_par_le_piege: list[str] = []
 
     for e in _lignes(reseau):
+        if e.get("t") == "tronque":
+            dns.insert(0, JOURNAL_TRONQUE)
+            continue
         if e.get("t") == "dns" and (nom := _texte(e.get("nom"))):
             textes_reseau.append(nom)
             if not _local(nom):
@@ -129,6 +147,11 @@ def construire(trace: Iterable[str], reseau: Iterable[str], leurres: dict[str, s
             debut = e.get("debut") if isinstance(e.get("debut"), str) else ""
             textes_reseau.extend([hote or "", debut])
             vues_par_le_piege.append(f"{hote or ip_piege or '?'}:{e['port']}")
+
+    # Le piège d'abord (hors de portée du paquet), le traceur ensuite : le paquet ne peut pas
+    # remplir la liste jusqu'au plafond avant que la vraie connexion y entre (B, C7).
+    for cnx in vues_par_le_piege:
+        connexions.ajouter(cnx)
 
     for e in _lignes(trace):
         sorte, v = e.get("e"), _texte(e.get("v"))
@@ -166,13 +189,14 @@ def construire(trace: Iterable[str], reseau: Iterable[str], leurres: dict[str, s
                 if not _local(hote) and hote != ip_piege:
                     connexions.ajouter(v)
 
-    for cnx in vues_par_le_piege:
-        connexions.ajouter(cnx)
-
     tout = "\n".join(textes_reseau)
     for nom, secret in leurres.items():
         if any(f in tout or f in tout.lower() for f in _formes(secret)):
             lus.ajouter(f"{nom} (exfiltré)")
+
+    if jeton and not delai_depasse and not _traces_intactes(trace, strace_installation,
+                                                              strace_import, jeton):
+        processus.insert(0, TRACES_EFFACEES)
 
     return RapportSandbox(requetes_dns=list(dns), connexions=list(connexions),
                           fichiers_sensibles=list(fichiers), leurres_lus=list(lus),

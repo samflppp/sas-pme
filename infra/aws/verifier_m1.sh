@@ -68,9 +68,9 @@ echo "    ufw status (passerelle) :"
 $SSH sas-passerelle 'sudo ufw status verbose' 2>/dev/null | sed 's/^/      /'
 
 echo
-echo "3. verifier_h3.sh doit toujours donner 5 OK sur 5"
+echo "3. verifier_h3.sh doit toujours être entièrement OK"
 if bash ./verifier_h3.sh; then
-  ok "verifier_h3.sh : 5 OK sur 5 (cloisonnement intact après durcissement)"
+  ok "verifier_h3.sh : tout OK (cloisonnement intact après durcissement)"
 else
   ko "verifier_h3.sh a signalé un échec (voir ci-dessus)"
 fi

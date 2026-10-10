@@ -21,6 +21,7 @@ def commandes(monkeypatch):
     monkeypatch.setenv("SAS_PASSERELLE_DEPOT", "/srv/pypi/packages")
     monkeypatch.delenv("SAS_PASSERELLE_CLE", raising=False)
     monkeypatch.delenv("SAS_PASSERELLE_URL", raising=False)
+    monkeypatch.setenv("SAS_PUBLICATION_NON_SIGNEE", "oui-tests")   # stub autorisé explicitement (B, C3)
     return lancees
 
 
@@ -98,3 +99,20 @@ def test_revoquer_refuse_un_nom_ou_une_version_douteux(commandes, nom, version):
 
 def test_lire_inventaire_renvoie_une_liste_vide_en_m0():
     assert signature.lire_inventaire() == []
+
+
+# --- B, C3 : rien n'est publié sans signature ----------------------------------------------------
+
+@pytest.mark.parametrize("valeur", [None, "", "1", "oui"])
+def test_sans_url_ni_autorisation_explicite_publier_refuse(tmp_path, commandes, monkeypatch, valeur):
+    if valeur is None:
+        monkeypatch.delenv("SAS_PUBLICATION_NON_SIGNEE", raising=False)
+    else:
+        monkeypatch.setenv("SAS_PUBLICATION_NON_SIGNEE", valeur)
+    archive = tmp_path / "requests-2.32.4-py3-none-any.whl"
+    archive.write_bytes(b"x")
+    with pytest.raises(signature.PublicationRefusee, match="sans signature"):
+        signature.publier("pypi", "requests", "2.32.4", [archive], 1)
+    with pytest.raises(signature.PublicationRefusee, match="sans signature"):
+        signature.revoquer("pypi", "requests", "2.32.4", "x")
+    assert commandes == []                                  # aucun scp, aucun ssh lancé

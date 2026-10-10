@@ -62,6 +62,17 @@ class Journal:
             self._f.write(json.dumps(e, ensure_ascii=False) + "\n")
 
 
+NOMS_LOCAUX = ("localhost", "ip6-localhost", "ip6-loopback")
+
+
+def noter_dns(journal: Journal, nom: str, qtype: int) -> None:
+    """Les noms locaux ne sont pas notés : un déluge de `localhost` ne peut pas noyer la vraie
+    fuite (B, C1)."""
+    if nom.rstrip(".").lower() in NOMS_LOCAUX:
+        return
+    journal.ecrire(t="dns", nom=nom, type=qtype)
+
+
 def _dns(journal: Journal, ip: str) -> None:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind(("0.0.0.0", 53))
@@ -70,7 +81,7 @@ def _dns(journal: Journal, ip: str) -> None:
         question = nom_demande(paquet)
         if question is None:
             continue
-        journal.ecrire(t="dns", nom=question[0], type=question[1])
+        noter_dns(journal, question[0], question[1])
         try:
             s.sendto(reponse_dns(paquet, ip), client)
         except (ValueError, struct.error):
