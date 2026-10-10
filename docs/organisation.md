@@ -83,9 +83,10 @@ H3, H10, H16, H22 : 15 min, les trois ensemble, devant la démo de bout en bout.
 marche, on décide des coupes et on ajuste les contrats si besoin. Hors de ces points, on se parle
 quand on veut.
 
-## 9. Les points d'avancement écrits
+## 9. Le journal d'avancement
 
-À chaque PR fusionnée et avant chaque point de rencontre, chacun ajoute un fichier dans
-`docs/points/` : ce qu'il a fait, ce que les autres peuvent utiliser, ce qu'il leur demande. Au début
-de chaque tâche, chacun lit les points des autres et répond aux demandes qui le concernent. Règle et
-modèle : `docs/points/README.md`.
+Chacun tient son journal dans `docs/journal/` (`a.md`, `b.md`, `c.md`) et n'écrit que dans le sien,
+donc il n'y a pas de conflit. À la fin de chaque tâche, dans la même PR, on ajoute une entrée en
+haut : ce qu'on a fait, ce que les autres peuvent utiliser, ses demandes (avec ce qu'elles bloquent)
+et ses réponses aux demandes des autres. Au début de chaque tâche, on lit les journaux des deux
+autres. Avant chaque point de rencontre, chacun est à jour. Règle et modèle : `docs/journal/README.md`.

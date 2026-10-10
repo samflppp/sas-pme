@@ -31,10 +31,13 @@ _gabarits = Jinja2Templates(directory=str(Path(__file__).with_name("gabarits")))
 
 
 def _demander_par_defaut(base: Base) -> Demander:
-    """Le vrai `pipeline.demander` (B) s'il existe ; sinon un faux qui enregistre la version « latest »."""
+    """Le vrai `pipeline.demander` (B), à qui on passe la base du web ; sans pipeline, un faux."""
     try:
-        from plateforme.pipeline import demander  # type: ignore[attr-defined]
-        return demander
+        import plateforme.pipeline as pipeline
+
+        def vrai(eco: Ecosysteme, nom: str) -> None:
+            pipeline.demander(eco, nom, base=base)
+        return vrai
     except ImportError:
         def faux(eco: Ecosysteme, nom: str) -> None:
             maintenant = datetime.now(timezone.utc)
@@ -112,8 +115,22 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         if not _NOM_VALIDE.match(nom) or ".." in nom:
             raise HTTPException(status_code=400, detail="Nom de paquet invalide.")
         base.journaliser(u, "demande_paquet", f"{eco.value}:{nom}", {})
-        demander(eco, nom)
+        # Erreurs prévues de pipeline.demander (B) : on les dit sur le formulaire, pas en erreur 500.
+        try:
+            demander(eco, nom)
+        except LookupError as e:
+            return refuser(request, u, nom, str(e), 404)
+        except ValueError as e:
+            return refuser(request, u, nom, str(e), 400)
+        except NotImplementedError:
+            return refuser(request, u, nom, f"{eco.value} n'est pas encore pris en charge.", 400)
         return RedirectResponse("/", status_code=303)
+
+    def refuser(request: Request, u: str, nom: str, message: str, code: int):
+        return _gabarits.TemplateResponse(
+            request, "demander.html",
+            {"utilisateur": u, "ecosystemes": list(Ecosysteme), "erreur": message, "nom": nom},
+            status_code=code)
 
     @app.get("/versions/{ecosysteme}/{nom:path}/{version}", response_class=HTMLResponse)
     def fiche(request: Request, ecosysteme: str, nom: str, version: str):
