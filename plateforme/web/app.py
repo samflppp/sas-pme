@@ -12,7 +12,7 @@ import re
 import secrets
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -27,6 +27,8 @@ from plateforme.web.fond import TacheDeFond
 
 Demander = Callable[[Ecosysteme, str], None]
 Traiter = Callable[[Base], object]
+Horloge = Callable[[], datetime]
+Delai = Callable[[], timedelta]
 
 ADMIN_INITIAL = "admin"  # créé au premier lancement, si la base n'a aucun compte
 MDP_MIN = 12
@@ -54,9 +56,38 @@ def _demander_par_defaut(base: Base) -> Demander:
         return faux
 
 
+def duree_lisible(d: timedelta) -> str:
+    """« 1 j 02 h 41 min », « 5 h 03 min », « 1 min 30 s », « 9 s »."""
+    s = max(0, int(d.total_seconds()))
+    j, s = divmod(s, 86400)
+    h, s = divmod(s, 3600)
+    m, s = divmod(s, 60)
+    if j:
+        return f"{j} j {h:02d} h {m:02d} min"
+    if h:
+        return f"{h} h {m:02d} min"
+    if m:
+        return f"{m} min {s:02d} s"
+    return f"{s} s"
+
+
+def _delai_par_defaut() -> timedelta:
+    """Le délai du pipeline (B), qui lit SAS_DELAI ; 3 jours sans le pipeline."""
+    try:
+        from plateforme.pipeline import pypi
+    except ImportError:
+        return timedelta(days=3)
+    return pypi.delai()
+
+
+def _texte_delai(d: timedelta) -> str:
+    return f"{d.days} jours" if d == timedelta(days=d.days) else f"{int(d.total_seconds())} s"
+
+
 def creer_app(base: Base, mot_de_passe: str, secret: str,
               demander: Demander | None = None,
-              traiter: Traiter | None = None, intervalle: float = 60) -> FastAPI:
+              traiter: Traiter | None = None, intervalle: float = 60,
+              horloge: Horloge | None = None, delai: Delai | None = None) -> FastAPI:
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -76,6 +107,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     app.add_middleware(SessionMiddleware, secret_key=secret, same_site="strict",
                        https_only=False, max_age=8 * 3600)
     demander = demander or _demander_par_defaut(base)
+    horloge = horloge or (lambda: datetime.now(timezone.utc))
+    delai = delai or _delai_par_defaut
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -171,6 +204,26 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         if f is None:
             raise HTTPException(status_code=404)
         return page(request, "fiche.html", compte, fiche=f)
+
+    # --- file d'attente ---------------------------------------------------------
+    @app.get("/file-attente", response_class=HTMLResponse)
+    def file_attente(request: Request):
+        compte = exiger(request)
+        maintenant = horloge()
+        try:
+            d, erreur = delai(), None
+        except ValueError as e:  # SAS_DELAI illisible : on le dit, sans deviner un délai
+            d, erreur = None, str(e)
+        attente = []
+        for v, _ in base.lister_avec_raison([Etat.NOUVELLE, Etat.EN_ATTENTE]):
+            fin = v.publiee_le + d if d is not None else None
+            reste = duree_lisible(fin - maintenant) if fin and fin > maintenant else None
+            attente.append({"v": v, "fin": fin, "reste": reste})
+        return page(request, "file_attente.html", compte, attente=attente, erreur=erreur,
+                    delai=_texte_delai(d) if d is not None else None,
+                    en_analyse=base.lister_avec_raison([Etat.EN_ANALYSE]),
+                    a_revoir=base.lister_avec_raison([Etat.A_REVOIR]),
+                    bloquees=base.lister_avec_raison([Etat.BLOQUEE]))
 
     # --- mot de passe -----------------------------------------------------------
     @app.get("/mot-de-passe", response_class=HTMLResponse)

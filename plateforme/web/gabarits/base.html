@@ -37,7 +37,7 @@
 <header>
   <span class="marque">sas-pme</span>
   {% if utilisateur %}
-  <nav><a href="/">Catalogue</a><a href="/demander">Demander un paquet</a>{% if role == "admin" %}<a href="/comptes">Comptes</a>{% endif %}</nav>
+  <nav><a href="/">Catalogue</a><a href="/file-attente">File d'attente</a><a href="/demander">Demander un paquet</a>{% if role == "admin" %}<a href="/comptes">Comptes</a>{% endif %}</nav>
   <div class="droite"><a href="/mot-de-passe">{{ utilisateur }}</a> <span>{{ role }}</span>
     <form method="post" action="/deconnexion"><button class="lien">Se déconnecter</button></form>
   </div>

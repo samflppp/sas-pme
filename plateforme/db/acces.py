@@ -127,6 +127,13 @@ class Base:
                                    (etat.value,)).fetchall()
         return [self._version(r) for r in rows]
 
+    def lister_avec_raison(self, etats: list[Etat]) -> list[tuple[Version, str]]:
+        """Versions dans ces états, avec la raison de leur dernier changement, par date de publication."""
+        marques = ",".join("?" * len(etats))
+        rows = self._c.execute(f"SELECT * FROM versions WHERE etat IN ({marques}) ORDER BY publiee_le",
+                               [e.value for e in etats]).fetchall()
+        return [(self._version(r), r["raison"]) for r in rows]
+
     def versions_a_traiter(self, maintenant: datetime,
                            delai: timedelta = DELAI_PAR_DEFAUT) -> list[Version]:
         """Versions en attente dont le délai depuis la publication est écoulé."""
