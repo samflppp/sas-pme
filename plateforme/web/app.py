@@ -1,7 +1,9 @@
 """Interface web de la plateforme (A) — M0 : connexion fixe, catalogue, demande de paquet, fiche.
 
 Lancer : `uvicorn plateforme.web.app:app --port 8000`
-Réglages : SAS_DB (chemin de la base), SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions).
+Réglages : SAS_DB (chemin de la base), SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions),
+SAS_TRAITEMENT_INTERVALLE (secondes entre deux appels de `traiter`, 60 ; 0 l'arrête),
+SAS_ARCHIVES (dossier des archives téléchargées, `archives`).
 Sans SAS_ADMIN_MOTDEPASSE, un mot de passe aléatoire est tiré et affiché au démarrage.
 """
 import hmac
@@ -9,6 +11,7 @@ import os
 import re
 import secrets
 import sys
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -20,8 +23,10 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from commun.modeles import Ecosysteme, Etat, Version
 from plateforme.db.acces import Base
+from plateforme.web.fond import TacheDeFond
 
 Demander = Callable[[Ecosysteme, str], None]
+Traiter = Callable[[Base], object]
 
 IDENTIFIANT = "admin"  # M0 : un seul compte ; comptes et rôles en M1
 # Noms PyPI (PEP 508) et npm (avec portée @org/nom), sans « .. » ni barre oblique libre.
@@ -48,8 +53,23 @@ def _demander_par_defaut(base: Base) -> Demander:
 
 
 def creer_app(base: Base, mot_de_passe: str, secret: str,
-              demander: Demander | None = None) -> FastAPI:
-    app = FastAPI(title="sas-pme — plateforme agréée")
+              demander: Demander | None = None,
+              traiter: Traiter | None = None, intervalle: float = 60) -> FastAPI:
+    """`traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
+
+    @asynccontextmanager
+    async def cycle(_app: FastAPI):
+        if traiter is None:
+            yield
+            return
+        tache = TacheDeFond(lambda: traiter(base), intervalle)
+        tache.demarrer()
+        try:
+            yield
+        finally:
+            tache.arreter()
+
+    app = FastAPI(title="sas-pme — plateforme agréée", lifespan=cycle)
     app.add_middleware(SessionMiddleware, secret_key=secret, same_site="strict",
                        https_only=False, max_age=8 * 3600)
     demander = demander or _demander_par_defaut(base)
@@ -153,7 +173,18 @@ def _depuis_environnement() -> FastAPI:
         mdp = secrets.token_urlsafe(12)
         print(f"[sas-pme] Mot de passe admin tiré au hasard : {mdp}", file=sys.stderr)
     secret = os.environ.get("SAS_SECRET") or secrets.token_urlsafe(32)
-    return creer_app(base=Base(os.environ.get("SAS_DB", "sas.db")), mot_de_passe=mdp, secret=secret)
+    intervalle = float(os.environ.get("SAS_TRAITEMENT_INTERVALLE", "60"))
+    return creer_app(base=Base(os.environ.get("SAS_DB", "sas.db")), mot_de_passe=mdp, secret=secret,
+                     traiter=_traiter_par_defaut() if intervalle > 0 else None,
+                     intervalle=intervalle)
+
+
+def _traiter_par_defaut() -> Traiter:
+    """Le vrai `pipeline.traitement.traiter` (B), avec le dossier d'archives de SAS_ARCHIVES."""
+    from plateforme.pipeline.traitement import traiter
+
+    dossier = Path(os.environ.get("SAS_ARCHIVES", "archives"))
+    return lambda base: traiter(base, dossier=dossier)
 
 
 def __getattr__(nom: str):
