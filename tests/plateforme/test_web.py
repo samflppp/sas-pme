@@ -67,7 +67,7 @@ def test_demander_un_paquet_appelle_le_pipeline_et_journalise(client, base, dema
     r = client.post("/demander", data={"ecosysteme": "pypi", "nom": "requests"}, follow_redirects=False)
     assert r.status_code == 303
     assert demandes == [(Ecosysteme.PYPI, "requests")]
-    assert [e.action for e in base.journal()] == ["connexion", "demande_paquet"]
+    assert [e.action for e in base.journal()] == ["compte_cree", "connexion", "demande_paquet"]
 
 
 def test_un_nom_de_paquet_invalide_est_refuse(client, demandes):
