@@ -354,8 +354,15 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
                              {"raison": raison, "erreur": str(e)[:300]})
             return afficher_fiche(request, admin, ecosysteme, nom, version, 502,
                                   f"Révocation échouée, la version reste publiée : {e}")
-        base.changer_etat(eco, nom, version, Etat.REVOQUEE, f"{admin.identifiant} : {raison}",
-                          acteur=admin.identifiant)
+        try:
+            base.changer_etat(eco, nom, version, Etat.REVOQUEE, f"{admin.identifiant} : {raison}",
+                              acteur=admin.identifiant, attendu=Etat.PUBLIEE)
+        except ValueError as e:  # changée pendant l'appel à la passerelle : on n'écrase pas
+            base.journaliser(admin.identifiant, "revocation_concurrente",
+                             f"{eco.value}:{nom}@{version}", {"raison": raison, "erreur": str(e)})
+            return afficher_fiche(request, admin, ecosysteme, nom, version, 409,
+                                  f"L'état de la version a changé pendant la révocation ({e}). "
+                                  "L'archive a été retirée de la passerelle ; vérifiez la fiche.")
         return RedirectResponse(f"/versions/{eco.value}/{nom}/{version}", status_code=303)
 
     # --- file d'attente ---------------------------------------------------------

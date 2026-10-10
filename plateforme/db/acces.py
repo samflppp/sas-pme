@@ -9,6 +9,7 @@ import json
 import os
 import sqlite3
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
@@ -111,15 +112,31 @@ class Base:
         """`cle_journal` : la clé HMAC du journal ; sans, SAS_CLE_JOURNAL. RuntimeError si absente."""
         self._cle = _cle_journal(cle_journal)
         self._verrou = threading.Lock()
-        self._c = sqlite3.connect(chemin, check_same_thread=False, isolation_level=None)
+        # timeout : une autre connexion qui écrit fait attendre, au lieu de lever « database is locked »
+        self._c = sqlite3.connect(chemin, check_same_thread=False, isolation_level=None, timeout=30)
         self._c.row_factory = sqlite3.Row
         self._c.execute("PRAGMA journal_mode=WAL")
         self._c.executescript(_SCHEMA.read_text(encoding="utf-8"))
 
+    @contextmanager
+    def _ecriture(self):
+        """Une écriture et son entrée de journal dans une seule transaction `BEGIN IMMEDIATE` :
+        le verrou d'écriture du fichier est pris avant de lire le dernier hash, donc deux `Base` sur
+        le même fichier (plusieurs workers, un script) ne cassent plus la chaîne (relecture de B,
+        A3) ; une erreur annule tout, le changement d'état comme son journal (A4)."""
+        with self._verrou:
+            self._c.execute("BEGIN IMMEDIATE")
+            try:
+                yield
+            except BaseException:
+                self._c.execute("ROLLBACK")
+                raise
+            self._c.execute("COMMIT")
+
     # --- versions -------------------------------------------------------------
     def enregistrer_version(self, v: Version, acteur: str = "pipeline") -> bool:
         """True si la version est nouvelle."""
-        with self._verrou:
+        with self._ecriture():
             cur = self._c.execute(
                 "INSERT OR IGNORE INTO versions VALUES (?,?,?,?,?,?,?,?)",
                 (v.ecosysteme.value, v.nom, v.version, _iso(v.publiee_le), _iso(v.detectee_le),
@@ -166,20 +183,29 @@ class Base:
         return [self._version(r) for r in rows]
 
     def changer_etat(self, eco: Ecosysteme, nom: str, version: str, etat: Etat, raison: str,
-                     acteur: str = "pipeline") -> None:
-        with self._verrou:
+                     acteur: str = "pipeline", attendu: Etat | None = None) -> None:
+        """KeyError si la version est inconnue. Avec `attendu`, ValueError si la version n'est plus
+        dans cet état : une décision prise entre-temps n'est pas écrasée (relecture de B, A4)."""
+        with self._ecriture():
+            condition, valeurs = "", []
+            if attendu is not None:
+                condition, valeurs = " AND etat=?", [attendu.value]
             cur = self._c.execute(
                 "UPDATE versions SET etat=?, raison=?, maj_le=? "
-                "WHERE ecosysteme=? AND nom=? AND version=?",
-                (etat.value, raison, _iso(_maintenant()), eco.value, nom, version))
+                "WHERE ecosysteme=? AND nom=? AND version=?" + condition,
+                (etat.value, raison, _iso(_maintenant()), eco.value, nom, version, *valeurs))
             if cur.rowcount == 0:
-                raise KeyError(_cle(eco, nom, version))
+                actuelle = self.lire_version(eco, nom, version)
+                if actuelle is None:
+                    raise KeyError(_cle(eco, nom, version))
+                raise ValueError(f"{_cle(eco, nom, version)} n'est plus « {attendu.value} » : "
+                                 f"elle est « {actuelle.etat.value} »")
             self._journaliser(acteur, "etat_change", _cle(eco, nom, version),
                               {"etat": etat.value, "raison": raison})
 
     # --- signaux, verdicts, rapports -----------------------------------------
     def ajouter_signal(self, s: Signal) -> int:
-        with self._verrou:
+        with self._ecriture():
             cur = self._c.execute(
                 "INSERT INTO signaux (ecosysteme, nom, version, donnees, cree_le) VALUES (?,?,?,?,?)",
                 (s.ecosysteme.value, s.nom, s.version, s.model_dump_json(), _iso(_maintenant())))
@@ -188,7 +214,7 @@ class Base:
     def enregistrer_verdict(self, eco: Ecosysteme, nom: str, version: str, v: Verdict,
                             acteur: str = "pipeline") -> int:
         """Renvoie l'identifiant du verdict, repris dans le manifeste signé."""
-        with self._verrou:
+        with self._ecriture():
             cur = self._c.execute(
                 "INSERT INTO verdicts (ecosysteme, nom, version, donnees, cree_le) VALUES (?,?,?,?,?)",
                 (eco.value, nom, version, v.model_dump_json(), _iso(_maintenant())))
@@ -198,7 +224,7 @@ class Base:
 
     def enregistrer_rapport_sandbox(self, eco: Ecosysteme, nom: str, version: str,
                                     r: RapportSandbox) -> None:
-        with self._verrou:
+        with self._ecriture():
             self._c.execute(
                 "INSERT INTO rapports_sandbox (ecosysteme, nom, version, donnees, cree_le) "
                 "VALUES (?,?,?,?,?)",
@@ -225,20 +251,13 @@ class Base:
     # --- inventaire ----------------------------------------------------------
     def enregistrer_inventaire(self, entrees: list[EntreeInventaire]) -> None:
         """Remplace l'instantané précédent par celui lu sur la passerelle."""
-        with self._verrou:
-            self._c.execute("BEGIN")
-            try:
-                self._c.execute("DELETE FROM inventaire")
-                self._c.executemany(
-                    "INSERT INTO inventaire VALUES (?,?,?,?,?)",
-                    [(e.ecosysteme.value, e.nom, e.version, e.telechargements,
-                      _iso(e.dernier) if e.dernier else None) for e in entrees])
-            except BaseException:
-                # Sans ROLLBACK, la transaction restait ouverte : plus rien n'était validé ensuite,
-                # journal compris (relecture de B, A2). L'ancien instantané reste en place.
-                self._c.execute("ROLLBACK")
-                raise
-            self._c.execute("COMMIT")
+        # Une erreur annule tout : l'ancien instantané reste en place (relecture de B, A2).
+        with self._ecriture():
+            self._c.execute("DELETE FROM inventaire")
+            self._c.executemany(
+                "INSERT INTO inventaire VALUES (?,?,?,?,?)",
+                [(e.ecosysteme.value, e.nom, e.version, e.telechargements,
+                  _iso(e.dernier) if e.dernier else None) for e in entrees])
 
     def inventaire(self) -> list[tuple[Ecosysteme, str, str]]:
         return [(Ecosysteme(r["ecosysteme"]), r["nom"], r["version"]) for r in self._c.execute(
@@ -248,7 +267,7 @@ class Base:
     def creer_compte(self, identifiant: str, role: Role, mot_de_passe: str, *, acteur: str,
                      doit_changer: bool = True) -> Compte:
         """ValueError si l'identifiant existe déjà."""
-        with self._verrou:
+        with self._ecriture():
             try:
                 self._c.execute(
                     "INSERT INTO comptes (identifiant, empreinte, role, doit_changer, cree_le) "
@@ -266,7 +285,7 @@ class Base:
         bon = _verifier_empreinte(mot_de_passe, r["empreinte"] if r else _EMPREINTE_LEURRE)
         if r is None or not bon or not r["actif"]:
             return None
-        with self._verrou:
+        with self._ecriture():
             self._c.execute("UPDATE comptes SET derniere_connexion = ? WHERE identifiant = ?",
                             (_iso(_maintenant()), identifiant))
         return self.lire_compte(identifiant)
@@ -281,7 +300,7 @@ class Base:
 
     def changer_role(self, identifiant: str, role: Role, *, acteur: str) -> None:
         """ValueError si on retirerait le dernier admin actif ; KeyError si le compte est inconnu."""
-        with self._verrou:
+        with self._ecriture():
             avant = self._exiger_compte(identifiant)
             if avant["role"] == Role.ADMIN and role is not Role.ADMIN:
                 self._garder_un_admin(identifiant)
@@ -292,7 +311,7 @@ class Base:
 
     def desactiver(self, identifiant: str, *, acteur: str) -> None:
         """ValueError si c'est le dernier admin actif ; KeyError si le compte est inconnu."""
-        with self._verrou:
+        with self._ecriture():
             avant = self._exiger_compte(identifiant)
             if avant["role"] == Role.ADMIN:
                 self._garder_un_admin(identifiant)
@@ -301,7 +320,7 @@ class Base:
 
     def changer_mot_de_passe(self, identifiant: str, nouveau: str, *, acteur: str,
                              doit_changer: bool = False) -> None:
-        with self._verrou:
+        with self._ecriture():
             self._exiger_compte(identifiant)
             self._c.execute("UPDATE comptes SET empreinte = ?, doit_changer = ? WHERE identifiant = ?",
                             (_empreinte(nouveau), int(doit_changer), identifiant))
@@ -330,7 +349,7 @@ class Base:
     # --- journal -------------------------------------------------------------
     def journaliser(self, acteur: str, action: str, sujet: str, charge: dict) -> None:
         """Pour une action qui n'est pas déjà journalisée ici (connexion, décision humaine…)."""
-        with self._verrou:
+        with self._ecriture():
             self._journaliser(acteur, action, sujet, charge)
 
     def journal(self, limite: int = 500) -> list[EntreeJournal]:
