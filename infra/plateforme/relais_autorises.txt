@@ -1,0 +1,6 @@
+# Relais d'API (M2) : les seuls domaines que les serveurs sensibles peuvent joindre, en HTTPS (443),
+# via passerelle :3128 → plateforme :3129. Un domaine par ligne ; « *.exemple.com » couvre ses
+# sous-domaines (pas exemple.com lui-même). Tout le reste est refusé (403) et journalisé.
+# Liste de démo : à remplacer par les API dont la PME a réellement besoin.
+api.github.com
+hooks.slack.com

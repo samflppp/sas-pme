@@ -1,0 +1,21 @@
+[Unit]
+Description=relais d'API sas-pme, côté passerelle (vers la plateforme, sans Internet)
+After=network-online.target
+
+[Service]
+User=relais
+Group=relais
+Environment=SAS_RELAIS_ECOUTE=10.42.2.10:3128
+Environment=SAS_RELAIS_AMONT=10.42.1.10:3129
+Environment=SAS_RELAIS_PORTS=443
+Environment=SAS_RELAIS_JOURNAL=/var/log/sas-relais/relais.jsonl
+ExecStart=/usr/bin/python3 /opt/recepteur/code/passerelle/relais.py
+LogsDirectory=sas-relais
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
