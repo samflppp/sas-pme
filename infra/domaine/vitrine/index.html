@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipelad</title>
+<meta name="description" content="Vos serveurs n'installent que ce qu'on a vérifié. Un sas de sécurité pour les paquets pip et npm, tout en local, pour les PME qui développent.">
+<style>
+  :root {
+    --fond: #ffffff; --texte: #0f172a; --doux: #475569; --trait: #e2e8f0;
+    --carte: #f8fafc; --accent: #1d4ed8; --vert: #15803d; --rouge: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fond: #0b1120; --texte: #e2e8f0; --doux: #94a3b8; --trait: #1e293b;
+            --carte: #111a2e; --accent: #60a5fa; --vert: #4ade80; --rouge: #f87171; }
+    .schema { background: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fond); color: var(--texte);
+         font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 0 16px 64px; }
+  header { padding: 64px 0 32px; }
+  .nom { font-weight: 700; letter-spacing: .02em; color: var(--accent); }
+  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.15; margin: 12px 0 16px; }
+  h2 { font-size: 24px; margin: 56px 0 16px; }
+  p.chapo { font-size: 19px; color: var(--doux); max-width: 680px; }
+  .boutons { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+  .bouton { display: inline-block; padding: 11px 20px; border-radius: 8px; text-decoration: none;
+            font-weight: 600; border: 1px solid var(--accent); }
+  .bouton.plein { background: var(--accent); color: #fff; }
+  .bouton.vide { color: var(--accent); }
+  .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .carte { background: var(--carte); border: 1px solid var(--trait); border-radius: 12px; padding: 20px; }
+  .carte h3 { margin: 0 0 8px; font-size: 18px; }
+  .carte p { margin: 0; color: var(--doux); font-size: 16px; }
+  .chiffre { font-size: 34px; font-weight: 700; }
+  .vert { color: var(--vert); } .rouge { color: var(--rouge); }
+  ol.etapes { padding-left: 22px; } ol.etapes li { margin: 6px 0; }
+  .schema { width: 100%; height: auto; border: 1px solid var(--trait); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--trait); vertical-align: top; }
+  th { color: var(--doux); font-weight: 600; }
+  .note { color: var(--doux); font-size: 14px; }
+  footer { border-top: 1px solid var(--trait); margin-top: 64px; padding-top: 20px; color: var(--doux); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="nom">PIPELAD</div>
+    <h1>Vos serveurs n'installent que ce qu'on a vérifié.</h1>
+    <p class="chapo">Un sas de sécurité pour les paquets pip et npm. Chaque nouvelle version attend
+      3 jours, est analysée chez vous (code, sandbox, IA locale), puis signée. Vos serveurs sensibles
+      ne voient jamais la dernière version publiée sur Internet, seulement la dernière version
+      vérifiée.</p>
+    <div class="boutons">
+      <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+      <a class="bouton vide" href="#fonctionnement">Comment ça marche</a>
+    </div>
+  </header>
+
+  <h2>Le problème</h2>
+  <div class="grille">
+    <div class="carte"><h3>Personne ne relit</h3>
+      <p>Les équipes installent chaque jour des paquets venus d'Internet, directement sur les
+        serveurs qui portent leurs données.</p></div>
+    <div class="carte"><h3>Une version piégée suffit</h3>
+      <p>Typosquat, mainteneur compromis : ultralytics (décembre 2024), le ver Shai-Hulud sur npm
+        (septembre 2025). La plupart sont retirées en quelques jours.</p></div>
+    <div class="carte"><h3>Pas d'équipe sécurité</h3>
+      <p>Une PME de 20 à 80 personnes n'a ni RSSI ni SOC. C'est le CTO qui porte la sécurité.</p></div>
+  </div>
+
+  <h2 id="fonctionnement">Comment ça marche</h2>
+  <img class="schema" src="schema-reseau.svg" alt="Trois zones : la plateforme reliée à Internet, la passerelle et le serveur sensible dans un sous-réseau sans route vers Internet.">
+  <ol class="etapes">
+    <li><strong>Attente de 3 jours</strong> pour chaque nouvelle version, pendant que la veille lit OSV, PyPI et les blogs de chercheurs.</li>
+    <li><strong>Analyse statique</strong> : typosquat, code exécuté à l'installation, code obfusqué, accès aux secrets, domaines suspects.</li>
+    <li><strong>Sandbox</strong> sans réseau réel : faux DNS, faux secrets ; on voit si le paquet lit un jeton ou appelle son serveur.</li>
+    <li><strong>IA locale avec RAG</strong> : elle explique en français et cite des cas connus. Elle alerte, elle ne décide jamais.</li>
+    <li><strong>Politique déterministe</strong>, puis <strong>signature Ed25519</strong> et publication dans la passerelle, qui vérifie tout avant d'accepter.</li>
+  </ol>
+
+  <h2>Démontré, pas promis</h2>
+  <div class="grille">
+    <div class="carte"><div class="chiffre vert">73 %</div>
+      <p>des versions malveillantes arrêtées par les contrôles statiques seuls (93 sur 128), avant même la sandbox et l'IA.</p></div>
+    <div class="carte"><div class="chiffre vert">0</div>
+      <p>fausse alerte des contrôles statiques sur 98 versions saines.</p></div>
+    <div class="carte"><div class="chiffre rouge">401</div>
+      <p>Une publication signée avec une autre clé est refusée par la passerelle.</p></div>
+    <div class="carte"><div class="chiffre vert">8 / 8</div>
+      <p>contrôles passés quand un attaquant est root sur la plateforme : il n'obtient ni Internet pour les serveurs, ni accès à leurs machines.</p></div>
+  </div>
+  <p class="note">Mesures du 2026-10-10 sur un corpus de paquets malveillants publics (Datadog, OpenSSF) ; contrôles réseau vérifiés sur l'infrastructure de démo AWS.</p>
+
+  <h2>Nos principes</h2>
+  <table>
+    <tr><th>Principe</th><th>Conséquence</th></tr>
+    <tr><td>Les serveurs sensibles ne parlent jamais à Internet</td><td>Tout passe par la passerelle, qui n'a elle-même aucune route vers Internet.</td></tr>
+    <tr><td>Le code décide, l'IA alerte et explique</td><td>Un signal de l'IA peut monter un risque, jamais approuver.</td></tr>
+    <tr><td>Rien n'est publié sans signature</td><td>La passerelle refuse tout manifeste mal signé ou dont un fichier diffère.</td></tr>
+    <tr><td>Tout local</td><td>IA, RAG et sandbox tournent chez vous. Aucun service d'IA dans le cloud.</td></tr>
+    <tr><td>Le journal ne s'efface pas</td><td>Chaque décision est chaînée par HMAC ; une ligne modifiée se voit.</td></tr>
+  </table>
+
+  <h2>Et si la plateforme est compromise ?</h2>
+  <p>La plateforme est le point de confiance du système. Prise par un attaquant, elle pourrait
+    signer une version piégée : c'est le risque principal, et nous le disons. Mais elle ne peut ni
+    donner Internet aux serveurs (aucune route, c'est le réseau qui le tient), ni s'y connecter, ni
+    effacer le registre des publications gardé par la passerelle. Prochaine étape : la clé de
+    signature sur une clé matérielle, avec une double signature humaine.</p>
+
+  <footer>Projet de hackathon, IA × cybersécurité. Démo : <a href="https://demo.pipelad.tech/">demo.pipelad.tech</a> (sur invitation).</footer>
+</main>
+</body>
+</html>

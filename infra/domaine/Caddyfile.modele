@@ -1,0 +1,26 @@
+# Caddy sur la plateforme (C) : HTTPS Let's Encrypt automatique pour le domaine de la démo.
+# DOMAINE est remplacé par infra/aws/domaine.sh. Le web de la plateforme reste sur 127.0.0.1:8000.
+
+DOMAINE, www.DOMAINE {
+	root * /var/www/vitrine
+	file_server
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'"
+		-Server
+	}
+}
+
+demo.DOMAINE {
+	reverse_proxy 127.0.0.1:8000
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+		-Server
+	}
+}
