@@ -11,9 +11,9 @@ from pathlib import Path
 import httpx
 from packaging.version import InvalidVersion, Version as VersionPep440
 
-from commun.modeles import Etat, RapportSandbox, Signal, Version
+from commun.modeles import Etat, RapportSandbox, Signal, Source, Version
 from plateforme.db.acces import Base
-from plateforme.pipeline import llm as llm_local, politique, pypi, rag, veille
+from plateforme.pipeline import llm as llm_local, politique, pypi, rag, veille, veille_rss
 from plateforme.pipeline.sandbox_signaux import signaux_sandbox
 from plateforme.pipeline.statique.code import controler_code
 from plateforme.pipeline.statique.meta import controler_metadonnees
@@ -69,8 +69,13 @@ def _precedente(base: Base, v: Version) -> str | None:
 
 
 def _veiller_reseau(base: Base, maintenant: datetime) -> None:
+    """PyPI et OSV, puis les flux RSS ; une panne de l'une n'empêche pas l'autre."""
     with httpx.Client(timeout=30, follow_redirects=True) as client:
-        veille.veiller(base, maintenant, client=client)
+        try:
+            veille.veiller(base, maintenant, client=client)
+        except Exception as e:  # noqa: BLE001 — les flux RSS sont lus quand même
+            print(f"[sas-pme] veille : {e!r}", file=sys.stderr)
+        veille_rss.veiller_articles(base, maintenant, client=client, flux=veille_rss.flux())
 
 
 def _de_c(module: str, fonction: str):
@@ -149,6 +154,8 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
             base.enregistrer_rapport_sandbox(*cle, rapport)
             precedente = _precedente(base, v)
             ici = dossier / v.nom / precedente if precedente else None
+            # Les signaux de la veille écrits pendant l'attente (articles) : déjà en base.
+            deja = [s for s in base.fiche(*cle).signaux if s.source is Source.VEILLE]
             signaux = [*controler_nom(v.ecosysteme, v.nom, v.version),
                        *controler_code(v.ecosysteme, v.nom, v.version, archives,
                                        precedentes=sorted(ici.iterdir())
@@ -156,11 +163,11 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
                        *controler_meta(v, precedente, maintenant),
                        *signaux_sandbox(v.ecosysteme, v.nom, v.version, rapport)]
             # Le LLM alerte et explique ; ses signaux (au plus FORT) passent par la politique.
-            avis = llm(base, v, signaux, rapport)
+            avis = llm(base, v, [*deja, *signaux], rapport)
             signaux += avis.signaux
             for s in signaux:
                 base.ajouter_signal(s)
-            verdict = politique.decider(signaux).model_copy(
+            verdict = politique.decider([*deja, *signaux]).model_copy(
                 update={"explication_llm": avis.explication, "refs_rag": avis.refs_rag})
         except Exception as e:  # noqa: BLE001 — une analyse ratée ne doit jamais approuver
             base.changer_etat(*cle, Etat.A_REVOIR, f"analyse impossible : {e}")

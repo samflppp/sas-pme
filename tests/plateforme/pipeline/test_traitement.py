@@ -357,3 +357,46 @@ def test_le_llm_du_pipeline_recoit_les_passages_du_rag(base, monkeypatch):
     r = traitement._llm_reseau(base, v, [], VIDE)
     assert recu["passages"] == [("MAL-2024-1", "Paquet qui volait des clés AWS.")]
     assert r.refs_rag == ["MAL-2024-1"]
+
+
+def test_un_article_lu_pendant_l_attente_met_la_version_a_revoir_a_l_analyse(base, faux):
+    """M2 : le signal d'un article (FORT, non structuré) entre dans la politique, une seule fois."""
+    deps, appels = faux
+    article = Signal(ecosysteme=Ecosysteme.PYPI, nom="mure", version="1.0", source=Source.VEILLE,
+                     niveau=Niveau.FORT, sorte="article", structure=False,
+                     preuve={"extrait": "article : Compromised mure 1.0", "url": "https://x.test/a"})
+    base.ajouter_signal(article)
+    traitement.traiter(base, MAINTENANT, **deps)
+    fiche = base.fiche(Ecosysteme.PYPI, "mure", "1.0")
+    assert fiche.version.etat is Etat.A_REVOIR and "Compromised mure" in fiche.raison
+    assert [s.sorte for s in fiche.signaux].count("article") == 1
+    assert "article" in appels["llm"][0][1]                # le LLM le voit aussi
+    assert appels["publier"] == []
+
+
+def test_la_veille_du_pipeline_lit_aussi_les_flux_rss(base, monkeypatch):
+    from plateforme.pipeline import veille, veille_rss
+
+    vus = []
+    monkeypatch.setattr(veille, "veiller", lambda base, maintenant, client: vus.append("pypi"))
+    monkeypatch.setattr(veille_rss, "flux", lambda: ["https://x.test/rss"])
+    monkeypatch.setattr(veille_rss, "veiller_articles",
+                        lambda base, maintenant, client, flux: vus.append(("rss", flux)))
+    traitement._veiller_reseau(base, MAINTENANT)
+    assert vus == ["pypi", ("rss", ["https://x.test/rss"])]
+
+
+def test_une_panne_de_la_veille_pypi_n_empeche_pas_la_veille_rss(base, monkeypatch):
+    from plateforme.pipeline import veille, veille_rss
+
+    vus = []
+
+    def panne(base, maintenant, client):
+        raise RuntimeError("PyPI en panne")
+
+    monkeypatch.setattr(veille, "veiller", panne)
+    monkeypatch.setattr(veille_rss, "flux", lambda: [])
+    monkeypatch.setattr(veille_rss, "veiller_articles",
+                        lambda base, maintenant, client, flux: vus.append("rss"))
+    traitement._veiller_reseau(base, MAINTENANT)
+    assert vus == ["rss"]
