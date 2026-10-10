@@ -28,7 +28,7 @@
   .card { border: 1px solid var(--line); border-top: 4px solid; padding: 3mm; border-radius: 3px; }
   .card.A { border-top-color: var(--a); background: #fff; } .card.B { border-top-color: var(--b); background:#fff; } .card.C { border-top-color: var(--c); background:#fff; }
   .card ul { margin: 1mm 0 0; padding-left: 4mm; }
-  .card li { margin-bottom: 1mm; }
+  .card li { margin-bottom: 0.6mm; font-size: 8.4pt; line-height: 1.28; }
   /* Gantt */
   .gantt { display: grid; grid-template-columns: 22mm repeat(34, 1fr); border: 1px solid var(--line); font-size: 7.6pt; }
   .gantt .hcell { border-right: 1px solid var(--line); background: var(--bg); text-align: center; padding: 1mm 0; font-weight: 600; }
@@ -48,7 +48,7 @@
 <!-- PAGE 1 -->
 <section class="page">
   <h1>sas-pme — Roadmap des 34 prochaines heures</h1>
-  <div class="sub">Hackathon Track 3 « Open Track » · IA × cybersécurité défensive · équipe A · B · C · H0 = début du chantier</div>
+  <div class="sub">Hackathon Track 3 « Open Track » · IA × cybersécurité défensive · A = Sam · B = Mouabd19 · C = STEUSSO · branches <code>pipeline-plateforme</code> (A+B) et <code>infra-reseau</code> (C) · H0 = début du chantier</div>
 
   <div class="pitch"><b>Le pitch.</b> Un sas de sécurité posé dans la PME retient chaque nouvelle version de paquet Python le temps
   qu'une IA locale l'examine et lise ce qu'Internet en dit, puis surveille les connexions sortantes. Si un paquet piégé passe
@@ -153,12 +153,12 @@ setx HTTPS_PROXY http://&lt;ip-du-sas&gt;:3128</pre>
     <div class="lane">Points</div>
     <div class="sync" style="grid-column: 3 / 4">H1</div>
     <div class="sync" style="grid-column: 8 / 9">H6</div>
-    <div class="sync" style="grid-column: 14 / 15">H12</div>
+    <div class="sync" style="grid-column: 15 / 16">H13</div>
     <div class="sync" style="grid-column: 19 / 20">H17</div>
     <div class="sync" style="grid-column: 24 / 25">H22</div>
 
     <!-- A -->
-    <div class="lane" style="grid-row: 3 / 6; color: var(--a)">A · Cœur</div>
+    <div class="lane" style="grid-row: 3 / 6; color: var(--a)">A · Sam<br>plateforme</div>
     <div class="bar A" style="grid-row:3; grid-column: 2 / 3">T0</div>
     <div class="bar A" style="grid-row:3; grid-column: 3 / 5">A1 store + journal</div>
     <div class="bar A" style="grid-row:3; grid-column: 5 / 6">A2</div>
@@ -169,40 +169,43 @@ setx HTTPS_PROXY http://&lt;ip-du-sas&gt;:3128</pre>
     <div class="bar A light" style="grid-row:5; grid-column: 26 / 36">marge · sommeil (1er) · répétition du pitch</div>
 
     <!-- B -->
-    <div class="lane" style="grid-row: 6 / 9; color: var(--b)">B · Analyse</div>
+    <div class="lane" style="grid-row: 6 / 9; color: var(--b)">B · Mouabd19<br>agentique IA</div>
     <div class="bar B" style="grid-row:6; grid-column: 2 / 4">B0 corpus</div>
     <div class="bar B" style="grid-row:6; grid-column: 4 / 7">B1 contrôles (étage 1)</div>
     <div class="bar B" style="grid-row:6; grid-column: 7 / 10">B2 diff (étage 2)</div>
     <div class="bar B" style="grid-row:6; grid-column: 10 / 13">B3 LLM confiné</div>
-    <div class="bar B" style="grid-row:7; grid-column: 13 / 15">B5 mesure v1</div>
-    <div class="bar B" style="grid-row:7; grid-column: 16 / 19">B4 veille</div>
+    <div class="bar B" style="grid-row:7; grid-column: 13 / 14">B6</div>
+    <div class="bar B" style="grid-row:7; grid-column: 14 / 15">B5</div>
+    <div class="bar B" style="grid-row:7; grid-column: 15 / 17">B4 veille</div>
+    <div class="bar B" style="grid-row:7; grid-column: 17 / 19">B7 agent sorties</div>
     <div class="bar B" style="grid-row:7; grid-column: 19 / 22">B5 mesure finale + diapo</div>
     <div class="bar B light" style="grid-row:8; grid-column: 22 / 36">bugs · sommeil (2e) · réponses du jury sur la mesure</div>
 
     <!-- C -->
-    <div class="lane" style="grid-row: 9 / 12; color: var(--c)">C · Infra + sorties</div>
+    <div class="lane" style="grid-row: 9 / 12; color: var(--c)">C · STEUSSO<br>infra + réseau</div>
     <div class="bar C" style="grid-row:9; grid-column: 2 / 5">C0 EC2 + quota GPU + Ollama</div>
     <div class="bar C" style="grid-row:9; grid-column: 5 / 9">C1 proxy CONNECT</div>
     <div class="bar C" style="grid-row:9; grid-column: 9 / 14">C2 signaux + corrélation</div>
-    <div class="bar C" style="grid-row:10; grid-column: 13 / 16">C3 démo + paquets piégés</div>
-    <div class="bar C" style="grid-row:10; grid-column: 16 / 19">C4 agent des sorties</div>
-    <div class="bar C" style="grid-row:10; grid-column: 22 / 26">C5 vidéo de démo</div>
+    <div class="bar C" style="grid-row:10; grid-column: 14 / 17">C3 réseau de démo</div>
+    <div class="bar C" style="grid-row:10; grid-column: 17 / 18">C4</div>
+    <div class="bar C" style="grid-row:10; grid-column: 18 / 20">C5 durciss.</div>
+    <div class="bar C" style="grid-row:10; grid-column: 22 / 26">C6 vidéo de démo</div>
     <div class="bar C light" style="grid-row:11; grid-column: 26 / 36">marge · sommeil (3e) · démo en direct prête</div>
 
     <!-- ALL -->
     <div class="lane" style="grid-row: 12; color: var(--all)">Tous</div>
-    <div class="bar ALL" style="grid-row:12; grid-column: 2 / 3">phrase</div>
-    <div class="bar ALL" style="grid-row:12; grid-column: 19 / 20">répét.</div>
+    <div class="bar ALL" style="grid-row:12; grid-column: 2 / 4">phrase</div>
+    <div class="bar ALL" style="grid-row:12; grid-column: 19 / 21">répétition</div>
     <div class="bar ALL" style="grid-row:12; grid-column: 26 / 28">fiche + répétitions</div>
   </div>
-  <div class="legend">Une colonne = une heure depuis le début du chantier. Barres pâles = marge et sommeil en quinconce (une personne dort pendant que deux veillent). Noir = point de synchronisation de 15 min. T0 = contrats partagés ; A2 = politique ; « phrase » = phrase-problème envoyée aux organisateurs.</div>
+  <div class="legend">Une colonne = une heure depuis le début du chantier. Barres pâles = marge et sommeil en quinconce (une personne dort pendant que deux veillent). Noir = point de synchronisation de 15 min. T0 = contrats partagés ; A2 = politique ; B6 = paquets et flux de démo ; B5 = mesure v1 ; C4 = config des postes + mode CI ; « phrase » = phrase-problème envoyée aux organisateurs.</div>
 
   <h3>Points de synchronisation et règles de coupe</h3>
   <table>
     <tr><th style="width:9%">Heure</th><th style="width:46%">Ce qui doit marcher</th><th>Si non</th></tr>
     <tr><td><b>H1</b></td><td><code>models.py</code> commité ; EC2 lancée ou quota GPU demandé ; phrase-problème envoyée</td><td>A pousse les contrats avant tout le reste</td></tr>
-    <tr><td><b>H6</b></td><td><code>pip install</code> depuis un PC passe par l'index du sas sur l'EC2</td><td>C aide A sur l'index ; le proxy glisse d'une heure</td></tr>
-    <tr><td><b>H12</b></td><td>mesure configuration 1 de bout en bout ; proxy relaie ; LLM répond en &lt; 5 s</td><td><b>on coupe la veille (B4)</b> ; modèle <code>3b</code> si lent</td></tr>
+    <tr><td><b>H6</b></td><td><code>pip install</code> depuis un PC passe par l'index du sas sur l'EC2 ; 1re fusion <code>infra-reseau</code> → <code>main</code></td><td>C aide A sur l'index ; le proxy glisse d'une heure</td></tr>
+    <tr><td><b>H13</b></td><td>mesure configuration 1 de bout en bout ; proxy relaie ; LLM répond en &lt; 5 s ; fusion des deux branches</td><td><b>on coupe la veille (B4)</b> ; modèle <code>3b</code> si lent</td></tr>
     <tr><td><b>H17</b></td><td>démo complète répétée une fois</td><td>gel des fonctions, plus que des corrections</td></tr>
     <tr><td><b>H22</b></td><td>deck, mesure finale, vidéo enregistrée</td><td>la vidéo passe avant le deck</td></tr>
   </table>
@@ -210,46 +213,49 @@ setx HTTPS_PROXY http://&lt;ip-du-sas&gt;:3128</pre>
 
 <!-- PAGE 4 : TÂCHES PAR PERSONNE -->
 <section class="page">
-  <h2>Tâches par personne</h2>
+  <h2>Tâches par personne — rien n'est laissé de côté</h2>
   <div class="cols3">
     <div class="card A">
-      <span class="tag A">A</span> <b>Cœur · console · pitch</b>
+      <span class="tag A">A</span> <b>Sam · plateforme</b> <span style="color:var(--mute)">· branche pipeline-plateforme</span>
       <ul class="check">
-        <li><b>T0 (H0–H1)</b> <code>pyproject.toml</code>, <code>models.py</code> : State, Level, Source, Signal, Finding, Flow, HumanDecision</li>
+        <li><b>T0 (H0–H1)</b> <code>pyproject.toml</code>, <code>models.py</code> : State, Level, Source, Signal, Finding, Flow, HumanDecision — <b>bloque B et C</b></li>
         <li><b>A1 (H1–H3)</b> <code>Store</code> SQLite + <code>Journal</code> chaîné SHA-256, <code>verify()</code></li>
         <li><b>A2 (H3–H4)</b> <code>policy.decide()</code> fonction pure ; invariant « llm/article n'assouplit jamais » sur 200 cas</li>
         <li><b>A3 (H4–H7)</b> <code>Upstream</code> PEP 691 ; <code>/simple</code> filtré, <code>/files</code> avec hash ; fail-closed ; adoption initiale ; test <code>pip download</code> réel</li>
-        <li><b>A4 (H7–H11)</b> <code>Pipeline</code> : file asyncio, étages 1→2→3, <code>tick</code> 60 s, veille 2 h, LLM absent → à revoir</li>
+        <li><b>A4 (H7–H11)</b> <code>Pipeline</code> + <code>app.py</code> : file asyncio, étages 1→2→3, <code>tick</code> 60 s, veille 2 h ; branche le proxy et <code>Egress</code> de C</li>
         <li><b>A5 (H12–H17)</b> console HTMX : compteurs, fil, fiche version, fiche poste, journal, approuver/bloquer</li>
-        <li><b>A6 (H17–H24)</b> deck 8 diapos + fiche de défense (10 questions du jury)</li>
+        <li><b>A6 (H17–H24)</b> deck 8 diapos, fiche de défense, <code>demo/script.md</code></li>
       </ul>
     </div>
     <div class="card B">
-      <span class="tag B">B</span> <b>Analyse · mesure</b>
+      <span class="tag B">B</span> <b>Mouabd19 · agentique IA</b> <span style="color:var(--mute)">· branche pipeline-plateforme</span>
       <ul class="check">
-        <li><b>B0 (H0–H2)</b> corpus : 30 malveillants (OpenSSF malicious-packages), 50 mises à jour saines. <b>Jamais installer ni exécuter un échantillon.</b></li>
-        <li><b>B1 (H2–H5)</b> <code>checks.run_fast / run</code> : typosquat (rapidfuzz, top 5000), âge, mainteneurs, sdist seul, OpenSSF, OSV</li>
-        <li><b>B2 (H5–H8)</b> <code>diffscan.scan</code> : lignes ajoutées seulement ; setup.py/.pth/__init__, exec/eval/base64, secrets, domaines, entropie ; archives bornées</li>
+        <li><b>B0 (H0–H2)</b> corpus : 30 malveillants (OpenSSF), 50 mises à jour saines. <b>Jamais installer ni exécuter un échantillon.</b></li>
+        <li><b>B1 (H2–H5)</b> <code>checks.run_fast / run</code> : typosquat, âge, mainteneurs, sdist seul, OpenSSF, OSV</li>
+        <li><b>B2 (H5–H8)</b> <code>diffscan.scan</code> : lignes ajoutées ; setup.py/.pth/__init__, exec/base64, secrets, domaines, entropie ; archives bornées</li>
         <li><b>B3 (H8–H11)</b> <code>llm.judge_release / classify_article / summarise_host</code> : Ollama, schéma JSON, balises <code>&lt;donnee&gt;</code>, test d'injection</li>
-        <li><b>B5 v1 (H11–H13)</b> mesure configuration 1 — <b>point de contrôle H12</b></li>
-        <li><b>B4 (H14–H17)</b> veille : OSV, yanked, RSS ; un article ne débloque jamais ; seules sortent nom + version</li>
+        <li><b>B6 (H11–H12)</b> paquets piégés de démo + flux RSS (vrai et faux article), remis à C</li>
+        <li><b>B5 v1 (H12–H13)</b> mesure configuration 1 — <b>point de contrôle H13</b></li>
+        <li><b>B4 (H13–H15)</b> veille : OSV, yanked, RSS ; un article ne débloque jamais</li>
+        <li><b>B7 (H15–H17)</b> agent des sorties : résumé français par poste, aucun signal effacé</li>
         <li><b>B5 final (H17–H20)</b> trois colonnes détection / fausses alertes + diapo</li>
       </ul>
     </div>
     <div class="card C">
-      <span class="tag C">C</span> <b>Infra · sorties · démo</b>
+      <span class="tag C">C</span> <b>STEUSSO · infra + réseau</b> <span style="color:var(--mute)">· branche infra-reseau</span>
       <ul class="check">
-        <li><b>C0 (H0–H3)</b> <b>quota GPU « G and VT » dès H0</b> ; g4dn.xlarge eu-west-3, AMI Deep Learning ; Ollama + <code>qwen2.5-coder:7b</code>, verdict &lt; 5 s ; service systemd. Repli : c7i.4xlarge + modèle 3b</li>
+        <li><b>C0 (H0–H3)</b> <b>quota GPU « G and VT » dès H0</b> ; g4dn.xlarge eu-west-3 ; Ollama + <code>qwen2.5-coder:7b</code> &lt; 5 s ; systemd ; repli c7i.4xlarge + 3b</li>
         <li><b>C1 (H3–H7)</b> <code>serve_proxy</code> : CONNECT seul, relais et comptage, domaines bloqués, liste fermée CI</li>
         <li><b>C2 (H7–H12)</b> <code>Egress.on_flow</code> : domaine nouveau, RDAP &lt; 30 j, IP brute, battement, <b>corrélation 10 min</b></li>
-        <li><b>C3 (H11–H14)</b> démo : <code>colorama-utils</code> 1.0/1.1 piégée, <code>reqeusts</code>, flux RSS (vrai + faux article), serveur de battement, <code>script.md</code></li>
-        <li><b>C4 (H14–H17)</b> agent des sorties : résumé français par poste, aucun signal effacé</li>
-        <li><b>C5 (H20–H24)</b> vidéo de démo ≤ 3 min, plan de secours si le direct tombe</li>
+        <li><b>C3 (H12–H15)</b> réseau de démo : pypiserver, serveur de battement TLS, <code>hosts</code>, RDAP simulé, <code>network.md</code>, repli tunnel SSH</li>
+        <li><b>C4 (H15–H16)</b> <code>poste-setup.ps1/.sh</code> (et <code>--retirer</code>) ; poste CI à liste fermée, refus 403 montré</li>
+        <li><b>C5 (H16–H18)</b> durcissement : ufw, SSH par clés, utilisateur sans droits, sorties du boîtier limitées, diapo « et si le sas est compromis ? »</li>
+        <li><b>C6 (H20–H24)</b> vidéo de démo ≤ 3 min, plan de secours</li>
       </ul>
     </div>
   </div>
 
-  <div class="cols" style="margin-top:5mm">
+  <div class="cols" style="margin-top:3mm">
     <div>
       <h3>La démo (3 minutes)</h3>
       <table>

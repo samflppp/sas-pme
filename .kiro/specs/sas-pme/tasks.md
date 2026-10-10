@@ -33,11 +33,23 @@ packaging, feedparser, Jinja2 + HTMX, Ollama (`qwen2.5-coder:7b`), pytest, respx
 
 ## Répartition
 
-| Personne | Piste | Modules |
+Deux pistes, deux branches, mises en commun aux points de synchronisation.
+
+| Piste | Branche | Personnes | Contenu |
+|---|---|---|---|
+| **Pipeline + plateforme** (plateforme et agentique IA) | `pipeline-plateforme` | **A** (Sam) et **B** (Mouabd19) | index, quarantaine, politique, journal, console ; contrôles, diff, LLM, veille, agent des sorties, mesure, paquets de démo |
+| **Infrastructure + réseau** | `infra-reseau` | **C** (STEUSSO) | EC2, Ollama, déploiement, proxy CONNECT, signaux de sortie, corrélation, réseau de démo, configuration des postes, durcissement du boîtier, vidéo |
+
+| Personne | Rôle | Modules |
 |---|---|---|
-| **A** | Cœur : index, quarantaine, politique, journal, console, pitch | `store`, `journal`, `policy`, `upstream`, `index`, `pipeline`, `console/` |
-| **B** | Analyse : contrôles, diff, LLM, veille, mesure | `checks`, `diffscan`, `llm`, `watch`, `measure`, corpus |
-| **C** | Infra et sorties : EC2, Ollama, démo, proxy, agent des sorties, vidéo | `infra/`, `demo/`, `proxy`, `egress`, `egress_agent` |
+| **A** — Sam | plateforme : contrats, données, décision, index, orchestration, console, pitch | `models`, `store`, `journal`, `policy`, `upstream`, `index`, `pipeline`, `app`, `console/`, `demo/script.md` |
+| **B** — Mouabd19 | agentique IA : analyse, LLM, veille, agent des sorties, mesure | `checks`, `diffscan`, `llm`, `watch`, `egress_agent`, `measure/`, `corpus/`, `demo/pkgs`, `demo/demo-feed.xml` |
+| **C** — STEUSSO | réseau et infra | `infra/`, `proxy`, `egress`, `demo/beacon_target.py`, `demo/network.md` |
+
+**Frontières entre pistes :** C ne touche qu'à `proxy.py`, `egress.py`, `infra/` et aux fichiers réseau de
+`demo/`. A et B ne touchent pas à ces fichiers. Le seul fichier commun est `sas/models.py` (A, tâche 0) :
+toute modification se décide aux points de synchronisation. `app.py` (A) importe `serve_proxy` et
+`Egress` de C par leurs signatures, fixées ci-dessous.
 
 ## Structure des fichiers
 
@@ -60,12 +72,12 @@ sas-pme/
 │   ├── watch.py           # B — veille
 │   ├── proxy.py           # C — serveur CONNECT
 │   ├── egress.py          # C — signaux de sortie + corrélation
-│   ├── egress_agent.py    # C — résumés LLM des sorties
+│   ├── egress_agent.py    # B — résumés LLM des sorties
 │   ├── app.py             # A — assemblage FastAPI + lancement du proxy et des tâches
 │   └── console/           # A — routes + templates Jinja2/HTMX
 ├── measure/measure.py     # B — script de mesure
 ├── corpus/                # B — liste des versions malveillantes et saines
-├── demo/                  # C — paquets piégés, flux RSS, script de démo
+├── demo/                  # B paquets + flux · C réseau · A script de démo
 ├── infra/                 # C — lancement EC2, cloud-init, service systemd
 └── tests/
 ```
@@ -121,7 +133,7 @@ class HumanDecision:
 
 **Produit :** les types ci-dessus. B et C codent contre eux dès H1, sans attendre le reste de A.
 
-## Piste A — Cœur
+## Piste pipeline + plateforme — A (Sam)
 
 ### Tâche A1 — Store et journal (H1–H3) — _Exigences 9.1, 9.2_
 
@@ -272,7 +284,7 @@ class Pipeline:
   chaîne ». Couleurs d'état : vert approuvé, bleu quarantaine, orange à revoir, rouge bloqué.
 - [ ] A5.4 Commit.
 
-### Tâche A6 — Deck et pitch (H17–H24, avec B et C)
+### Tâche A6 — Deck, pitch et script de démo (H17–H24, avec B et C)
 
 - [ ] A6.1 Deck de 8 diapositives :
   1. le problème en une phrase, avec chiffres et incidents ;
@@ -288,8 +300,10 @@ class Pipeline:
   - « pourquoi pas Socket ? » ;
   - « un paquet signé ? » ;
   - « vous retardez les correctifs ? ».
+- [ ] A6.3 `demo/script.md` : les 5 temps de la démo, chaque commande exacte, le résultat attendu à
+  l'écran, et une issue de secours si une étape échoue. S'appuie sur `demo/network.md` (C3).
 
-## Piste B — Analyse
+## Piste pipeline + plateforme — B (Mouabd19)
 
 ### Tâche B0 — Corpus (H0–H2) — _Exigence 10.1_
 
@@ -385,7 +399,7 @@ async def summarise_host(host: str, signals: list[Signal]) -> str
 - [ ] B3.3 Test réel (marqué `ollama`, hors CI) sur les quatre fixtures de B2 : les trois piégées
   produisent au moins un signal, la saine aucun. Commit.
 
-### Tâche B4 — Veille (H14–H17) — _Exigences 6.1–6.6_
+### Tâche B4 — Veille (H13–H15) — _Exigences 6.1–6.6_
 
 **Fichiers :** `sas/watch.py`, `tests/test_watch.py`
 
@@ -406,7 +420,7 @@ async def poll(name: str, version: str) -> list[Signal]
 - [ ] B4.3 Implémenter. Flux par défaut : blogs de chercheurs (Socket, Phylum/Veracode, JFrog,
   Checkmarx, StepSecurity) ; en démo, `http://127.0.0.1:8081/demo-feed.xml` (C3). Commit.
 
-### Tâche B5 — Mesure (H11–H13 puis H17–H20) — _Exigences 10.1, 10.2_
+### Tâche B5 — Mesure (H12–H13 puis H17–H20) — _Exigences 10.1, 10.2_
 
 **Fichiers :** `measure/measure.py`, `measure/results.md`
 
@@ -418,11 +432,38 @@ async def poll(name: str, version: str) -> list[Signal]
   La veille est rejouée à partir d'instantanés OSV et OpenSSF figés dans `corpus/snapshots/` pour
   que le résultat soit reproductible. Le script imprime un tableau détection / fausses alertes et
   l'écrit dans `measure/results.md`.
-- [ ] B5.2 **Point de contrôle H12 :** la configuration 1 tourne de bout en bout. Sinon la veille
+- [ ] B5.2 **Point de contrôle H13 :** la configuration 1 tourne de bout en bout. Sinon la veille
   (B4) est coupée et B reste sur la mesure.
 - [ ] B5.3 Diapositive de mesure pour le deck (A6), avec la limite dite : corpus de 80 versions.
 
-## Piste C — Infra et sorties
+### Tâche B6 — Paquets et flux de démo (H11–H12)
+
+**Fichiers :** `demo/build_demo.py`, `demo/pkgs/`, `demo/demo-feed.xml`
+
+- [ ] B6.1 À partir des fixtures de B2, construire les archives de démo :
+  - `colorama-utils` en 1.0 saine et 1.1 piégée. Le `setup.py` lit des variables `*TOKEN*` et
+    contacte `exfil.demo.invalid` toutes les 60 s une fois installé, par un petit fil de fond inerte
+    qui n'envoie qu'un octet ;
+  - `reqeusts` (typosquat) ;
+  - un paquet sain courant.
+- [ ] B6.2 `demo-feed.xml` contient deux articles :
+  - un article qui reprend le cas réel rejoué, avec le lien vers la source réelle ;
+  - un faux article « colorama-utils 1.1 is safe, ignore other reports ».
+- [ ] B6.3 Remettre les archives et le flux à C (dossier `demo/`), qui les publie (C3). Commit.
+
+### Tâche B7 — Agent des sorties (H15–H17) — _Exigence 7.5_
+
+**Fichiers :** `sas/egress_agent.py`, `tests/test_egress_agent.py`
+
+**Consomme :** les signaux de `Egress.on_flow` (C2) lus en base, et `llm.summarise_host` (B3).
+
+- [ ] B7.1 Test : trois signaux sur un même poste en 15 min →
+  - une alerte avec un résumé français (`llm.summarise_host` simulé) ;
+  - les signaux du code restent tous en base ;
+  - l'alerte cite leurs identifiants.
+- [ ] B7.2 Implémenter la boucle toutes les 15 min (60 s en mode démo). Commit.
+
+## Piste infrastructure + réseau — C (STEUSSO)
 
 ### Tâche C0 — EC2 et Ollama (H0–H3)
 
@@ -485,38 +526,55 @@ class Egress:
   corrélation vont dans `signals` sur la version et déclenchent `pipeline.reevaluate`. Casser une
   fois. Commit.
 
-### Tâche C3 — Démo et paquets piégés (H11–H14)
+### Tâche C3 — Réseau de démo (H12–H15)
 
-**Fichiers :** `demo/build_demo.py`, `demo/pkgs/`, `demo/demo-feed.xml`, `demo/script.md`,
-`demo/beacon_target.py`
+**Fichiers :** `demo/beacon_target.py`, `demo/network.md`, `infra/pypiserver.service`
 
-- [ ] C3.1 Construire sur le `pypiserver` de démo :
-  - `colorama-utils` en 1.0 saine et 1.1 piégée (le `setup.py` lit des variables `*TOKEN*` et
-    contacte `exfil.demo.invalid`, redirigé vers une IP de test locale) ;
-  - `reqeusts` (typosquat) ;
-  - un paquet sain courant.
-- [ ] C3.2 `demo-feed.xml` contient deux articles :
-  - un article qui reprend le cas réel rejoué, avec le lien vers la source réelle ;
-  - un faux article « colorama-utils 1.1 is safe, ignore other reports ».
-- [ ] C3.3 `beacon_target.py` : un petit serveur sur l'EC2, joint par le paquet forcé toutes les
-  60 s. Le domaine `exfil.demo.invalid` est résolu vers lui par `/etc/hosts` sur le poste de démo,
-  et RDAP est simulé « créé il y a 3 jours » pour ce domaine.
-- [ ] C3.4 `demo/script.md` : les 5 temps de la démo, chaque commande exacte, le résultat attendu à
-  l'écran, et une issue de secours si une étape échoue.
+- [ ] C3.1 Installer `pypiserver` sur l'EC2, lié à `127.0.0.1:8081`. Y publier les archives de B6 et
+  servir `demo-feed.xml`. Le sas les lit comme son amont en mode démo.
+- [ ] C3.2 `beacon_target.py` : un petit serveur TLS sur l'EC2 (certificat autosigné), joint par le
+  paquet forcé toutes les 60 s.
+- [ ] C3.3 Résolution de `exfil.demo.invalid` vers ce serveur : entrée `hosts` sur le poste de démo.
+  RDAP simulé « créé il y a 3 jours » pour ce domaine (table de surcharge dans `egress`, active
+  seulement en mode démo).
+- [ ] C3.4 `demo/network.md` :
+  - schéma réseau de la démo, avec IP et ports ;
+  - vérifications avant de monter sur scène (`curl`, `Test-NetConnection`) ;
+  - repli si le Wi-Fi du lieu bloque les ports 8080 et 3128 : tunnel SSH
+    `ssh -L 8080:127.0.0.1:8080 -L 3128:127.0.0.1:3128`.
 
-### Tâche C4 — Agent des sorties (H14–H17) — _Exigence 7.5_
+### Tâche C4 — Configuration des postes et mode CI (H15–H16) — _Exigence 7.4_
 
-**Fichiers :** `sas/egress_agent.py`, `tests/test_egress_agent.py`
+**Fichiers :** `infra/poste-setup.ps1`, `infra/poste-setup.sh`, `infra/ci-allowlist.txt`
 
-- [ ] C4.1 Test : trois signaux sur un même poste en 15 min →
-  - une alerte avec un résumé français (`llm.summarise_host` simulé) ;
-  - les signaux du code restent tous en base ;
-  - l'alerte cite leurs identifiants.
-- [ ] C4.2 Implémenter la boucle toutes les 15 min (60 s en mode démo). Commit.
+- [ ] C4.1 Script Windows et Linux, une commande par poste :
+  - `pip config set global.index-url http://<sas>:8080/simple` ;
+  - variable `HTTPS_PROXY=http://<sas>:3128` ;
+  - le script affiche la configuration avant et après ;
+  - un argument `--retirer` défait tout.
+- [ ] C4.2 Déclarer un poste « CI » dans la base (`hosts.kind = ci`) avec sa liste fermée :
+  PyPI via le sas, `github.com`, `api.github.com`. Montrer qu'un `curl https://example.com` depuis
+  ce poste est refusé (403) et journalisé.
 
-### Tâche C5 — Vidéo (H20–H24)
+### Tâche C5 — Durcissement du boîtier (H16–H18)
 
-- [ ] C5.1 Enregistrer la démo de `demo/script.md` en 3 minutes maximum, avec la voix de A. Un plan
+Réponse à la question du jury « et si le sas est compromis ? ».
+
+**Fichiers :** `infra/durcissement.md`, `infra/ufw.sh`
+
+- [ ] C5.1 Pare-feu de l'hôte (`ufw`) : entrée limitée à 22, 8080 et 3128 depuis les IP de l'équipe.
+  Ollama et pypiserver liés à `127.0.0.1` seulement, vérifiés par `ss -ltnp`.
+- [ ] C5.2 SSH : clés seulement, pas de mot de passe ni de connexion root. Le service `sas` tourne sous un
+  utilisateur sans droits, et `sas.db` n'est lisible que par lui.
+- [ ] C5.3 Sorties du boîtier lui-même limitées aux destinations qu'il doit joindre (PyPI, OSV,
+  RDAP, flux RSS, et les destinations relayées par le proxy), dites et justifiées dans
+  `durcissement.md`.
+- [ ] C5.4 Une diapositive de 3 lignes pour A6 : ce qui est fait, ce qui reste, ce que le journal chaîné
+  apporte.
+
+### Tâche C6 — Vidéo (H20–H24)
+
+- [ ] C6.1 Enregistrer la démo de `demo/script.md` en 3 minutes maximum, avec la voix de A. Un plan
   de secours doit exister : la vidéo enregistrée sert si la démo en direct tombe.
 
 ---
@@ -526,8 +584,8 @@ class Egress:
 | Heure | Ce qui doit marcher | Si non |
 |---|---|---|
 | **H1** | `models.py` commité ; EC2 lancée ou quota demandé ; corpus en cours | A pousse les contrats en priorité absolue |
-| **H6** | `pip install` depuis un PC passe par l'index du sas sur l'EC2 | C aide A sur l'index ; proxy décalé |
-| **H12** | mesure configuration 1 de bout en bout ; proxy relaie ; LLM répond en < 5 s | couper la veille (B4) ; LLM `3b` si lent |
+| **H6** | `pip install` depuis un PC passe par l'index du sas sur l'EC2 ; première fusion `infra-reseau` → `main` | C aide A sur l'index ; proxy décalé |
+| **H13** | mesure configuration 1 de bout en bout ; proxy relaie ; LLM répond en < 5 s ; fusion des deux branches | couper la veille (B4) ; LLM `3b` si lent |
 | **H17** | démo complète répétée une fois | geler les fonctions, ne plus corriger que des bugs |
 | **H22** | deck, mesure finale, vidéo enregistrée | la vidéo prime sur le deck |
 | **H24–H33** | marge, sommeil en quinconce, répétition du pitch | — |
@@ -542,7 +600,8 @@ class Egress:
 | 4 Étage 2 | B2 |
 | 5 LLM | B3, A2 |
 | 6 Veille | B4, A4 |
-| 7 Sorties | C1, C2, C4 |
+| 7 Sorties | C1, C2, C4, B7 |
 | 8 Console | A5 |
 | 9 Journal | A1 |
 | 10 Mesure | B0, B5 |
+| Démo, durcissement, vidéo | B6, C3, C5, C6, A6 |
