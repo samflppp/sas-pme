@@ -1,0 +1,38 @@
+[project]
+name = "sas-pme"
+version = "0.1.0"
+description = "Sas de sécurité local : quarantaine active des paquets PyPI et surveillance des sorties"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "rapidfuzz>=3.9",
+    "packaging>=24.0",
+    "feedparser>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "pypiserver>=2.1",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["sas*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "ollama: appelle un vrai Ollama local (hors CI)",
+]
