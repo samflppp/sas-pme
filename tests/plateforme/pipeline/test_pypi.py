@@ -107,3 +107,35 @@ def test_telecharger_refuse_un_nom_de_fichier_vide(tmp_path):
     respx.get(f"{BASE}/pypi/demo/json").respond(json=meta)
     with httpx.Client() as client, pytest.raises(ValueError, match="nom de fichier"):
         pypi.telecharger("demo", "1.0", tmp_path, client=client, base=BASE)
+
+
+@respx.mock
+def test_derniere_version_mure_respecte_une_contrainte_de_version():
+    from packaging.specifiers import SpecifierSet
+    respx.get(f"{BASE}/pypi/demo/json").respond(json=metadonnees())
+    with httpx.Client() as client:
+        assert pypi.derniere_version_mure("demo", MAINTENANT, specifier=SpecifierSet("<1.1"),
+                                          client=client, base=BASE)[0] == "1.0"
+
+
+@respx.mock
+def test_dependances_sans_les_extras_ni_les_autres_plateformes():
+    respx.get(f"{BASE}/pypi/demo/1.1/json").respond(json={"info": {"requires_dist": [
+        "idna<4,>=2.5",
+        "Charset_Normalizer>=2",
+        'pysocks>=1.5.6; extra == "socks"',                 # optionnelle
+        'colorama; sys_platform == "win32"',                # pas pour un serveur Linux
+        'tomli>=1.1; python_version < "3.11"',              # pas pour Python 3.12
+        'typing-extensions>=4; python_version >= "3.8"',    # vaut pour Python 3.12
+    ]}})
+    with httpx.Client() as client:
+        deps = pypi.dependances("demo", "1.1", client=client, base=BASE)
+    assert [(d.name, str(d.specifier)) for d in deps] == [
+        ("idna", "<4,>=2.5"), ("Charset_Normalizer", ">=2"), ("typing-extensions", ">=4")]
+
+
+@respx.mock
+def test_dependances_absentes():
+    respx.get(f"{BASE}/pypi/demo/1.1/json").respond(json={"info": {"requires_dist": None}})
+    with httpx.Client() as client:
+        assert pypi.dependances("demo", "1.1", client=client, base=BASE) == []

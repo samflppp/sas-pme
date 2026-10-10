@@ -95,3 +95,23 @@ def test_sans_la_sandbox_de_c_rien_n_est_approuve(base, faux, monkeypatch):
     with pytest.raises(RuntimeError, match="sandbox"):
         traitement.traiter(base, MAINTENANT, **deps)
     assert etat(base, "mure") is Etat.EN_ATTENTE
+
+
+def test_une_publication_echouee_est_retentee_au_tour_suivant_sans_reanalyse(base, faux):
+    deps, appels = faux
+    vrai_publier = deps["publier"]
+    def publier_en_panne(*_a, **_k):
+        raise ConnectionError("passerelle injoignable")
+    deps["publier"] = publier_en_panne
+    traitement.traiter(base, MAINTENANT, **deps)
+    traitement.traiter(base, MAINTENANT, **deps)          # encore en panne
+    entrees = len(base.journal())
+    traitement.traiter(base, MAINTENANT, **deps)          # même échec : rien de neuf au journal
+    assert len(base.journal()) == entrees
+    deps["publier"] = vrai_publier                        # la passerelle revient
+    resultats = traitement.traiter(base, MAINTENANT, **deps)
+    assert [(v.nom, e) for v, e in resultats] == [("mure", Etat.PUBLIEE)]
+    assert etat(base, "mure") is Etat.PUBLIEE
+    assert len(appels["executer"]) == 1                   # pas réanalysée
+    assert appels["publier"][0][3] == base.fiche(Ecosysteme.PYPI, "mure", "1.0").verdict_id
+    assert base.verifier_journal() == (True, None)

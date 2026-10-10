@@ -10,11 +10,19 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
+from packaging.markers import default_environment
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version as VersionPep440
 
 BASE = os.environ.get("SAS_PYPI_URL", "https://pypi.org")
 DELAI = timedelta(days=3)
 # Nom de projet PEP 508 : rien qui puisse sortir du chemin /pypi/<nom>/json.
+# Environnement des serveurs sensibles : sert à garder les seules dépendances qui s'y installent.
+CIBLE = {**default_environment(), "python_version": "3.12", "python_full_version": "3.12.0",
+         "implementation_name": "cpython", "platform_python_implementation": "CPython",
+         "sys_platform": "linux", "platform_system": "Linux", "os_name": "posix",
+         "platform_machine": "x86_64", "extra": ""}
 _NOM_VALIDE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9._-]{0,212}[A-Za-z0-9])?$")
 
 
@@ -49,11 +57,30 @@ def versions_publiees(nom: str, *, client: httpx.Client, base: str = BASE
 
 
 def derniere_version_mure(nom: str, maintenant: datetime, *, delai: timedelta = DELAI,
-                          client: httpx.Client, base: str = BASE) -> tuple[str, datetime] | None:
-    """La plus haute version publiée depuis au moins `delai`, ou None."""
+                          specifier: SpecifierSet | None = None, client: httpx.Client,
+                          base: str = BASE) -> tuple[str, datetime] | None:
+    """La plus haute version publiée depuis au moins `delai` (et dans `specifier`), ou None."""
     mures = [(v, d) for v, d in versions_publiees(nom, client=client, base=base)
-             if maintenant - d >= delai]
+             if maintenant - d >= delai and (specifier is None or specifier.contains(v))]
     return mures[-1] if mures else None
+
+
+def dependances(nom: str, version: str, *, client: httpx.Client, base: str = BASE
+                 ) -> list[Requirement]:
+    """Dépendances obligatoires d'une version sur les serveurs (ni extras, ni autres plateformes)."""
+    if not _NOM_VALIDE.match(nom):
+        raise ValueError(f"nom de paquet invalide : {nom!r}")
+    r = client.get(f"{base}/pypi/{nom}/{version}/json")
+    r.raise_for_status()
+    gardees = []
+    for brute in r.json()["info"].get("requires_dist") or []:
+        try:
+            req = Requirement(brute)
+        except InvalidRequirement:
+            raise ValueError(f"dépendance illisible pour {nom} {version} : {brute!r}") from None
+        if req.marker is None or req.marker.evaluate(CIBLE):
+            gardees.append(req)
+    return gardees
 
 
 def telecharger(nom: str, version: str, dossier: Path, *, client: httpx.Client,
