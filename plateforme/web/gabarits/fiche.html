@@ -13,7 +13,17 @@
 </div>
 <p class="note">Décision prise par la politique (code). Le LLM explique et cite ; il ne peut ni
 approuver ni bloquer seul.</p>
-{% if fiche.raison and fiche.raison != fiche.verdict.raison %}<p>État actuel : {{ fiche.raison }}</p>{% endif %}
+{% if publication and publication.sorte == "refus" %}
+<div class="raison ko publication"><strong>Refusée par la passerelle ({{ publication.code }} : {{ publication.motif }}).</strong>
+  <p>La passerelle n'a rien publié : elle a rejeté ce que la plateforme lui a envoyé (signature,
+  empreinte des fichiers ou nonce). Un refus qui se répète veut dire une clé ou un certificat
+  changé, ou une publication qui ne vient pas de la plateforme : à vérifier avant tout.</p>
+</div>
+{% elif publication %}
+<div class="raison publication"><strong>Passerelle injoignable :</strong> publication retentée au tour suivant.
+  <p><code>{{ publication.motif }}</code></p>
+</div>
+{% elif fiche.raison and fiche.raison != fiche.verdict.raison %}<p>État actuel : {{ fiche.raison }}</p>{% endif %}
 {% elif fiche.raison %}
 <div class="raison">{{ fiche.raison }}</div>
 {% endif %}
