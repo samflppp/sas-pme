@@ -5,6 +5,7 @@ Réglages : SAS_DB (chemin de la base), SAS_CLE_JOURNAL (clé HMAC du journal, o
 SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions),
 SAS_TRAITEMENT_INTERVALLE (secondes entre deux appels de `traiter`, 60 ; 0 l'arrête),
 SAS_ARCHIVES (dossier des archives téléchargées, `archives`).
+La page « Inventaire » lit la passerelle (`signature.lire_inventaire`, C) à chaque affichage.
 Au premier lancement (base sans compte), le compte `admin` est créé avec SAS_ADMIN_MOTDEPASSE
 (MDP_MIN caractères au moins, sinon refus de démarrer) ; sans elle, un mot de passe aléatoire est
 tiré et affiché. Ensuite, la variable est ignorée.
@@ -14,6 +15,7 @@ import re
 import secrets
 import sys
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
@@ -22,10 +24,11 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from packaging.utils import canonicalize_name, canonicalize_version
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.sessions import SessionMiddleware
 
-from commun.modeles import Ecosysteme, Etat, Version
+from commun.modeles import Ecosysteme, EntreeInventaire, Etat, Version
 from plateforme.db.acces import Base, Compte, Role
 from plateforme.web.fond import TacheDeFond
 
@@ -35,6 +38,8 @@ Decider = Callable[[Base, Ecosysteme, str, str, Etat, str, str], object]
 # revoquer(eco, nom, version, raison) : signature.revoquer (C), qui retire l'archive de la passerelle
 Revoquer = Callable[[Ecosysteme, str, str, str], None]
 Traiter = Callable[[Base], object]
+# lire_inventaire() : signature.lire_inventaire (C), ce que les serveurs ont installé
+LireInventaire = Callable[[], list[EntreeInventaire]]
 Horloge = Callable[[], datetime]
 Delai = Callable[[], timedelta]
 
@@ -69,6 +74,12 @@ def _decider_par_defaut(*args) -> object:
     """Le vrai `pipeline.decision_humaine` (B), importé seulement au premier clic."""
     from plateforme.pipeline import decision_humaine
     return decision_humaine(*args)
+
+
+def _lire_inventaire_par_defaut() -> list[EntreeInventaire]:
+    """Le vrai `signature.lire_inventaire` (C), importé seulement à l'affichage de la page."""
+    from plateforme.signature import lire_inventaire
+    return lire_inventaire()
 
 
 def _revoquer_par_defaut(*args) -> None:
@@ -142,6 +153,48 @@ def compter_par_etat(versions: list[Version]) -> dict[Etat, int]:
 DERNIERS_BLOCAGES = 5
 
 
+@dataclass(frozen=True)
+class LigneInventaire:
+    entree: EntreeInventaire     # ce que dit la passerelle
+    version: Version | None      # la même version sur la plateforme ; None si inconnue
+    alerte: str | None           # None : publiée, rien à signaler
+
+
+def _cle_inventaire(eco: Ecosysteme, nom: str, version: str) -> tuple[Ecosysteme, str, str]:
+    """Le dépôt et la plateforme n'écrivent pas toujours pareil (« Demo_X 1.10.0 » et « demo-x
+    1.10 ») : noms PEP 503 et versions PEP 440 normalisés des deux côtés (relecture de B)."""
+    try:
+        version = canonicalize_version(version)
+    except ValueError:
+        pass                     # une version illisible se compare telle quelle
+    return eco, canonicalize_name(nom), version
+
+
+def _alerte(e: EntreeInventaire, v: Version | None) -> str | None:
+    if v is None:
+        return "Inconnue de la plateforme : présente sur le dépôt sans y avoir été approuvée."
+    if v.etat is Etat.PUBLIEE:
+        return None
+    if v.etat in (Etat.REVOQUEE, Etat.BLOQUEE):
+        quoi = "Révoquée" if v.etat is Etat.REVOQUEE else "Bloquée"
+        if e.telechargements:
+            return (f"{quoi} depuis, et téléchargée {e.telechargements} fois : "
+                    "un serveur l'a peut-être encore.")
+        return f"{quoi} depuis, mais encore sur le dépôt."
+    return f"Sur le dépôt alors qu'elle est « {v.etat.value} » sur la plateforme."
+
+
+def croiser(entrees: list[EntreeInventaire], versions: list[Version]) -> list[LigneInventaire]:
+    """Chaque entrée de l'inventaire avec l'état de sa version ; les alertes d'abord (contrat § 4 :
+    « installée sur les serveurs, mais révoquée ou bloquée depuis » est celle qui compte)."""
+    par_cle = {_cle_inventaire(v.ecosysteme, v.nom, v.version): v for v in versions}
+    lignes = []
+    for e in entrees:
+        v = par_cle.get(_cle_inventaire(e.ecosysteme, e.nom, e.version))
+        lignes.append(LigneInventaire(e, v, _alerte(e, v)))
+    return sorted(lignes, key=lambda l: l.alerte is None)   # tri stable : l'ordre reste sinon
+
+
 def _delai_par_defaut() -> timedelta:
     """Le délai du pipeline (B), qui lit SAS_DELAI ; 3 jours sans le pipeline."""
     try:
@@ -170,7 +223,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
               demander: Demander | None = None,
               traiter: Traiter | None = None, intervalle: float = 60,
               horloge: Horloge | None = None, delai: Delai | None = None,
-              decider: Decider | None = None, revoquer: Revoquer | None = None) -> FastAPI:
+              decider: Decider | None = None, revoquer: Revoquer | None = None,
+              lire_inventaire: LireInventaire | None = None) -> FastAPI:
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -206,6 +260,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     delai = delai or _delai_par_defaut
     decider = decider or _decider_par_defaut
     revoquer = revoquer or _revoquer_par_defaut
+    lire_inventaire = lire_inventaire or _lire_inventaire_par_defaut
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -277,6 +332,19 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         return page(request, "tableau.html", compte, compteurs=compter_par_etat(versions),
                     total=len(versions), a_trancher=base.lister_avec_raison([Etat.A_REVOIR]),
                     derniers=derniers, journal=journal)
+
+    @app.get("/inventaire", response_class=HTMLResponse)
+    def inventaire(request: Request):
+        compte = exiger(request)
+        try:
+            entrees = lire_inventaire()
+        except Exception as e:  # passerelle injoignable ou refus : on le dit, l'instantané reste
+            return page(request, "inventaire.html", compte, 502, lignes=[], alertes=0,
+                        erreur=f"{type(e).__name__} : {e}")
+        base.enregistrer_inventaire(entrees)
+        lignes = croiser(entrees, base.lister_versions())
+        return page(request, "inventaire.html", compte, lignes=lignes,
+                    alertes=sum(l.alerte is not None for l in lignes), erreur=None)
 
     @app.get("/demander", response_class=HTMLResponse)
     def page_demander(request: Request):

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titre %}Inventaire{% endblock %}
+{% block contenu %}
+<h1>Inventaire</h1>
+<p class="note">Ce que les serveurs ont réellement installé depuis le dépôt interne, d'après le journal
+de la passerelle, croisé avec l'état de chaque version sur la plateforme.</p>
+
+{% if erreur %}
+<p class="raison ko"><strong>Lecture de l'inventaire échouée</strong> : {{ erreur }}</p>
+{% else %}
+<p class="raison {{ 'ko' if alertes else 'ok' }}" data-alertes="{{ alertes }}">
+{% if alertes %}<strong>{{ alertes }} alerte{{ 's' if alertes > 1 }}</strong> : des versions sont sur le
+dépôt ou sur les serveurs sans être publiées par la plateforme.
+{% else %}<strong>Aucune alerte</strong> : tout ce qui est sur le dépôt est publié par la plateforme.{% endif %}
+</p>
+
+{% if lignes %}
+<table>
+  <thead><tr><th>Paquet</th><th>Version</th><th>État sur la plateforme</th><th>Téléchargements</th>
+    <th>Dernier téléchargement</th><th>Alerte</th></tr></thead>
+  <tbody>
+  {% for l in lignes %}
+    <tr{% if l.alerte %} class="alerte"{% endif %}>
+      <td>{% if l.version %}<a href="/versions/{{ l.version.ecosysteme.value }}/{{ l.version.nom }}/{{ l.version.version }}">{{ l.entree.nom }}</a>{% else %}{{ l.entree.nom }}{% endif %}</td>
+      <td>{{ l.entree.version }}</td>
+      <td>{% if l.version %}<span class="etat etat-{{ l.version.etat.value }}">{{ l.version.etat.value }}</span>{% else %}inconnue{% endif %}</td>
+      <td>{{ l.entree.telechargements }}</td>
+      <td>{{ l.entree.dernier.strftime('%Y-%m-%d %H:%M UTC') if l.entree.dernier else "jamais" }}</td>
+      <td>{{ l.alerte or "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="vide">Aucune version installée : le dépôt est vide, ou la passerelle n'est pas configurée.</p>{% endif %}
+{% endif %}
+{% endblock %}
