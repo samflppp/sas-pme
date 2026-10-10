@@ -92,3 +92,29 @@ def test_deconnexion(client):
     connecter(client)
     client.post("/deconnexion")
     assert client.get("/", follow_redirects=False).status_code == 303
+
+
+@pytest.mark.parametrize("erreur, attendu, code", [
+    (LookupError("requests : aucune version publiée depuis plus de 3 jours"), "aucune version publiée", 404),
+    (ValueError("nom de paquet invalide : 'x'"), "nom de paquet invalide", 400),
+    (NotImplementedError("npm est une extension du MVP"), "pas encore pris en charge", 400),
+])
+def test_une_erreur_du_pipeline_s_affiche_au_lieu_d_une_erreur_500(base, erreur, attendu, code):
+    def demander(eco, nom):
+        raise erreur
+    client = TestClient(creer_app(base=base, mot_de_passe=MDP, secret="s", demander=demander))
+    connecter(client)
+    r = client.post("/demander", data={"ecosysteme": "pypi", "nom": "requests"})
+    assert r.status_code == code
+    assert attendu in r.text
+    assert "Demander un paquet" in r.text  # on reste sur le formulaire
+
+
+def test_le_vrai_pipeline_recoit_la_base_du_web(base, monkeypatch):
+    recu = {}
+    import plateforme.pipeline as pipeline
+    monkeypatch.setattr(pipeline, "demander", lambda eco, nom, base=None: recu.update(base=base))
+    client = TestClient(creer_app(base=base, mot_de_passe=MDP, secret="s"))
+    connecter(client)
+    client.post("/demander", data={"ecosysteme": "pypi", "nom": "requests"})
+    assert recu["base"] is base
