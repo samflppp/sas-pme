@@ -74,6 +74,7 @@ def test_lire_inventaire_interroge_la_passerelle(passerelle):
 def test_sans_url_on_reste_sur_le_stub_scp(tmp_path, monkeypatch):
     monkeypatch.delenv("SAS_PASSERELLE_URL", raising=False)
     monkeypatch.setenv("SAS_PASSERELLE_SSH", "ubuntu@10.42.2.10")
+    monkeypatch.setenv("SAS_PUBLICATION_NON_SIGNEE", "oui-tests")
     lancees = []
     monkeypatch.setattr(signature.subprocess, "run", lambda cmd, **k: lancees.append(cmd))
     signature.publier(Ecosysteme.PYPI, "requests", "2.32.4", [_roue(tmp_path)], 42)

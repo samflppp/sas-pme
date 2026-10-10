@@ -6,7 +6,9 @@ M1 (si SAS_PASSERELLE_URL est posée) : manifeste signé Ed25519, POST au récep
   SAS_TLS_CA            autorité qui a signé le certificat de la passerelle
   SAS_TLS_CERT, SAS_TLS_CLE   certificat client de la plateforme et sa clé
 
-Stub M0 (sinon) : aucune signature, les archives sont copiées par scp dans le dépôt de pypiserver.
+Stub M0, **refusé par défaut** (B, C3 : rien n'est publié sans signature). Il ne sert qu'aux tests
+et se demande explicitement : SAS_PUBLICATION_NON_SIGNEE=oui-tests. Sans signature et sans cette
+variable, publier() et revoquer() lèvent PublicationRefusee. Sinon, copie scp sans signature :
   SAS_PASSERELLE_SSH    utilisateur@ip de la passerelle, ex. ubuntu@10.42.2.10
   SAS_PASSERELLE_DEPOT  dossier servi par pypiserver (défaut /srv/pypi/packages)
   SAS_PASSERELLE_CLE    clé SSH privée de la plateforme (facultatif)
@@ -69,6 +71,14 @@ def _config() -> tuple[str, str, list[str]]:
     return hote, depot, options
 
 
+def _stub_autorise() -> None:
+    """Sans SAS_PASSERELLE_URL, refuser plutôt que publier en clair (B, C3)."""
+    if os.environ.get("SAS_PUBLICATION_NON_SIGNEE") != "oui-tests":
+        raise PublicationRefusee(
+            "publication sans signature refusée : poser SAS_PASSERELLE_URL (lien signé). "
+            "Le stub scp ne sert qu'aux tests (SAS_PUBLICATION_NON_SIGNEE=oui-tests).")
+
+
 def _verifier_pypi(ecosysteme) -> None:
     if str(ecosysteme) != "pypi":
         raise NotImplementedError("M0 : pip seulement")
@@ -85,6 +95,7 @@ def publier(ecosysteme, nom: str, version: str, archives: list[Path], verdict_id
         _envoyer("/v1/publish", ed25519.manifeste_publication(
             ecosysteme, nom, version, list(map(Path, archives)), verdict_id), archives)
         return
+    _stub_autorise()
     hote, depot, options = _config()
     subprocess.run(
         ["scp", *options, *map(str, archives), f"{hote}:{depot}/"], check=True, timeout=120
@@ -100,6 +111,7 @@ def revoquer(ecosysteme, nom: str, version: str, raison: str) -> None:
             type="revocation", ecosysteme=ecosysteme, nom=nom, version=version, raison=raison,
             emis_le=datetime.now(timezone.utc), nonce=secrets.token_hex(16)))
         return
+    _stub_autorise()
     hote, depot, options = _config()
     # Les wheels remplacent « - » par « _ » dans le nom ; les sdist gardent souvent le nom tel quel.
     noms = dict.fromkeys([nom, nom.replace("-", "_")])
