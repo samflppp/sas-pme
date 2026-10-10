@@ -1,0 +1,8 @@
+# Flux RSS/Atom des chercheurs lus par la veille (une URL par ligne ; SAS_FLUX remplace la liste).
+# Un article alerte (FORT au plus), il ne bloque ni ne débloque jamais.
+# Vérifié joignable le 10/10 : Datadog Security Labs. Les autres sont à vérifier sur la plateforme ;
+# un flux injoignable est simplement ignoré à ce tour.
+https://securitylabs.datadoghq.com/rss/feed.xml
+https://blog.pypi.org/feed_rss_created.xml
+https://socket.dev/api/blog/feed.atom
+https://www.stepsecurity.io/blog/rss.xml
