@@ -229,35 +229,49 @@ sur AWS, puis on gèle les fonctions (`docs/roadmap.md`). Consignes de C :
    la démo pour ne pas payer la construction pendant.
 3. Lancer le web (§ 3) avec une **base neuve** (`SAS_DB` vers un fichier qui n'existe pas) et
    `SAS_SANDBOX_ATTENTE=10`.
+4. **Relancer le faux PyPI** (port 8081) après le redéploiement, pour qu'il connaisse la 1.3. Ses
+   versions vivent en mémoire : le relancer remet aussi 1.1, 1.2 et 1.3 « non sorties ». À faire
+   avant de commencer, jamais pendant.
+5. Vérifier l'index du RAG (1 s, sans Ollama ; attendu : `…/sas-pme/rag_index 16473 documents`) :
+   `.venv/bin/python -I -c "from plateforme.pipeline.rag.index import Index, dossier; print(dossier().resolve(), Index(dossier(), None).compter(), 'documents')"`
 
 ### Avant de commencer (5 minutes avant)
 
 Comme au H10 (requests et demo-horodatage 1.0 `publiee`, deux terminaux, navigateur sur
 <http://localhost:8000> en `admin`). Ouvrir en plus les onglets « Tableau de bord » et
-« Inventaire ».
+« Inventaire ». La préparation prend environ 7 minutes (mesuré par C : 98 s pour la 1.0, 330 s
+pour requests et ses dépendances).
+
+À la répétition à blanc de C, **certifi et idna sont passées « à revoir »** sur une seule alerte du
+LLM (fausses alertes, signalées à B). Si c'est encore le cas, ne pas les trancher avant : elles
+servent à l'étape 7.
 
 ### Minutage
 
-Sur CPU, le LLM met de 50 à 60 s par version et la sandbox environ 10 s (avec
-`SAS_SANDBOX_ATTENTE=10`). Avec le délai de 2 minutes, une version sort de la file d'attente
-environ 3 minutes après sa publication sur le faux PyPI. Compter **8 à 10 minutes** en tout ; les
-attentes se remplissent avec les étapes 0, 1 et 5.
+Mesuré à la répétition à blanc de C (2026-10-11, 7B sur CPU, `SAS_DELAI=120`,
+`SAS_SANDBOX_ATTENTE=10`) : la 1.1 est publiée 140 s après sa sortie ; la 1.2 est bloquée 72 s
+après la fin de son délai ; **les étapes 2 et 3 prennent 252 s** depuis la sortie de la 1.1.
+
+Pour la présentation de 3 minutes : sortir la 1.1, la 1.2 et la 1.3 **avant de prendre la
+parole**, et commencer par les étapes 0 et 1 pendant que la plateforme travaille. Pour la vidéo :
+couper les attentes au montage. Compter **8 à 10 minutes** pour la répétition complète.
 
 | Étape | Durée |
 |---|---|
 | 0. Tableau de bord | 20 s |
 | 1. Le serveur ne parle jamais à Internet, sauf aux API autorisées | 40 s |
-| 2. Une version saine attend, puis passe | 3 min 30 (attente comprise) |
-| 3. Une version piégée est bloquée, le LLM cite le RAG | 60 s |
+| 2. Une version saine attend, puis passe | 140 s depuis sa sortie (120 s de délai) |
+| 3. Une version piégée est bloquée, le LLM cite le RAG | 72 s après son délai (252 s pour 2 et 3) |
 | 4. Révocation, puis l'alerte de l'inventaire | 60 s |
 | 5. Une publication forgée est refusée | 30 s |
 | 6. Le journal et le tableau de bord | 30 s |
-| (7.) Décision humaine, si une version passe « à revoir » | 40 s |
+| 7. Décision humaine sur la 1.3 « à revoir » | 40 s (plus le délai et l'analyse, en parallèle) |
 
 ### Déroulé
 
 **0. Le tableau de bord (20 s)** — onglet « Tableau de bord » : les compteurs par état (requests,
-ses dépendances et demo-horodatage 1.0 `publiee`, 0 à revoir, 0 bloquée) et « Journal intact ».
+ses dépendances et demo-horodatage 1.0 `publiee`, 0 bloquée ; certifi et idna peut-être « à
+revoir ») et « Journal intact ».
 
 > « La plateforme agréée : tout ce qui entre chez vous passe par ici, et tout y est tracé. »
 
@@ -277,7 +291,16 @@ pip install requests                               # marche : il vient de la pas
 > passerelle, qui ne reçoit que ce que la plateforme a vérifié et signé. »
 
 **2. Une nouvelle version saine attend, puis passe** — comme l'étape 2 du H10 (1.1, puis 1.2
-30 s plus tard). Pendant l'attente, faire l'étape 1 si ce n'est pas déjà fait. À la fin, terminal
+30 s plus tard, puis la 1.3 pour l'étape 7) :
+
+```bash
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.1
+sleep 30
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.2
+sleep 30
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.3
+```
+ Pendant l'attente, faire l'étape 1 si ce n'est pas déjà fait. À la fin, terminal
 serveur : `pip install -U demo-horodatage` installe la 1.1.
 
 **3. Une version piégée est bloquée, et le LLM cite ses sources (60 s)** — comme l'étape 3 du
@@ -312,11 +335,20 @@ intègre. Puis « Tableau de bord » : 1 bloquée (1.2), 1 révoquée (1.1), « 
 > « Chaque décision, de la machine comme des personnes, est chaînée et signée avec une clé qui
 > n'est pas dans la base. Une ligne modifiée casse la chaîne, et on voit laquelle. »
 
-**7. Décision humaine, si une version passe « à revoir » (40 s)** — aucune version du faux PyPI ne
-passe « à revoir » à coup sûr (voir le point A de H16). Si une version y passe (un signal FORT, par
-exemple `traces_effacees`), elle est dans « À trancher » du tableau de
-bord : sur sa fiche, l'admin écrit une raison et clique « Approuver » ou « Bloquer ». Un second
-admin qui tranche la même version en même temps est refusé, pas écrasé.
+**7. Décision humaine sur la 1.3 (40 s)** — la 1.3 (sortie à l'étape 2) arrive **« à revoir »** à
+coup sûr : un seul signal FORT, `domaine_suspect`. Sa raison cite la ligne : « À revoir :
+RAPPORT_URL = "https://horodatage-debug.ngrok-free.app/rapport" ». La fonction qui l'utilise n'est
+jamais appelée à l'import : la sandbox ne voit rien.
+
+> « Outil de debug oublié, ou porte de sortie ? La machine ne devine pas : elle demande à un
+> humain. »
+
+- « Tableau de bord », section « À trancher » : la 1.3 (et certifi, idna si elles y sont).
+- Fiche de la 1.3 : raison « Tunnel ngrok vers l'extérieur, non justifié par le mainteneur. »,
+  puis « Bloquer ». La preuve « admin : raison » s'ajoute et le journal la garde. Un second admin
+  qui tranche la même version en même temps est refusé, pas écrasé.
+- Si certifi et idna sont « à revoir » : les approuver avec une raison (« Alerte du LLM seule,
+  rien en statique ni en sandbox. »). Une approbation ne lève jamais un signal bloquant.
 
 ### Si quelque chose casse pendant la démo (en plus du tableau H10)
 
