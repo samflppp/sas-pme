@@ -74,6 +74,7 @@ base.inventaire() -> list[tuple[Ecosysteme, str, str]]
 # pour le web
 base.lire_version(eco, nom, version) -> Version | None
 base.lister_versions(etat: Etat | None = None) -> list[Version]
+base.lister_avec_raison(etats: list[Etat]) -> list[tuple[Version, str]]  # file d'attente
 base.fiche(eco, nom, version) -> Fiche | None    # version, raison, signaux, verdict, verdict_id, rapport_sandbox
 base.journaliser(acteur, action, sujet, charge: dict) -> None
 base.journal(limite=500) -> list[EntreeJournal]

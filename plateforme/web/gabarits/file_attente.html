@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titre %}File d'attente{% endblock %}
+{% block contenu %}
+<h1>File d'attente</h1>
+<p>Chaque nouvelle version attend {{ delai or "son délai" }} après sa publication sur Internet.
+À la fin du délai, l'analyse démarre au prochain tour du traitement.</p>
+{% if erreur %}<p class="erreur">{{ erreur }}</p>{% endif %}
+
+{% if attente %}
+<table>
+  <tr><th>Paquet</th><th>Version</th><th>Publiée sur Internet</th><th>Analyse dans</th></tr>
+  {% for a in attente %}
+  <tr>
+    <td><a href="/versions/{{ a.v.ecosysteme.value }}/{{ a.v.nom }}/{{ a.v.version }}">{{ a.v.nom }}</a> <code>{{ a.v.ecosysteme.value }}</code></td>
+    <td>{{ a.v.version }}</td>
+    <td>{{ a.v.publiee_le.strftime("%d/%m/%Y %H:%M") }}</td>
+    <td>{% if a.reste %}<span class="rebours" data-fin="{{ a.fin.isoformat() }}">{{ a.reste }}</span>{% elif a.fin %}au prochain tour{% else %}—{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p class="vide">Rien en attente.</p>
+{% endif %}
+
+{% if en_analyse %}
+<h2>En analyse</h2>
+<table>
+  {% for v, raison in en_analyse %}
+  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-en_analyse">en_analyse</span></td><td>{{ raison }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% if a_revoir %}
+<h2>À revoir</h2>
+<table>
+  {% for v, raison in a_revoir %}
+  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-a_revoir">a_revoir</span></td><td>{{ raison }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% if bloquees %}
+<h2>Bloquées</h2>
+<table>
+  {% for v, raison in bloquees %}
+  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-bloquee">bloquee</span></td><td>{{ raison }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<script>
+// Décompte en direct ; sans JavaScript, la page garde le temps calculé par le serveur.
+(function () {
+  function texte(s) {
+    var j = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600),
+        m = Math.floor(s % 3600 / 60), r = s % 60, p = function (n) { return n < 10 ? "0" + n : n; };
+    if (j) return j + " j " + p(h) + " h " + p(m) + " min";
+    if (h) return h + " h " + p(m) + " min";
+    if (m) return m + " min " + p(r) + " s";
+    return r + " s";
+  }
+  function tic() {
+    document.querySelectorAll(".rebours").forEach(function (e) {
+      var s = Math.floor((new Date(e.dataset.fin) - new Date()) / 1000);
+      e.textContent = s > 0 ? texte(s) : "au prochain tour";
+    });
+  }
+  setInterval(tic, 1000);
+})();
+</script>
+{% endblock %}

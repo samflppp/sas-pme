@@ -35,6 +35,7 @@ export SAS_DB=~/sas.db SAS_ARCHIVES=~/archives
 export SAS_ADMIN_MOTDEPASSE='<à choisir>'  # ne sert qu'au premier lancement (base neuve)
 export SAS_PASSERELLE_SSH=ubuntu@10.42.2.10 SAS_PASSERELLE_CLE=~/.ssh/sas_passerelle
 export SAS_TRAITEMENT_INTERVALLE=10        # démo : on voit les états changer vite
+export SAS_DELAI=120                      # démo : 2 minutes d'attente au lieu de 3 jours
 .venv/bin/uvicorn plateforme.web.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -59,4 +60,6 @@ puis <http://localhost:8000> dans le navigateur.
    requests` qui marche, `flask` introuvable).
 5. `infra/aws/detruire.sh` après la séance.
 
-Les versions choisies sont publiées depuis plus de 3 jours : le délai ne gêne pas cette démo.
+`demander()` ne choisit que des versions publiées depuis plus que le délai réglé : elles ne
+passent pas par la file d'attente. Une version qui **attend** (compte à rebours dans « File
+d'attente ») arrivera par la veille de B, en M1.
