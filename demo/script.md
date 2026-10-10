@@ -37,8 +37,9 @@ export SAS_DELAI=120                       # démo : 2 minutes d'attente au lieu
 # Publication signée en TLS mutuel (C) ; sans SAS_PASSERELLE_URL, copie scp du M0.
 export SAS_PASSERELLE_URL=https://10.42.2.10:8443 SAS_CLE_SIGNATURE=~/sas/signature.pem
 export SAS_TLS_CA=~/sas/tls/ca.pem SAS_TLS_CERT=~/sas/tls/plateforme.pem SAS_TLS_CLE=~/sas/tls/plateforme.key
-# LLM local (B) ; Ollama installé sur la plateforme par C.
-export SAS_MODELE=qwen2.5-coder:3b SAS_OLLAMA_URL=http://127.0.0.1:11434
+# LLM local (B) ; Ollama installé sur la plateforme par C. 7B retenu (point A-modele-7b) ;
+# repli sur qwen2.5-coder:3b si son temps de réponse ne tient pas dans la démo.
+export SAS_MODELE=qwen2.5-coder:7b SAS_OLLAMA_URL=http://127.0.0.1:11434
 # Source amont de démo (B, H10 seulement) : le faux PyPI de demo/paquets/. Sans, le vrai PyPI.
 export SAS_PYPI_URL=<adresse du faux PyPI de démo>
 .venv/bin/uvicorn plateforme.web.app:app --host 127.0.0.1 --port 8000
@@ -84,7 +85,7 @@ elles ne passent pas par la file d'attente. Une version qui **attend** arrive pa
 | Faux PyPI de démo (`demo/paquets/`) : `requests` et ses dépendances, une **nouvelle version saine** à « sortir » pendant la démo, la **version piégée** | B | à faire |
 | Publication signée en TLS mutuel, récepteur, `demo/forger.sh` | C | sur `main` |
 | Sandbox v1 (Docker sans réseau, faux DNS qui enregistre, leurres) | C | branche `c/sandbox-v1`, pas encore en PR |
-| Ollama + `qwen2.5-coder:3b` sur la plateforme, temps de réponse mesuré | C | à faire |
+| Ollama + `qwen2.5-coder:7b` (et `:3b` en repli) sur la plateforme, temps de réponse mesuré | C | à faire |
 
 ### Avant de commencer (5 minutes avant)
 
