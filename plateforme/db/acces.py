@@ -46,6 +46,7 @@ class EntreeJournal:
     action: str
     sujet: str
     charge: dict
+    hash: str = ""
 
 
 @dataclass(frozen=True)
@@ -313,15 +314,33 @@ class Base:
 
     def journal(self, limite: int = 500) -> list[EntreeJournal]:
         rows = self._c.execute("SELECT * FROM journal ORDER BY seq LIMIT ?", (limite,)).fetchall()
-        return [EntreeJournal(r["seq"], datetime.fromisoformat(r["a"]), r["acteur"], r["action"],
-                              r["sujet"], json.loads(r["charge"])) for r in rows]
+        return [self._entree(r) for r in rows]
+
+    def journal_recent(self, limite: int = 100, avant: int | None = None,
+                       q: str | None = None) -> list[EntreeJournal]:
+        """Les entrées les plus récentes d'abord ; `avant` pagine (seq strictement inférieur) ;
+        `q` cherche dans l'acteur, l'action et le sujet."""
+        sql, args = "SELECT * FROM journal WHERE 1=1", []
+        if avant is not None:
+            sql += " AND seq < ?"
+            args.append(avant)
+        if q:
+            # « ! » échappe les jokers de LIKE : « % » et « _ » tapés sont cherchés tels quels.
+            motif = "%" + q.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+            sql += (" AND (acteur LIKE ? ESCAPE '!' OR action LIKE ? ESCAPE '!'"
+                    " OR sujet LIKE ? ESCAPE '!')")
+            args += [motif] * 3
+        rows = self._c.execute(sql + " ORDER BY seq DESC LIMIT ?", (*args, limite)).fetchall()
+        return [self._entree(r) for r in rows]
+
+    def compter_journal(self) -> int:
+        return self._c.execute("SELECT COUNT(*) FROM journal").fetchone()[0]
 
     def historique(self, eco: Ecosysteme, nom: str, version: str) -> list[EntreeJournal]:
         """Les entrées du journal qui concernent une version, dans l'ordre."""
         rows = self._c.execute("SELECT * FROM journal WHERE sujet = ? ORDER BY seq",
                                (_cle(eco, nom, version),)).fetchall()
-        return [EntreeJournal(r["seq"], datetime.fromisoformat(r["a"]), r["acteur"], r["action"],
-                              r["sujet"], json.loads(r["charge"])) for r in rows]
+        return [self._entree(r) for r in rows]
 
     def verifier_journal(self) -> tuple[bool, int | None]:
         """(intègre, seq de la première entrée qui casse la chaîne)."""
@@ -341,6 +360,11 @@ class Base:
         self._c.execute(
             "INSERT INTO journal (a, acteur, action, sujet, charge, prec, hash) VALUES (?,?,?,?,?,?,?)",
             (a, acteur, action, sujet, texte, prec, _hash(prec, a, acteur, action, sujet, texte)))
+
+    @staticmethod
+    def _entree(r: sqlite3.Row) -> EntreeJournal:
+        return EntreeJournal(r["seq"], datetime.fromisoformat(r["a"]), r["acteur"], r["action"],
+                             r["sujet"], json.loads(r["charge"]), r["hash"])
 
     @staticmethod
     def _version(r: sqlite3.Row) -> Version:

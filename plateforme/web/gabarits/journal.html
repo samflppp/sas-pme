@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titre %}Journal{% endblock %}
+{% block contenu %}
+<h1>Journal</h1>
+<p>Toutes les décisions, de la machine comme des personnes. Chaque entrée contient le hash de la
+précédente : une entrée modifiée casse la chaîne.</p>
+
+<form method="get" action="/journal" class="ligne">
+  <input name="q" value="{{ q }}" placeholder="paquet, personne ou action">
+  <button type="submit">Chercher</button>
+  <a href="/journal?verifier=1">Vérifier la chaîne</a>
+</form>
+
+{% if verification %}
+  {% if verification.intacte %}
+  <p class="raison ok">✓ Chaîne intègre — {{ verification.total }} entrées vérifiées.</p>
+  {% else %}
+  <p class="raison ko">✗ Chaîne cassée à l'entrée n° {{ verification.cassee }} : elle a été modifiée,
+  ou une entrée avant elle a été supprimée.</p>
+  {% endif %}
+{% endif %}
+
+{% if entrees %}
+<table>
+  <thead><tr><th>#</th><th>Quand</th><th>Qui</th><th>Action</th><th>Sujet</th><th>Détail</th><th>Hash</th></tr></thead>
+  <tbody>
+  {% for e in entrees %}
+    <tr data-seq="{{ e.seq }}"{% if verification and verification.cassee == e.seq %} class="cassee"{% endif %}>
+      <td>{{ e.seq }}</td>
+      <td>{{ e.a.strftime("%d/%m %H:%M:%S") }}</td>
+      <td>{{ e.acteur }}</td>
+      <td>{{ e.action }}</td>
+      <td>{% if fiches[e.seq] %}<a href="{{ fiches[e.seq] }}">{{ e.sujet }}</a>{% else %}{{ e.sujet }}{% endif %}</td>
+      <td>{% if e.charge.etat %}<span class="etat etat-{{ e.charge.etat }}">{{ e.charge.etat }}</span> {% endif %}
+          {% for k, val in e.charge.items() if k != "etat" %}<code>{{ k }}</code> {{ val }} {% endfor %}</td>
+      <td><code title="{{ e.hash }}">{{ e.hash[:8] }}…</code></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if suivante %}<p><a href="/journal?avant={{ suivante }}{% if q %}&q={{ q | urlencode }}{% endif %}">Entrées plus anciennes</a></p>{% endif %}
+{% else %}
+<p class="vide">Aucune entrée{% if q %} pour « {{ q }} »{% endif %}.</p>
+{% endif %}
+{% endblock %}
