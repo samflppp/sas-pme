@@ -7,8 +7,8 @@ Chaque analyse a son réseau Docker **interne** (aucune route vers Internet). Il
 La cible installe l'archive sans réseau, importe le module, attend un battement. Le rapport
 rassemble le traceur (dans la cible) et le journal du piège (hors de portée du paquet).
 
-Réglages : SAS_SANDBOX=stub (rapport vide, pour les tests), SAS_SANDBOX_IMAGE (défaut sas-sandbox:1,
-construite au besoin depuis le Dockerfile voisin), SAS_SANDBOX_ATTENTE (secondes, défaut 10).
+Réglages : SAS_SANDBOX=stub (rapport vide, pour les tests), SAS_SANDBOX_IMAGE (défaut sas-sandbox:2,
+construite au besoin depuis le Dockerfile voisin), SAS_SANDBOX_ATTENTE (secondes après la fin de l'import, défaut 60 : un battement).
 """
 
 import json
@@ -28,6 +28,7 @@ __all__ = ["Ecosysteme", "RapportSandbox", "executer", "commande_cible"]
 ICI = Path(__file__).parent
 HOME = "/tmp/home"
 UTILISATEUR = "10001:10001"
+ATTENTE_PAR_DEFAUT_S = 60          # v2 : observer un battement après l'import
 LEURRES_ENV = ("AWS_SECRET_ACCESS_KEY", "GITHUB_TOKEN", "NPM_TOKEN")
 LEURRES_FICHIERS = {"L_AWS": "~/.aws/credentials", "L_SSH": "~/.ssh/id_rsa", "L_NPMRC": "~/.npmrc",
                     "L_PYPIRC": "~/.pypirc", "L_GIT": "~/.git-credentials"}
@@ -59,7 +60,7 @@ def commande_cible(nom: str, reseau: str, image: str, dossier: str, archive: str
 
 
 def _image() -> str:
-    image = os.environ.get("SAS_SANDBOX_IMAGE", "sas-sandbox:1")
+    image = os.environ.get("SAS_SANDBOX_IMAGE", "sas-sandbox:2")
     if _docker("image", "inspect", image, verifier=False).returncode != 0:
         _docker("build", "-q", "-t", image, str(ICI), timeout=600)
     return image
@@ -97,7 +98,7 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
     image = _image()
     ident = secrets.token_hex(4)
     reseau, piege, cible = f"sas-sb-{ident}", f"sas-piege-{ident}", f"sas-cible-{ident}"
-    attente = int(os.environ.get("SAS_SANDBOX_ATTENTE", "10"))
+    attente = int(os.environ.get("SAS_SANDBOX_ATTENTE", str(ATTENTE_PAR_DEFAUT_S)))
     valeurs = {nom: "sasleurre" + secrets.token_hex(12) for nom in (*LEURRES_ENV, *LEURRES_FICHIERS)}
     env_cible = {n: valeurs[n] for n in LEURRES_ENV} | {n: valeurs[n] for n in LEURRES_FICHIERS}
     env_cible["L_ID"] = secrets.token_hex(8).upper()
@@ -146,7 +147,9 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
         return rapport.construire(
             trace=_lire(d / "journal" / "trace.jsonl"), reseau=_lire(d / "piege" / "reseau.jsonl"),
             leurres=a_chercher, home=HOME, code_sortie=_code(d / "journal"), duree_s=duree,
-            delai_depasse=depasse, ip_piege=ip)
+            delai_depasse=depasse, ip_piege=ip,
+            strace_installation=_lire(d / "journal" / "strace_installation.txt"),
+            strace_import=_lire(d / "journal" / "strace_import.txt"))
 
 
 def executer(ecosysteme: Ecosysteme, archive: Path, module: str,

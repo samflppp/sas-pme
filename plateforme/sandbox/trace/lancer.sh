@@ -12,11 +12,17 @@ printf 'https://bot:%s@github.com\n' "$L_GIT" > "$H/.git-credentials"
 unset L_ID L_AWS L_SSH L_NPMRC L_PYPIRC L_GIT
 
 export SAS_TRACE=/journal/trace.jsonl PYTHONPATH=/outils
+# v2 : strace voit aussi le code natif (ctypes, extensions C) que le traceur Python ne voit pas.
+ST="strace -f -qq -s 256 -e trace=openat,execve,connect"
 export SAS_PHASE=installation
-python -m pip install -q --no-deps --no-index --no-build-isolation --disable-pip-version-check \
+$ST -o /journal/strace_installation.txt \
+  python -m pip install -q --no-deps --no-index --no-build-isolation --disable-pip-version-check \
   --target /tmp/site "/entree/$SAS_ARCHIVE" > /journal/installation.log 2>&1
 echo $? > /journal/code_installation
-export SAS_PHASE=import
-python /outils/importer.py "$SAS_MODULE" > /journal/import.log 2>&1
-echo $? > /journal/code_import
+# L'import tourne en arrière-plan (strace -f suit aussi ce qu'il détache) ; il écrit lui-même son
+# code de sortie. On attend sa fin, puis SAS_ATTENTE s pour voir un battement.
+export SAS_PHASE=import SAS_CODE_IMPORT=/journal/code_import
+$ST -o /journal/strace_import.txt python /outils/importer.py "$SAS_MODULE" > /journal/import.log 2>&1 &
+debut=$(date +%s)
+while [ ! -f /journal/code_import ] && [ $(( $(date +%s) - debut )) -lt 100 ]; do sleep 0.2; done
 sleep "$SAS_ATTENTE"

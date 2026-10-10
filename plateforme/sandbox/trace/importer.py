@@ -48,5 +48,18 @@ def main(module: str) -> int:
     return code
 
 
+def _noter_code(code: int) -> None:
+    """Le code de sortie, pour lancer.sh (l'import tourne en arrière-plan sous strace)."""
+    chemin = os.environ.get("SAS_CODE_IMPORT")
+    if chemin:
+        with open(chemin, "w") as f:
+            f.write(f"{code}\n")
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    code = 1
+    try:
+        code = main(sys.argv[1])
+    finally:
+        _noter_code(code)
+    sys.exit(code)
