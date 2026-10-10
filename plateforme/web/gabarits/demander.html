@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titre %}Demander un paquet{% endblock %}
+{% block contenu %}
+<h1>Demander un paquet</h1>
+<p>La plateforme prend la dernière version publiée depuis plus de 3 jours, l'analyse, puis la publie
+dans la passerelle si elle est sûre.</p>
+<form class="carte" method="post" action="/demander">
+  <label>Écosystème
+    <select name="ecosysteme">{% for e in ecosystemes %}<option value="{{ e.value }}">{{ e.value }}</option>{% endfor %}</select>
+  </label>
+  <label>Nom du paquet <input name="nom" placeholder="requests" required></label>
+  <button type="submit">Demander</button>
+</form>
+{% endblock %}
