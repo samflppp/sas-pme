@@ -1,9 +1,12 @@
 """Politique de décision déterministe : un signal BLOQUANT bloque, un signal FORT met à revoir.
 
 Le code décide ici, jamais le LLM (docs/contexte.md § 6) : un signal LLM ne peut pas être
-BLOQUANT (commun/modeles.py), il peut au plus mettre à revoir.
+BLOQUANT (commun/modeles.py), il peut au plus mettre à revoir. Seule une approbation d'un humain
+(source HUMAIN) lève un signal FORT ; rien ne lève un signal BLOQUANT.
 """
-from commun.modeles import Etat, Niveau, Signal, Verdict
+from commun.modeles import Etat, Niveau, Signal, Source, Verdict
+
+APPROBATION = "approbation_humaine"
 
 
 def _resume(signaux: list[Signal]) -> str:
@@ -14,6 +17,10 @@ def decider(signaux: list[Signal]) -> Verdict:
     bloquants = [s for s in signaux if s.niveau is Niveau.BLOQUANT]
     if bloquants:
         return Verdict(etat=Etat.BLOQUEE, raison=f"Bloquée : {_resume(bloquants)}.",
+                       signaux=signaux)
+    humains = [s for s in signaux if s.source is Source.HUMAIN and s.sorte == APPROBATION]
+    if humains:
+        return Verdict(etat=Etat.APPROUVEE, raison=f"Approuvée par un humain : {_resume(humains)}.",
                        signaux=signaux)
     forts = [s for s in signaux if s.niveau is Niveau.FORT]
     if forts:
