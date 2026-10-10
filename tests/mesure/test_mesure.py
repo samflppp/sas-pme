@@ -28,8 +28,8 @@ def test_compte_detections_et_fausses_alertes():
     r = mesurer.mesurer(CORPUS, detecteur)
     assert (r.detectes, r.malveillants, r.fausses_alertes, r.sains) == (2, 4, 1, 5)
     assert r.taux_detection == 0.5 and r.taux_fausses_alertes == 0.2
-    assert r.manques == ["mal2", "mal3"]          # MOYEN ne suffit pas à arrêter une version
-    assert r.alertes_a_tort == ["sain0"]
+    assert r.manques == ["mal2 1.0", "mal3 1.0"]      # MOYEN ne suffit pas à arrêter une version
+    assert r.alertes_a_tort == ["sain0 2.0"]
 
 
 def test_le_detecteur_recoit_l_ecosysteme_type():
@@ -46,3 +46,13 @@ def test_tableau_markdown():
 def test_le_rapport_dit_ses_limites():
     md = mesurer.rapport(CORPUS, {"Contrôles seuls": mesurer.mesurer(CORPUS, detecteur)})
     assert "## Limites" in md and "OpenSSF" in md
+
+
+def test_une_version_non_mesurable_sort_du_compte_et_est_listee():
+    def detecteur_partiel(eco, nom, version):
+        return None if nom in ("mal3", "sain4") else detecteur(eco, nom, version)
+    r = mesurer.mesurer(CORPUS, detecteur_partiel)
+    assert (r.detectes, r.malveillants, r.fausses_alertes, r.sains) == (2, 3, 1, 4)
+    assert r.non_mesures == ["mal3 1.0", "sain4 2.0"]
+    md = mesurer.rapport(CORPUS, {"Statique": r})
+    assert "Non mesurées (2)" in md and "`sain4 2.0`" in md
