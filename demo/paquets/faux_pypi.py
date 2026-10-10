@@ -5,6 +5,7 @@
     curl -X POST localhost:8081/demo/publier/demo-horodatage/1.1   # une mise à jour saine sort
     curl -X POST localhost:8081/demo/publier/demo-horodatage/1.2   # la version piégée sort
     curl -X POST localhost:8081/demo/retirer/demo-horodatage/1.2   # PyPI la retire (option)
+    curl -X POST localhost:8081/demo/publier/demo-horodatage/1.3   # « à revoir » : décision humaine
 
 Il sert l'API JSON de PyPI (`/pypi/<nom>/json`, `/pypi/<nom>/<version>/json`) pour le paquet
 `demo-horodatage` et relaie tout autre nom vers https://pypi.org (lecture seule).
@@ -15,6 +16,9 @@ Il sert l'API JSON de PyPI (`/pypi/<nom>/json`, `/pypi/<nom>/<version>/json`) po
   `~/.aws/credentials` et appelle `collecte.attaquant-demo.invalid`. Elle reste inoffensive :
   elle n'envoie qu'une empreinte tronquée, vers un domaine en `.invalid` qui ne se résout jamais
   (RFC 2606). **Ne jamais l'installer hors de la sandbox quand même.**
+- 1.3 : **à revoir** (H16, décision humaine). Elle ajoute une fonction qui envoie un rapport vers
+  un tunnel ngrok, jamais appelée à l'import : un seul signal FORT (`domaine_suspect`), rien de
+  bloquant. Outil de debug oublié ou porte de sortie ? C'est à un humain de trancher.
 
 Les archives sont construites en mémoire au démarrage (contenu fixe), jamais exécutées ici.
 """
@@ -66,9 +70,20 @@ def _synchro():
 
 _synchro()
 '''
-CODE = {"1.0": _SAIN, "1.1": _SAIN + _FORMAT, "1.2": _SAIN + _FORMAT + _PIEGE}
+_DOUTEUX = '''
+
+# Rapport de debug, envoyé seulement si l'appelant le demande.
+RAPPORT_URL = "https://horodatage-debug.ngrok-free.app/rapport"
+
+
+def envoyer_rapport(texte: str) -> None:
+    import urllib.request
+    urllib.request.urlopen(RAPPORT_URL, data=texte.encode(), timeout=2)
+'''
+CODE = {"1.0": _SAIN, "1.1": _SAIN + _FORMAT, "1.2": _SAIN + _FORMAT + _PIEGE,
+        "1.3": _SAIN + _FORMAT + _DOUTEUX}
 AUTEUR = {"1.0": "equipe@horodatage-demo.invalid", "1.1": "equipe@horodatage-demo.invalid",
-          "1.2": "maintenance@horodatage-demo.invalid"}
+          "1.2": "maintenance@horodatage-demo.invalid", "1.3": "equipe@horodatage-demo.invalid"}
 
 
 def _metadata(version: str) -> str:
@@ -113,7 +128,7 @@ def _source(version: str) -> bytes:
 
 
 def construire() -> dict[str, dict[str, bytes]]:
-    """{version: {nom de fichier: octets}} pour les trois versions."""
+    """{version: {nom de fichier: octets}} pour chaque version."""
     return {v: {f"{MODULE}-{v}-py3-none-any.whl": _roue(v), f"{MODULE}-{v}.tar.gz": _source(v)}
             for v in CODE}
 
