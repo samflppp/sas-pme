@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" font-family="Inter, Helvetica, Arial, sans-serif">
+  <title>Schéma réseau de la démo sas-pme</title>
+  <defs>
+    <marker id="fl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="flr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/>
+    </marker>
+  </defs>
+  <rect width="960" height="760" fill="#ffffff"/>
+
+  <!-- Internet -->
+  <rect x="300" y="20" width="360" height="64" rx="32" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="480" y="47" text-anchor="middle" font-size="18" font-weight="700" fill="#0f172a">INTERNET</text>
+  <text x="480" y="70" text-anchor="middle" font-size="12.5" fill="#475569">pypi.org · api.osv.dev · flux RSS · API autorisées</text>
+
+  <!-- Sortie unique -->
+  <line x1="480" y1="150" x2="480" y2="88" stroke="#334155" stroke-width="2" marker-end="url(#fl)"/>
+  <text x="468" y="112" text-anchor="end" font-size="12.5" fill="#334155">seule sortie : nom + version de paquet,</text>
+  <text x="468" y="128" text-anchor="end" font-size="12.5" fill="#334155">téléchargements publics</text>
+
+  <!-- Sous-réseau public -->
+  <rect x="40" y="150" width="880" height="190" rx="14" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="58" y="174" font-size="12.5" font-weight="600" fill="#1d4ed8">SOUS-RÉSEAU PUBLIC 10.42.1.0/24</text>
+  <rect x="200" y="186" width="560" height="138" rx="10" fill="#ffffff" stroke="#1d4ed8" stroke-width="2"/>
+  <text x="480" y="214" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">PLATEFORME AGRÉÉE · 10.42.1.10</text>
+  <text x="480" y="242" text-anchor="middle" font-size="13" fill="#1e293b">veille → délai 3 jours → analyse statique → sandbox → LLM + RAG</text>
+  <text x="480" y="264" text-anchor="middle" font-size="13" fill="#1e293b">→ politique déterministe (le code décide) → signature Ed25519</text>
+  <text x="480" y="292" text-anchor="middle" font-size="12.5" fill="#475569">LLM, RAG et sandbox : tout local · journal chaîné · interface web</text>
+  <text x="480" y="312" text-anchor="middle" font-size="12" fill="#64748b">entrée : SSH et web depuis l'IP de l'admin seulement</text>
+
+  <!-- Liens plateforme / passerelle -->
+  <line x1="400" y1="326" x2="400" y2="420" stroke="#334155" stroke-width="2" marker-end="url(#fl)"/>
+  <text x="392" y="362" text-anchor="end" font-size="12.5" font-weight="600" fill="#0f172a">:8443 · TLS mutuel</text>
+  <text x="392" y="380" text-anchor="end" font-size="12" fill="#334155">manifeste signé + archives</text>
+  <text x="392" y="396" text-anchor="end" font-size="12" fill="#334155">publier · révoquer · inventaire</text>
+  <line x1="560" y1="420" x2="560" y2="328" stroke="#334155" stroke-width="2" marker-end="url(#fl)"/>
+  <text x="572" y="362" font-size="12.5" font-weight="600" fill="#0f172a">:3129 · relais d'API</text>
+  <text x="572" y="380" font-size="12" fill="#334155">CONNECT, liste fermée,</text>
+  <text x="572" y="396" font-size="12" fill="#334155">sans déchiffrement</text>
+
+  <!-- Sous-réseau privé -->
+  <rect x="40" y="420" width="880" height="320" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="58" y="444" font-size="12.5" font-weight="600" fill="#15803d">SOUS-RÉSEAU PRIVÉ 10.42.2.0/24 · aucune route vers Internet · DNS coupé</text>
+
+  <rect x="200" y="456" width="560" height="112" rx="10" fill="#ffffff" stroke="#15803d" stroke-width="2"/>
+  <text x="480" y="484" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">PASSERELLE « BOÎTE NOIRE » · 10.42.2.10</text>
+  <text x="480" y="510" text-anchor="middle" font-size="13" fill="#1e293b">récepteur : signature + sha256 + âge + nonce, sinon refus</text>
+  <text x="480" y="532" text-anchor="middle" font-size="13" fill="#1e293b">pypiserver :8080 (sans repli vers pypi.org) · relais :3128</text>
+  <text x="480" y="554" text-anchor="middle" font-size="12" fill="#64748b">registre des publications · inventaire des téléchargements</text>
+
+  <line x1="480" y1="640" x2="480" y2="572" stroke="#334155" stroke-width="2" marker-end="url(#fl)"/>
+  <text x="492" y="604" font-size="12.5" fill="#334155">pip :8080 · API par :3128 · réseau local seulement</text>
+
+  <rect x="200" y="640" width="560" height="84" rx="10" fill="#ffffff" stroke="#15803d" stroke-width="2"/>
+  <text x="480" y="668" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">SERVEUR SENSIBLE · 10.42.2.20</text>
+  <text x="480" y="694" text-anchor="middle" font-size="13" fill="#1e293b">données de la PME · aucun accès à Internet</text>
+  <text x="480" y="714" text-anchor="middle" font-size="12" fill="#64748b">n'installe que ce qui a été vérifié et signé</text>
+
+  <!-- Refus -->
+  <path d="M790 682 C 900 640, 905 200, 680 70" fill="none" stroke="#b91c1c" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#flr)"/>
+  <circle cx="893" cy="420" r="15" fill="#ffffff" stroke="#b91c1c" stroke-width="2"/>
+  <path d="M885 412 L901 428 M901 412 L885 428" stroke="#b91c1c" stroke-width="2.5"/>
+  <text x="884" y="396" text-anchor="end" font-size="12" font-weight="600" fill="#b91c1c">pas de route</text>
+</svg>
