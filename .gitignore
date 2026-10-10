@@ -8,3 +8,5 @@ __pycache__/
 cache/
 corpus/samples/
 .env
+*.db-shm
+*.db-wal
