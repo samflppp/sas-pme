@@ -33,6 +33,9 @@ $SSH sas-passerelle sudo bash -s <<'EOF'
 set -euo pipefail
 id pypi >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin pypi
 mkdir -p /srv/pypi/packages
+# Répertoire d'état partagé passerelle : journal d'accès (écrit par pypi) et nonces (écrits par le
+# récepteur, membre du groupe pypi). 2770 = setgid (héritage du groupe pypi) + group-write.
+install -d -o pypi -g pypi -m 2770 /var/lib/sas
 PIP=$(ls /tmp/wheels/pip-*.whl)
 rm -rf /opt/pypiserver
 python3 "$PIP/pip" install -q --no-index --find-links /tmp/wheels --target /opt/pypiserver pypiserver
@@ -88,7 +91,27 @@ systemctl daemon-reload && systemctl enable --now recepteur && systemctl restart
 sleep 3 && systemctl is-active --quiet recepteur && echo "récepteur actif"
 EOF
 
-echo "== 8. Plateforme → passerelle : santé en TLS mutuel"
+echo "== 8. Passerelle : pare-feu ufw (n'ouvrir que ce qui sert)"
+# Règles : 8443 depuis la plateforme (récepteur TLS mutuel) ; 8080 (+ 4873 si npm) depuis le
+# serveur (pip/npm) ; SSH depuis la plateforme (bastion) seulement. Tout le reste refusé.
+# Les groupes de sécurité AWS font déjà ce filtrage ; ufw est la défense en profondeur sur l'hôte,
+# et vaut aussi hors AWS (LAN, WireGuard). Les services tournent déjà sous des comptes sans droits
+# (pypi, recepteur : --system, nologin ; voir étapes 4 et 7).
+$SSH sas-passerelle sudo bash -s <<'EOF'
+set -euo pipefail
+command -v ufw >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -yq ufw
+ufw --force reset >/dev/null
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow from 10.42.1.10 to any port 22   proto tcp   # SSH : plateforme (bastion) seulement
+ufw allow from 10.42.1.10 to any port 8443 proto tcp   # récepteur : plateforme seulement
+ufw allow from 10.42.2.20 to any port 8080 proto tcp   # pypiserver : serveur seulement
+ufw allow from 10.42.2.20 to any port 4873 proto tcp   # verdaccio (npm, si prévu) : serveur
+ufw --force enable
+ufw status verbose
+EOF
+
+echo "== 9. Plateforme → passerelle : santé en TLS mutuel"
 $SSH sas-plateforme bash -s <<'EOF'
 cd ~/sas/tls
 curl -fsS --cacert ca.pem --cert plateforme.pem --key plateforme.key https://10.42.2.10:8443/v1/health \
@@ -100,7 +123,7 @@ else
 fi
 EOF
 
-echo "== 9. Plateforme : Ollama (local, 127.0.0.1:11434) et les modèles du LLM"
+echo "== 10. Plateforme : Ollama (local, 127.0.0.1:11434) et les modèles du LLM"
 $SSH sas-plateforme bash -s <<'EOF'
 set -euo pipefail
 command -v ollama >/dev/null || curl -fsSL https://ollama.com/install.sh | sh >/dev/null

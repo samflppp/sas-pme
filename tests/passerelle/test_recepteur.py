@@ -119,6 +119,58 @@ def test_une_publication_ne_sert_pas_de_revocation(env):
     assert (depot / ROUE).exists()
 
 
-def test_inventaire_vide_en_attendant_les_journaux(env):
+def test_inventaire_vide_sans_journal(env):
     client, *_ = env
+    # creer_app sans journal_acces : la route répond [] (défaut).
     assert client.get("/v1/inventory").json() == []
+
+
+def test_inventaire_lit_le_journal_et_joint_les_machines(tmp_path):
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    (depot / "requests-2.32.4-py3-none-any.whl").write_bytes(b"x")   # présente : le GET a réussi
+    cle = ed25519.generer_cle(tmp_path / "plateforme.pem")
+    journal = tmp_path / "acces.log"
+    journal.write_text(
+        '10.42.2.20 - - [11/Oct/2026:09:00:01 +0000] '
+        '"GET /packages/requests-2.32.4-py3-none-any.whl HTTP/1.1" 200 100\n'
+        '10.42.2.20 - - [11/Oct/2026:09:00:00 +0000] "GET /simple/requests/ HTTP/1.1" 200 500\n',
+        encoding="utf-8",
+    )
+    app = creer_app(depot, ed25519.cle_publique_pem(cle), tmp_path / "nonces.txt",
+                    horloge=lambda: MAINTENANT, journal_acces=journal)
+    inv = TestClient(app).get("/v1/inventory").json()
+    assert len(inv) == 1
+    assert inv[0]["nom"] == "requests"
+    assert inv[0]["version"] == "2.32.4"
+    assert inv[0]["telechargements"] == 1
+    assert inv[0]["ecosysteme"] == "pypi"
+    assert inv[0]["machines"] == ["10.42.2.20"]   # hors contrat EntreeInventaire
+
+
+def test_inventaire_suit_publications_et_revocations(tmp_path):
+    """De bout en bout : publié puis téléchargé, révoqué ensuite → toujours listé (PR #38)."""
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    cle = ed25519.generer_cle(tmp_path / "plateforme.pem")
+    journal = tmp_path / "acces.log"
+    maintenant = [MAINTENANT]                               # horloge réglable du récepteur
+    app = creer_app(depot, ed25519.cle_publique_pem(cle), tmp_path / "nonces.txt",
+                    horloge=lambda: maintenant[0],
+                    journal_acces=journal, registre=tmp_path / "registre.txt")
+    client = TestClient(app)
+    assert _publier(client, _publication(), cle).status_code == 201
+    def get(minutes):        # ligne du journal de pypiserver, MAINTENANT + minutes
+        quand = (MAINTENANT + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
+        return f'{quand},000 10.42.2.20 - - "GET /packages/{ROUE} HTTP/1.1"\n'
+
+    # avant la publication (404) ; après (200) ; après la révocation (404)
+    journal.write_text(get(-1) + get(1) + get(6))
+    maintenant[0] = MAINTENANT + timedelta(minutes=5)
+    m = Manifeste(**{**_revocation().model_dump(), "emis_le": maintenant[0]})
+    assert client.post("/v1/revoke", data={"manifeste": canonique(m).decode(),
+                                           "signature": ed25519.signer(m, cle)}).status_code == 200
+    assert client.get("/v1/inventory").json() == [
+        {"ecosysteme": "pypi", "nom": "requests", "version": "2.32.4", "telechargements": 1,
+         "dernier": (MAINTENANT + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+         "machines": ["10.42.2.20"]}]

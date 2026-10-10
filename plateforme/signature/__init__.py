@@ -113,4 +113,8 @@ def lire_inventaire() -> list[EntreeInventaire]:
     with _client() as c:
         r = c.get("/v1/inventory")
     r.raise_for_status()
-    return [EntreeInventaire.model_validate(e) for e in r.json()]
+    # La passerelle peut joindre des champs hors contrat (ex. `machines`) : on ne garde que ceux
+    # d'EntreeInventaire, qui refuse les champs inconnus.
+    champs = EntreeInventaire.model_fields
+    return [EntreeInventaire.model_validate({k: v for k, v in e.items() if k in champs})
+            for e in r.json()]

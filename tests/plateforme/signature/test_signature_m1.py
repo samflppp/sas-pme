@@ -78,3 +78,22 @@ def test_sans_url_on_reste_sur_le_stub_scp(tmp_path, monkeypatch):
     monkeypatch.setattr(signature.subprocess, "run", lambda cmd, **k: lancees.append(cmd))
     signature.publier(Ecosysteme.PYPI, "requests", "2.32.4", [_roue(tmp_path)], 42)
     assert lancees[0][0] == "scp"
+
+
+def test_lire_inventaire_accepte_la_vraie_route_meme_avec_des_champs_hors_contrat(tmp_path, monkeypatch):
+    """La route /v1/inventory joint `machines` (hors EntreeInventaire, extra=forbid) : la plateforme
+    doit l'ignorer au lieu de lever (relecture de A sur la PR #39)."""
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    (depot / ROUE).write_bytes(b"une roue")
+    journal = tmp_path / "pypiserver-acces.log"
+    journal.write_text(f'2026-10-10 20:16:28,293 10.42.2.20 - - "GET /packages/{ROUE} HTTP/1.1"\n')
+    cle = tmp_path / "signature.pem"
+    app = creer_app(depot, ed25519.cle_publique_pem(ed25519.generer_cle(cle)),
+                    tmp_path / "nonces.txt", journal_acces=journal)
+    monkeypatch.setenv("SAS_PASSERELLE_URL", "https://10.42.2.10:8443")
+    monkeypatch.setattr(signature, "_client", lambda: TestClient(app, base_url="https://passerelle"))
+    brut = TestClient(app).get("/v1/inventory").json()
+    assert brut[0]["machines"] == ["10.42.2.20"]            # la route garde le champ en plus
+    [entree] = signature.lire_inventaire()
+    assert (entree.nom, entree.version, entree.telechargements) == ("requests", "2.32.4", 1)
