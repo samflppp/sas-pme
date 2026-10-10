@@ -158,3 +158,53 @@ def test_un_sas_delai_invalide_est_refuse_plutot_que_d_annuler_l_attente(monkeyp
     monkeypatch.setenv("SAS_DELAI", brut)
     with pytest.raises(ValueError, match="SAS_DELAI"):
         pypi.delai()
+
+
+# --- Archives filtrées sur la cible des serveurs (demande de C) ---
+
+GARDEES = ["demo-1.1-py3-none-any.whl", "demo-1.1-py2.py3-none-any.whl",
+           "demo-1.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+           "demo-1.1-cp312-cp312-manylinux1_x86_64.whl", "demo-1.1-cp38-abi3-manylinux_2_28_x86_64.whl",
+           "demo-1.1.tar.gz", "demo-1.1.zip"]
+ECARTEES = ["demo-1.1-cp312-cp312-win_amd64.whl", "demo-1.1-cp312-cp312-macosx_11_0_arm64.whl",
+            "demo-1.1-cp311-cp311-manylinux_2_17_x86_64.whl",
+            "demo-1.1-cp312-cp312-manylinux_2_17_aarch64.whl",
+            "demo-1.1-cp312-cp312-musllinux_1_2_x86_64.whl",
+            "demo-1.1-cp312-cp312-manylinux_2_99_x86_64.whl",    # glibc plus récente que le serveur
+            "demo-1.1-pp310-pypy310_pp73-manylinux_2_17_x86_64.whl",
+            "demo-1.1-py3-none-emscripten_3_1_58_wasm32.whl", "demo-1.1-py2-none-any.whl",
+            "demo-1.1.win-amd64.exe", "demo-1.1-py3.12.egg", "pas-une-roue.whl"]
+
+
+def test_pour_la_cible_ne_garde_que_ce_que_les_serveurs_installent():
+    fichiers = [fichier(n, MAINTENANT) for n in GARDEES + ECARTEES]
+    assert [f["filename"] for f in pypi.pour_la_cible(fichiers)] == GARDEES
+
+
+def test_pour_la_cible_sans_rien_d_installable_ne_garde_rien():
+    assert pypi.pour_la_cible([fichier("demo-1.1-cp312-cp312-win_amd64.whl", MAINTENANT)]) == []
+
+
+@respx.mock
+def test_telecharger_ne_telecharge_que_les_archives_de_la_cible(tmp_path):
+    meta = metadonnees()
+    meta["releases"]["1.1"].append(fichier("demo-1.1-cp312-cp312-win_amd64.whl", MAINTENANT))
+    respx.get(f"{BASE}/pypi/demo/json").respond(json=meta)
+    respx.get("https://files.test/demo-1.1-py3-none-any.whl").respond(content=CONTENU)
+    respx.get("https://files.test/demo-1.1.tar.gz").respond(content=CONTENU)
+    windows = respx.get("https://files.test/demo-1.1-cp312-cp312-win_amd64.whl").respond(
+        content=CONTENU)
+    with httpx.Client() as client:
+        archives = pypi.telecharger("demo", "1.1", tmp_path, client=client, base=BASE)
+    assert sorted(a.name for a in archives) == ["demo-1.1-py3-none-any.whl", "demo-1.1.tar.gz"]
+    assert not windows.called
+
+
+@respx.mock
+def test_telecharger_sans_archive_pour_la_cible_leve_lookuperror(tmp_path):
+    meta = metadonnees()
+    meta["releases"]["1.0"] = [fichier("demo-1.0-cp312-cp312-win_amd64.whl", MAINTENANT)]
+    respx.get(f"{BASE}/pypi/demo/json").respond(json=meta)
+    with httpx.Client() as client, pytest.raises(LookupError, match="cible"):
+        pypi.telecharger("demo", "1.0", tmp_path, client=client, base=BASE)
+    assert list(tmp_path.iterdir()) == []
