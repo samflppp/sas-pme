@@ -1,0 +1,6 @@
+# Jamais dans Git : clés, état local de l'infra, réglages personnels
+secrets/
+*.pem
+*.key
+aws/config.env
+aws/etat.env

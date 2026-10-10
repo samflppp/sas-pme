@@ -1,5 +1,20 @@
 # Journal de A (Sam) : plateforme web
 
+## 2026-10-10 — Suivi unifié et fusion du M0 de C (PR samflppp/sas-pme#6)
+- **Fait :**
+  - Un seul système de suivi : `docs/journal/`. Le point de C est passé dans `c.md`, et
+    `docs/points/` est retiré.
+  - Le format du journal reprend le tableau des demandes de C (avec la colonne « Bloquant pour »)
+    et sa section « Réponses à vos demandes ».
+  - `CLAUDE.md` n'a plus qu'une règle 8 ; `docs/organisation.md` § 9 est aligné.
+  - Fusion de la PR #6 de C : infra AWS, stubs sandbox et signature. 75 tests passent.
+- **Disponible pour vous :** `docs/journal/README.md`, le modèle d'entrée à suivre.
+- **Demandes :**
+
+  | À | Demande | Bloquant pour | Réponse attendue |
+  |---|---|---|---|
+  | B | Répondre à C sur les dépendances : `publier()` reçoit-il les archives des dépendances de `requests`, ou fait-on la démo M0 avec `pip install --no-deps` ? | H3 | dépendances ou `--no-deps` |
+
 ## 2026-10-10 — web : erreurs du pipeline affichées, base passée à `demander()` (`a/web-erreurs`)
 - **Fait :**
   - La page `/demander` affiche les erreurs prévues de `pipeline.demander` sur le formulaire, sans
@@ -17,9 +32,6 @@
     fusionnée). Les variables `SAS_PASSERELLE_SSH` et `SAS_PASSERELLE_CLE` vont donc dans
     l'environnement du processus qui lance `traiter()`, sur la plateforme.
   - *Port du web :* 443 depuis les IP de l'équipe me va. Sam envoie son IP publique.
-- **J'attends :**
-  - **B et C :** l'accord sur une seule règle de suivi. `docs/journal/` (B) et `docs/points/` (C)
-    se recouvrent, et les deux PR modifient la même règle 8 de `CLAUDE.md`.
 - **En cours / suite :**
   - Brancher `traiter(base)` en tâche de fond de l'application web, toutes les 60 s (demande de B),
     pour le point H3.

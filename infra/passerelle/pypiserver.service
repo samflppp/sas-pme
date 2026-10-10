@@ -1,0 +1,20 @@
+[Unit]
+Description=pypiserver sas-pme (versions approuvées seulement, aucun repli vers pypi.org)
+After=network-online.target
+
+[Service]
+User=pypi
+Group=pypi
+Environment=PYTHONPATH=/opt/pypiserver
+# --disable-fallback : un paquet absent renvoie 404 au lieu d'une redirection vers pypi.org.
+# Pas de -P/-a : l'envoi (upload) reste refusé ; seules les copies de la plateforme publient.
+ExecStart=/usr/bin/python3 -m pypiserver run --host 0.0.0.0 --port 8080 --disable-fallback /srv/pypi/packages
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/srv/pypi
+
+[Install]
+WantedBy=multi-user.target

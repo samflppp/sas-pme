@@ -82,3 +82,11 @@ Quand le vrai arrive dans `main`, le faux disparaît et on ne change rien chez s
 H3, H10, H16, H22 : 15 min, les trois ensemble, devant la démo de bout en bout. On y vérifie ce qui
 marche, on décide des coupes et on ajuste les contrats si besoin. Hors de ces points, on se parle
 quand on veut.
+
+## 9. Le journal d'avancement
+
+Chacun tient son journal dans `docs/journal/` (`a.md`, `b.md`, `c.md`) et n'écrit que dans le sien,
+donc il n'y a pas de conflit. À la fin de chaque tâche, dans la même PR, on ajoute une entrée en
+haut : ce qu'on a fait, ce que les autres peuvent utiliser, ses demandes (avec ce qu'elles bloquent)
+et ses réponses aux demandes des autres. Au début de chaque tâche, on lit les journaux des deux
+autres. Avant chaque point de rencontre, chacun est à jour. Règle et modèle : `docs/journal/README.md`.
