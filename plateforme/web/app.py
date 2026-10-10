@@ -126,6 +126,18 @@ def etat_publication(etat: Etat, raison: str | None) -> dict | None:
     return {"sorte": "panne", "motif": m[2]}
 
 
+def compter_par_etat(versions: list[Version]) -> dict[Etat, int]:
+    """Le nombre de versions dans chaque état, tous les états présents (même à 0), dans l'ordre du
+    cycle de vie."""
+    compte = dict.fromkeys(Etat, 0)
+    for v in versions:
+        compte[v.etat] += 1
+    return compte
+
+
+DERNIERS_BLOCAGES = 5
+
+
 def _delai_par_defaut() -> timedelta:
     """Le délai du pipeline (B), qui lit SAS_DELAI ; 3 jours sans le pipeline."""
     try:
@@ -220,6 +232,21 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     @app.get("/", response_class=HTMLResponse)
     def catalogue(request: Request):
         return page(request, "catalogue.html", exiger(request), versions=base.lister_versions())
+
+    @app.get("/tableau-de-bord", response_class=HTMLResponse)
+    def tableau_de_bord(request: Request):
+        compte = exiger(request)
+        versions = base.lister_versions()
+        bloquees = base.lister_avec_raison([Etat.BLOQUEE, Etat.REVOQUEE])
+        # lister_avec_raison trie par date de publication : les plus récentes d'abord
+        derniers = bloquees[::-1][:DERNIERS_BLOCAGES]
+        journal = None
+        if compte.role is Role.ADMIN:  # le journal est réservé aux admins (comptes, identifiants)
+            intact, casse = base.verifier_journal()
+            journal = {"entrees": base.compter_journal(), "intact": intact, "casse": casse}
+        return page(request, "tableau.html", compte, compteurs=compter_par_etat(versions),
+                    total=len(versions), a_trancher=base.lister_avec_raison([Etat.A_REVOIR]),
+                    derniers=derniers, journal=journal)
 
     @app.get("/demander", response_class=HTMLResponse)
     def page_demander(request: Request):

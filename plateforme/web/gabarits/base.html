@@ -38,13 +38,17 @@
   form.ligne { display:flex; gap:10px; align-items:center; margin: 12px 0; }
   .raison.ok { border-left-color: var(--vert); } .raison.ko { border-left-color: var(--rouge); color: var(--rouge); }
   tr.cassee td { background: #fde8e8; }
+  .compteurs { display:flex; flex-wrap:wrap; gap:12px; margin: 0 0 16px; }
+  .compteur { border: 1px solid var(--trait); border-radius: 6px; padding: 10px 14px; min-width: 120px;
+              display:flex; flex-direction:column; gap:6px; }
+  .compteur strong { font-size: 26px; }
 </style>
 </head>
 <body>
 <header>
   <span class="marque">sas-pme</span>
   {% if utilisateur %}
-  <nav><a href="/">Catalogue</a><a href="/file-attente">File d'attente</a><a href="/demander">Demander un paquet</a>{% if role == "admin" %}<a href="/journal">Journal</a><a href="/comptes">Comptes</a>{% endif %}</nav>
+  <nav><a href="/tableau-de-bord">Tableau de bord</a><a href="/">Catalogue</a><a href="/file-attente">File d'attente</a><a href="/demander">Demander un paquet</a>{% if role == "admin" %}<a href="/journal">Journal</a><a href="/comptes">Comptes</a>{% endif %}</nav>
   <div class="droite"><a href="/mot-de-passe">{{ utilisateur }}</a> <span>{{ role }}</span>
     <form method="post" action="/deconnexion"><button class="lien">Se déconnecter</button></form>
   </div>
