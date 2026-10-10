@@ -1,0 +1,211 @@
+"""Accès à la base de la plateforme (A). B et la page web passent par ici ; personne d'autre ne fait de SQL.
+
+Contrat : docs/contrats.md § 2. Chaque changement d'état, chaque verdict et chaque version détectée
+écrit une entrée dans le journal chaîné.
+"""
+import hashlib
+import json
+import sqlite3
+import threading
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from commun.modeles import (
+    Ecosysteme, EntreeInventaire, Etat, RapportSandbox, Signal, Verdict, Version,
+)
+
+DELAI_PAR_DEFAUT = timedelta(days=3)
+_SCHEMA = Path(__file__).with_name("schema.sql")
+_GENESE = "0" * 64
+
+
+@dataclass(frozen=True)
+class EntreeJournal:
+    seq: int
+    a: datetime
+    acteur: str
+    action: str
+    sujet: str
+    charge: dict
+
+
+@dataclass(frozen=True)
+class Fiche:
+    version: Version
+    raison: str
+    signaux: list[Signal]
+    verdict: Verdict | None
+    verdict_id: int | None
+    rapport_sandbox: RapportSandbox | None
+
+
+def _iso(d: datetime) -> str:
+    return d.astimezone(timezone.utc).isoformat()
+
+
+def _maintenant() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _cle(eco: Ecosysteme, nom: str, version: str) -> str:
+    return f"{eco.value}:{nom}@{version}"
+
+
+def _hash(prec: str, a: str, acteur: str, action: str, sujet: str, charge: str) -> str:
+    corps = json.dumps([a, acteur, action, sujet, charge], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256((prec + corps).encode("utf-8")).hexdigest()
+
+
+class Base:
+    def __init__(self, chemin: str):
+        self._verrou = threading.Lock()
+        self._c = sqlite3.connect(chemin, check_same_thread=False, isolation_level=None)
+        self._c.row_factory = sqlite3.Row
+        self._c.execute("PRAGMA journal_mode=WAL")
+        self._c.executescript(_SCHEMA.read_text(encoding="utf-8"))
+
+    # --- versions -------------------------------------------------------------
+    def enregistrer_version(self, v: Version, acteur: str = "pipeline") -> bool:
+        """True si la version est nouvelle."""
+        with self._verrou:
+            cur = self._c.execute(
+                "INSERT OR IGNORE INTO versions VALUES (?,?,?,?,?,?,?,?)",
+                (v.ecosysteme.value, v.nom, v.version, _iso(v.publiee_le), _iso(v.detectee_le),
+                 v.etat.value, "", _iso(_maintenant())))
+            nouvelle = cur.rowcount == 1
+            if nouvelle:
+                self._journaliser(acteur, "version_detectee", _cle(v.ecosysteme, v.nom, v.version),
+                                  {"publiee_le": _iso(v.publiee_le), "etat": v.etat.value})
+            return nouvelle
+
+    def lire_version(self, eco: Ecosysteme, nom: str, version: str) -> Version | None:
+        r = self._c.execute("SELECT * FROM versions WHERE ecosysteme=? AND nom=? AND version=?",
+                            (eco.value, nom, version)).fetchone()
+        return self._version(r) if r else None
+
+    def lister_versions(self, etat: Etat | None = None) -> list[Version]:
+        if etat is None:
+            rows = self._c.execute("SELECT * FROM versions ORDER BY maj_le DESC").fetchall()
+        else:
+            rows = self._c.execute("SELECT * FROM versions WHERE etat=? ORDER BY maj_le DESC",
+                                   (etat.value,)).fetchall()
+        return [self._version(r) for r in rows]
+
+    def versions_a_traiter(self, maintenant: datetime,
+                           delai: timedelta = DELAI_PAR_DEFAUT) -> list[Version]:
+        """Versions en attente dont le délai depuis la publication est écoulé."""
+        limite = _iso(maintenant - delai)
+        rows = self._c.execute(
+            "SELECT * FROM versions WHERE etat=? AND publiee_le<=? ORDER BY publiee_le",
+            (Etat.EN_ATTENTE.value, limite)).fetchall()
+        return [self._version(r) for r in rows]
+
+    def changer_etat(self, eco: Ecosysteme, nom: str, version: str, etat: Etat, raison: str,
+                     acteur: str = "pipeline") -> None:
+        with self._verrou:
+            cur = self._c.execute(
+                "UPDATE versions SET etat=?, raison=?, maj_le=? "
+                "WHERE ecosysteme=? AND nom=? AND version=?",
+                (etat.value, raison, _iso(_maintenant()), eco.value, nom, version))
+            if cur.rowcount == 0:
+                raise KeyError(_cle(eco, nom, version))
+            self._journaliser(acteur, "etat_change", _cle(eco, nom, version),
+                              {"etat": etat.value, "raison": raison})
+
+    # --- signaux, verdicts, rapports -----------------------------------------
+    def ajouter_signal(self, s: Signal) -> int:
+        with self._verrou:
+            cur = self._c.execute(
+                "INSERT INTO signaux (ecosysteme, nom, version, donnees, cree_le) VALUES (?,?,?,?,?)",
+                (s.ecosysteme.value, s.nom, s.version, s.model_dump_json(), _iso(_maintenant())))
+            return cur.lastrowid
+
+    def enregistrer_verdict(self, eco: Ecosysteme, nom: str, version: str, v: Verdict,
+                            acteur: str = "pipeline") -> int:
+        """Renvoie l'identifiant du verdict, repris dans le manifeste signé."""
+        with self._verrou:
+            cur = self._c.execute(
+                "INSERT INTO verdicts (ecosysteme, nom, version, donnees, cree_le) VALUES (?,?,?,?,?)",
+                (eco.value, nom, version, v.model_dump_json(), _iso(_maintenant())))
+            self._journaliser(acteur, "verdict", _cle(eco, nom, version),
+                              {"verdict_id": cur.lastrowid, "etat": v.etat.value, "raison": v.raison})
+            return cur.lastrowid
+
+    def enregistrer_rapport_sandbox(self, eco: Ecosysteme, nom: str, version: str,
+                                    r: RapportSandbox) -> None:
+        with self._verrou:
+            self._c.execute(
+                "INSERT INTO rapports_sandbox (ecosysteme, nom, version, donnees, cree_le) "
+                "VALUES (?,?,?,?,?)",
+                (eco.value, nom, version, r.model_dump_json(), _iso(_maintenant())))
+
+    def fiche(self, eco: Ecosysteme, nom: str, version: str) -> Fiche | None:
+        r = self._c.execute("SELECT * FROM versions WHERE ecosysteme=? AND nom=? AND version=?",
+                            (eco.value, nom, version)).fetchone()
+        if r is None:
+            return None
+        cle = (eco.value, nom, version)
+        signaux = [Signal.model_validate_json(x["donnees"]) for x in self._c.execute(
+            "SELECT donnees FROM signaux WHERE ecosysteme=? AND nom=? AND version=? ORDER BY id", cle)]
+        v = self._c.execute("SELECT id, donnees FROM verdicts WHERE ecosysteme=? AND nom=? AND version=? "
+                            "ORDER BY id DESC LIMIT 1", cle).fetchone()
+        rs = self._c.execute("SELECT donnees FROM rapports_sandbox WHERE ecosysteme=? AND nom=? "
+                             "AND version=? ORDER BY id DESC LIMIT 1", cle).fetchone()
+        return Fiche(
+            version=self._version(r), raison=r["raison"], signaux=signaux,
+            verdict=Verdict.model_validate_json(v["donnees"]) if v else None,
+            verdict_id=v["id"] if v else None,
+            rapport_sandbox=RapportSandbox.model_validate_json(rs["donnees"]) if rs else None)
+
+    # --- inventaire ----------------------------------------------------------
+    def enregistrer_inventaire(self, entrees: list[EntreeInventaire]) -> None:
+        """Remplace l'instantané précédent par celui lu sur la passerelle."""
+        with self._verrou:
+            self._c.execute("BEGIN")
+            self._c.execute("DELETE FROM inventaire")
+            self._c.executemany(
+                "INSERT INTO inventaire VALUES (?,?,?,?,?)",
+                [(e.ecosysteme.value, e.nom, e.version, e.telechargements,
+                  _iso(e.dernier) if e.dernier else None) for e in entrees])
+            self._c.execute("COMMIT")
+
+    def inventaire(self) -> list[tuple[Ecosysteme, str, str]]:
+        return [(Ecosysteme(r["ecosysteme"]), r["nom"], r["version"]) for r in self._c.execute(
+            "SELECT ecosysteme, nom, version FROM inventaire ORDER BY ecosysteme, nom, version")]
+
+    # --- journal -------------------------------------------------------------
+    def journaliser(self, acteur: str, action: str, sujet: str, charge: dict) -> None:
+        """Pour une action qui n'est pas déjà journalisée ici (connexion, décision humaine…)."""
+        with self._verrou:
+            self._journaliser(acteur, action, sujet, charge)
+
+    def journal(self, limite: int = 500) -> list[EntreeJournal]:
+        rows = self._c.execute("SELECT * FROM journal ORDER BY seq LIMIT ?", (limite,)).fetchall()
+        return [EntreeJournal(r["seq"], datetime.fromisoformat(r["a"]), r["acteur"], r["action"],
+                              r["sujet"], json.loads(r["charge"])) for r in rows]
+
+    def verifier_journal(self) -> tuple[bool, int | None]:
+        """(intègre, seq de la première entrée qui casse la chaîne)."""
+        prec = _GENESE
+        for r in self._c.execute("SELECT * FROM journal ORDER BY seq"):
+            attendu = _hash(prec, r["a"], r["acteur"], r["action"], r["sujet"], r["charge"])
+            if r["prec"] != prec or r["hash"] != attendu:
+                return False, r["seq"]
+            prec = r["hash"]
+        return True, None
+
+    def _journaliser(self, acteur: str, action: str, sujet: str, charge: dict) -> None:
+        dernier = self._c.execute("SELECT hash FROM journal ORDER BY seq DESC LIMIT 1").fetchone()
+        prec = dernier["hash"] if dernier else _GENESE
+        a = _iso(_maintenant())
+        texte = json.dumps(charge, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        self._c.execute(
+            "INSERT INTO journal (a, acteur, action, sujet, charge, prec, hash) VALUES (?,?,?,?,?,?,?)",
+            (a, acteur, action, sujet, texte, prec, _hash(prec, a, acteur, action, sujet, texte)))
+
+    @staticmethod
+    def _version(r: sqlite3.Row) -> Version:
+        return Version(ecosysteme=Ecosysteme(r["ecosysteme"]), nom=r["nom"], version=r["version"],
+                       publiee_le=datetime.fromisoformat(r["publiee_le"]),
+                       detectee_le=datetime.fromisoformat(r["detectee_le"]), etat=Etat(r["etat"]))
