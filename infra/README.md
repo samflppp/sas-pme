@@ -27,7 +27,9 @@ ssh -F infra/secrets/ssh_config sas-serveur   # SSH via le bastion
 ```
 
 Pas de GPU : notre compte n'a pas de quota « G and VT ». La plateforme est une `c7i.4xlarge`
-(16 vCPU, 32 Go) ; le LLM local tourne sur CPU avec `qwen2.5-coder:3b` (`docs/architecture.md` § 7).
+(16 vCPU, 32 Go) ; le LLM local tourne sur CPU avec `qwen2.5-coder:7b`
+(choix de A), `qwen2.5-coder:3b` en repli (`SAS_MODELE`) ; `installer.sh` tire les deux, plus
+`nomic-embed-text`.
 Il faut au moins 16 vCPU en « Running On-Demand Standard instances » dans la région choisie (us-east-1 pour le compte du workshop).
 
 ## Sans Internet, comment installer ?

@@ -100,6 +100,14 @@ else
 fi
 EOF
 
+echo "== 9. Plateforme : Ollama (local, 127.0.0.1:11434) et les modèles du LLM"
+$SSH sas-plateforme bash -s <<'EOF'
+set -euo pipefail
+command -v ollama >/dev/null || curl -fsSL https://ollama.com/install.sh | sh >/dev/null
+for i in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:11434/api/tags && break; sleep 1; done
+for m in qwen2.5-coder:7b qwen2.5-coder:3b nomic-embed-text; do ollama pull "$m" >/dev/null && echo "  $m OK"; done
+EOF
+
 echo
 echo "Fini. Variables pour l'appli sur la plateforme (publication signée, M1) :"
 echo "  export SAS_PASSERELLE_URL=https://10.42.2.10:8443 SAS_CLE_SIGNATURE=~/sas/signature.pem"
