@@ -1,0 +1,26 @@
+[Unit]
+Description=récepteur sas-pme (publications signées de la plateforme, TLS mutuel)
+After=network-online.target
+
+[Service]
+User=recepteur
+Group=pypi
+Environment=PYTHONPATH=/opt/recepteur/code:/opt/recepteur/lib
+Environment=SAS_DEPOT=/srv/pypi/packages
+Environment=SAS_CLE_PUBLIQUE=/etc/sas/plateforme_signature.pub
+Environment=SAS_NONCES=/var/lib/sas/nonces.txt
+# --ssl-cert-reqs 2 : certificat client exigé, signé par l'autorité du lien (la plateforme seule).
+ExecStart=/usr/bin/python3 -m uvicorn passerelle.recepteur:app --host 10.42.2.10 --port 8443 \
+  --ssl-keyfile /etc/sas/passerelle.key --ssl-certfile /etc/sas/passerelle.pem \
+  --ssl-ca-certs /etc/sas/ca.pem --ssl-cert-reqs 2
+StateDirectory=sas
+UMask=0022
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/srv/pypi/packages
+
+[Install]
+WantedBy=multi-user.target
