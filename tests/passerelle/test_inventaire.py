@@ -107,3 +107,76 @@ def test_pypiserver_ecrit_bien_les_requetes_dans_le_journal():
     commande = unite.split("ExecStart=", 1)[1].split("\n/srv/pypi/packages", 1)[0]
     assert " -v " in commande
     assert "--log-file /var/lib/sas/pypiserver-acces.log" in commande
+
+
+# --- PR #38 : toutes les versions du dépôt, les révoquées téléchargées, pas les 404 ---------------
+# pypiserver écrit « 200 OK » même pour un 404 (constaté sur AWS) : le code du journal ne prouve rien.
+# Un GET compte donc seulement si l'archive était dans le dépôt à ce moment-là, d'après le dépôt
+# actuel et le registre des publications et retraits tenu par le récepteur.
+from passerelle.inventaire import inventaire as construire
+
+ROUE_R = "requests-2.32.4-py3-none-any.whl"
+
+
+def _get(archive, quand="2026-10-11 09:00:00", ip="10.42.2.20"):
+    return f'{quand},000 {ip} - - "GET /packages/{archive} HTTP/1.1"'
+
+
+def _par_version(resultat):
+    return {(e.nom, e.version): (e.telechargements, m) for e, m in resultat}
+
+
+def test_une_version_du_depot_jamais_telechargee_est_listee_a_zero():
+    [(e, machines)] = construire([], [ROUE_R], [])
+    assert (e.nom, e.version, e.telechargements, e.dernier, machines) == \
+        ("requests", "2.32.4", 0, None, [])
+
+
+def test_un_get_d_une_archive_absente_du_depot_ne_compte_pas():
+    assert construire([_get("absent-9.9-py3-none-any.whl")], [ROUE_R], []) == \
+        construire([], [ROUE_R], [])
+
+
+def test_un_get_avant_la_publication_ne_compte_pas():
+    registre = ["2026-10-11T10:00:00+00:00 publie " + ROUE_R]
+    v = _par_version(construire([_get(ROUE_R, "2026-10-11 09:00:00"),
+                                 _get(ROUE_R, "2026-10-11 11:00:00")], [ROUE_R], registre))
+    assert v["requests", "2.32.4"] == (1, ["10.42.2.20"])
+
+
+def test_une_version_revoquee_deja_telechargee_reste_visible():
+    registre = ["2026-10-11T08:00:00+00:00 publie " + ROUE_R,
+                "2026-10-11T10:00:00+00:00 retire " + ROUE_R]
+    lignes = [_get(ROUE_R, "2026-10-11 09:00:00"), _get(ROUE_R, "2026-10-11 11:00:00")]
+    v = _par_version(construire(lignes, [], registre))
+    assert v == {("requests", "2.32.4"): (1, ["10.42.2.20"])}
+
+
+def test_une_version_revoquee_jamais_telechargee_disparait():
+    registre = ["2026-10-11T08:00:00+00:00 publie " + ROUE_R,
+                "2026-10-11T10:00:00+00:00 retire " + ROUE_R]
+    assert construire([_get(ROUE_R, "2026-10-11 11:00:00")], [], registre) == []
+
+
+def test_une_archive_posee_hors_recepteur_compte_tant_qu_elle_est_la():
+    """Copie scp du stub M0, wheel de pip posée par installer.sh : pas d'entrée au registre."""
+    v = _par_version(construire([_get(ROUE_R)], [ROUE_R], []))
+    assert v["requests", "2.32.4"] == (1, ["10.42.2.20"])
+
+
+def test_une_ligne_de_registre_illisible_est_ignoree():
+    v = _par_version(construire([_get(ROUE_R)], [ROUE_R], ["n'importe quoi", ""]))
+    assert v["requests", "2.32.4"][0] == 1
+
+
+def test_une_archive_posee_hors_recepteur_puis_revoquee_garde_ses_telechargements():
+    """Pas d'entrée « publie » (stub scp), puis un retrait noté : elle était là avant."""
+    registre = ["2026-10-11T10:00:00+00:00 retire " + ROUE_R]
+    lignes = [_get(ROUE_R, "2026-10-11 09:00:00"), _get(ROUE_R, "2026-10-11 11:00:00")]
+    assert _par_version(construire(lignes, [], registre)) == {("requests", "2.32.4"): (1, ["10.42.2.20"])}
+
+
+def test_une_action_inconnue_au_registre_est_ignoree():
+    registre = ["2026-10-11T08:00:00+00:00 efface " + ROUE_R]
+    v = _par_version(construire([_get(ROUE_R, "2026-10-11 09:00:00")], [ROUE_R], registre))
+    assert v["requests", "2.32.4"][0] == 1

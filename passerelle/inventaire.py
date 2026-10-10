@@ -72,6 +72,7 @@ class EntreeJournal:
     version: str
     ip: str
     quand: datetime
+    archive: str = ""
 
 
 def _nom_version(archive: str) -> tuple[str, str] | None:
@@ -105,7 +106,8 @@ def entree_journal(ligne: str) -> EntreeJournal | None:
     quand = _date(m["date"])
     if quand is None:
         return None
-    return EntreeJournal(nom=nv[0], version=nv[1], ip=m["ip"], quand=quand)
+    return EntreeJournal(nom=nv[0], version=nv[1], ip=m["ip"], quand=quand,
+                         archive=m["archive"].rsplit("/", 1)[-1])
 
 
 def _entrees(lignes: Iterable[str]) -> list[EntreeJournal]:
@@ -141,3 +143,65 @@ def machine_par_version(lignes: Iterable[str]) -> dict[tuple[str, str], list[str
         if e.ip not in machines.setdefault(cle, []):
             machines[cle].append(e.ip)
     return machines
+
+
+# --- L'inventaire du contrat (PR #38) : dépôt + registre + journal --------------------------------
+# pypiserver écrit « 200 OK » même quand il répond 404 (constaté sur AWS) : le journal ne dit pas si
+# un GET a réussi. Un GET compte donc seulement si l'archive était dans le dépôt à cet instant :
+#   - d'après le registre du récepteur (« <date ISO> publie|retire <archive> », une ligne par
+#     archive écrite ou retirée) ;
+#   - sinon (archive posée hors récepteur : stub scp du M0, wheel de pip d'installer.sh), d'après
+#     sa présence actuelle dans le dépôt.
+# Entrées : chaque version du dépôt (même à 0), plus chaque version révoquée déjà téléchargée.
+
+def lire_registre(lignes: Iterable[str]) -> dict[str, list[tuple[datetime, bool]]]:
+    """{archive: [(date, présente après l'événement)]}, triés par date ; lignes illisibles ignorées."""
+    evenements: dict[str, list[tuple[datetime, bool]]] = {}
+    for ligne in lignes:
+        morceaux = ligne.split(" ", 2)
+        if len(morceaux) != 3 or morceaux[1] not in ("publie", "retire"):
+            continue
+        try:
+            quand = datetime.fromisoformat(morceaux[0])
+        except ValueError:
+            continue
+        if quand.tzinfo is None:
+            quand = quand.replace(tzinfo=timezone.utc)
+        evenements.setdefault(morceaux[2].strip(), []).append((quand, morceaux[1] == "publie"))
+    for liste in evenements.values():
+        liste.sort()
+    return evenements
+
+
+def _presente(archive: str, quand: datetime, registre: dict[str, list[tuple[datetime, bool]]],
+              actuelles: set[str]) -> bool:
+    evenements = registre.get(archive)
+    if not evenements:
+        return archive in actuelles
+    avant = [presente for date, presente in evenements if date <= quand]
+    if avant:
+        return avant[-1]
+    return not evenements[0][1]        # premier événement = retrait : elle était là avant
+
+
+def inventaire(lignes: Iterable[str], fichiers_depot: Iterable[str],
+               registre: Iterable[str] = ()) -> list[tuple[EntreeInventaire, list[str]]]:
+    """Les entrées du contrat § 4 (PR #38), chacune avec les IP qui l'ont téléchargée (hors contrat)."""
+    actuelles = set(fichiers_depot)
+    evenements = lire_registre(registre)
+    compte: dict[tuple[str, str], int] = {}
+    dernier: dict[tuple[str, str], datetime] = {}
+    machines: dict[tuple[str, str], list[str]] = {}
+    for e in _entrees(lignes):
+        if not _presente(e.archive, e.quand, evenements, actuelles):
+            continue
+        cle = (e.nom, e.version)
+        compte[cle] = compte.get(cle, 0) + 1
+        dernier[cle] = max(dernier.get(cle, e.quand), e.quand)
+        if e.ip not in machines.setdefault(cle, []):
+            machines[cle].append(e.ip)
+    versions = {nv for f in actuelles if (nv := _nom_version(f))} | set(compte)
+    return [(EntreeInventaire(ecosysteme=Ecosysteme.PYPI, nom=n, version=v,
+                              telechargements=compte.get((n, v), 0), dernier=dernier.get((n, v))),
+             machines.get((n, v), []))
+            for n, v in sorted(versions)]

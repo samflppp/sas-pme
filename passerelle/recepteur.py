@@ -23,7 +23,7 @@ from pathlib import Path
 from fastapi import FastAPI, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from passerelle.inventaire import lire_journal, machine_par_version
+from passerelle.inventaire import inventaire as _inventaire
 from passerelle.verification import Refus, verifier
 
 _NOM_SUR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -31,9 +31,22 @@ _NOM_SUR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
               horloge: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
-              journal_acces: Path | None = None) -> FastAPI:
+              journal_acces: Path | None = None, registre: Path | None = None) -> FastAPI:
     depot, fichier_nonces = Path(depot), Path(fichier_nonces)
     journal_acces = Path(journal_acces) if journal_acces is not None else None
+    registre = Path(registre) if registre is not None else None
+
+    def _noter(action: str, archives: list[str]) -> None:
+        """Registre des archives écrites ou retirées, lu par l'inventaire (PR #38)."""
+        if registre is not None and archives:
+            quand = horloge().isoformat()
+            with registre.open("a") as f:
+                f.writelines(f"{quand} {action} {a}\n" for a in archives)
+
+    def _lire(chemin: Path | None) -> list[str]:
+        if chemin is None or not chemin.exists():
+            return []
+        return chemin.read_text(encoding="utf-8", errors="replace").splitlines()
     nonces = set(fichier_nonces.read_text().split()) if fichier_nonces.exists() else set()
     verrou = threading.Lock()          # vérification + écriture d'une publication à la fois
     app = FastAPI(title="sas-pme passerelle", docs_url=None, redoc_url=None, openapi_url=None)
@@ -57,17 +70,12 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
 
     @app.get("/v1/inventory")
     def inventaire():
-        # Lit le journal d'accès de pypiserver et agrège les téléchargements d'archives.
-        # Chaque entrée suit le contrat § 4 ; `machines` (les IP des serveurs) est hors
-        # `EntreeInventaire`, joint au JSON brut (choix option b, point C-inventaire).
-        if journal_acces is None or not journal_acces.exists():
-            return []
-        lignes = journal_acces.read_text(encoding="utf-8", errors="replace").splitlines()
-        machines = machine_par_version(lignes)
-        return [
-            {**e.model_dump(mode="json"), "machines": machines.get((e.nom, e.version), [])}
-            for e in lire_journal(lignes)
-        ]
+        # Contrat § 4 (sens précisé par la PR #38) : chaque version du dépôt, plus les révoquées
+        # déjà téléchargées. `machines` (les IP des serveurs) est hors `EntreeInventaire`, joint au
+        # JSON brut (option b) ; la plateforme l'ignore (lire_inventaire).
+        fichiers = [p.name for p in depot.iterdir() if p.is_file() and not p.name.startswith(".")]
+        return [{**e.model_dump(mode="json"), "machines": m}
+                for e, m in _inventaire(_lire(journal_acces), fichiers, _lire(registre))]
 
     @app.post("/v1/publish", status_code=201)
     def publier(manifeste: str = Form(), signature: str = Form(),
@@ -79,6 +87,7 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
                 provisoire = depot / f".{nom}.part"
                 provisoire.write_bytes(contenu)
                 os.replace(provisoire, depot / nom)
+            _noter("publie", list(recues))
         return {"publie": [f.nom for f in m.fichiers]}
 
     @app.post("/v1/revoke")
@@ -93,6 +102,7 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
                        if any(p.name.lower().startswith(x.lower()) for x in prefixes)]
             for nom in retires:
                 (depot / nom).unlink()
+            _noter("retire", retires)
         return JSONResponse({"retire": retires})
 
     return app
@@ -103,7 +113,8 @@ def _depuis_env() -> FastAPI:
                      Path(os.environ["SAS_CLE_PUBLIQUE"]).read_bytes(),
                      Path(os.environ.get("SAS_NONCES", "/var/lib/sas/nonces.txt")),
                      journal_acces=Path(os.environ.get(
-                         "SAS_JOURNAL_ACCES", "/var/lib/sas/pypiserver-acces.log")))
+                         "SAS_JOURNAL_ACCES", "/var/lib/sas/pypiserver-acces.log")),
+                     registre=Path(os.environ.get("SAS_REGISTRE", "/var/lib/sas/registre.txt")))
 
 
 def __getattr__(nom: str):                # `uvicorn passerelle.recepteur:app`, sans effet à l'import
