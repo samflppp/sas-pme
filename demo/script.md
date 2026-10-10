@@ -31,7 +31,7 @@ ssh -F infra/secrets/ssh_config sas-plateforme 'rm -rf ~/sas-pme && mkdir ~/sas-
 ssh -F infra/secrets/ssh_config sas-plateforme
 cd ~/sas-pme
 export SAS_DB=~/sas.db SAS_ARCHIVES=~/archives
-export SAS_ADMIN_MOTDEPASSE='<à choisir>'  # ne sert qu'au premier lancement (base neuve)
+export SAS_ADMIN_MOTDEPASSE='<à choisir>'  # 12 caractères au moins ; ne sert qu'au premier lancement (base neuve)
 # Clé HMAC du journal : tirée une fois, gardée hors de la base et hors de Git. Sans elle, la plateforme
 # ne démarre pas ; avec une autre, le journal d'une base existante apparaît falsifié.
 [ -f ~/.sas-cle-journal ] || (umask 077; openssl rand -hex 32 > ~/.sas-cle-journal)

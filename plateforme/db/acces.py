@@ -37,6 +37,9 @@ class Compte:
     actif: bool
     doit_changer: bool
     derniere_connexion: datetime | None
+    # Change à chaque changement de mot de passe (début du sel, tiré à chaque fois ; ne dit rien du
+    # mot de passe) : une session qui garde l'ancienne est coupée (relecture de B, A5).
+    generation: str = ""
 
 
 @dataclass(frozen=True)
@@ -344,7 +347,8 @@ class Base:
     def _compte(r: sqlite3.Row) -> Compte:
         dc = r["derniere_connexion"]
         return Compte(r["identifiant"], Role(r["role"]), bool(r["actif"]), bool(r["doit_changer"]),
-                      datetime.fromisoformat(dc) if dc else None)
+                      datetime.fromisoformat(dc) if dc else None,
+                      generation=r["empreinte"].split("$")[4][:16])
 
     # --- journal -------------------------------------------------------------
     def journaliser(self, acteur: str, action: str, sujet: str, charge: dict) -> None:
