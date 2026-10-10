@@ -1,99 +1,138 @@
-# Architecture — sas-pme
+# Architecture
 
-## Les machines
+## 1. Les zones
 
-| Machine | Rôle dans la démo | Rôle dans le produit |
-|---|---|---|
-| EC2 `g4dn.xlarge` (GPU NVIDIA T4, 4 vCPU, 16 Go) | le boîtier du sas | un mini-PC ou une VM dans le placard de la PME |
-| PC d'un membre de l'équipe | un poste de développeur | chaque poste et serveur de CI de la PME |
-| pypi.org, api.osv.dev, rdap.org, flux RSS | Internet | Internet |
+```
+                         INTERNET
+                            │  pypi.org, registry.npmjs.org, api.osv.dev, flux RSS, API autorisées
+┌───────────────────────────▼───────────────────────────┐
+│ PLATEFORME AGRÉÉE                 (sur site ou hors site) │
+│  web :443 ── interface « GitHub local », comptes        │
+│  pipeline ── veille → délai 3 j → statique → sandbox    │
+│              → LLM + RAG → politique → signature        │
+│  ollama :11434 (local)   chroma (local)   sqlite         │
+│  relais API :3129 (liste fermée)                        │
+└───────────────┬───────────────────────────────────────┘
+                │ LIEN UNIQUE : LAN, ou WireGuard si hors site
+                │ TLS mutuel ; manifestes signés Ed25519
+                │ plateforme → passerelle : publier, révoquer, lire l'inventaire
+                │ passerelle → plateforme : relais API seulement
+┌───────────────▼───────────────────────────────────────┐
+│ PASSERELLE « BOÎTE NOIRE »        (sur site, sans Internet) │
+│  récepteur :8443 ── vérifie signature + hash, publie    │
+│  pypiserver :8080/simple   verdaccio :4873 (sans amont) │
+│  inventaire (journaux de téléchargement)                │
+│  relais API :3128 → plateforme :3129                    │
+└───────────────┬───────────────────────────────────────┘
+                │ pip / npm / API, réseau local seulement
+┌───────────────▼───────────────────────────────────────┐
+│ SERVEURS SENSIBLES                (sans Internet)         │
+│  pip index-url = http://passerelle:8080/simple          │
+│  npm registry  = http://passerelle:4873                 │
+│  HTTPS_PROXY   = http://passerelle:3128 (API autorisées) │
+└───────────────────────────────────────────────────────┘
+```
 
-## Les logiciels sur le boîtier
+## 2. Les composants
 
-| Logiciel | Version | Rôle | Écoute |
+| Composant | Où | Logiciels | Propriétaire |
 |---|---|---|---|
-| Ubuntu 22.04 (AMI Deep Learning Base, pilote NVIDIA) | — | système | — |
-| Python | 3.12 | tout le sas | — |
-| FastAPI + uvicorn | 0.115 / 0.30 | index PyPI filtré + console | `0.0.0.0:8080` |
-| Proxy CONNECT maison (`asyncio`) | — | relais des sorties sans déchiffrement | `0.0.0.0:3128` |
-| Ollama + `qwen2.5-coder:7b` | 0.3+ | LLM local (verdicts, articles, résumés) | `127.0.0.1:11434` |
-| SQLite | 3.x | état, signaux, flux, journal chaîné | fichier `sas.db` |
-| pypiserver | 2.x | index de démo (paquets piégés) + flux RSS de démo | `127.0.0.1:8081` |
-| httpx, pydantic, rapidfuzz, packaging, feedparser, Jinja2, HTMX | — | client HTTP, schémas, typosquat, versions, RSS, pages | — |
+| Interface web + API interne | plateforme | Python 3.12, FastAPI, Jinja2 + HTMX, SQLite | A |
+| Pipeline (veille, délai, statique, LLM, RAG, politique) | plateforme | Python, httpx, rapidfuzz, Ollama (`qwen2.5-coder:7b`, `nomic-embed-text`), Chroma | B |
+| Sandbox | plateforme | Docker, conteneur sans réseau, faux DNS/HTTP qui enregistre, `strace` | C |
+| Signature | plateforme (signe) + passerelle (vérifie) | `cryptography` (Ed25519) | C |
+| Récepteur, dépôts, inventaire, relais d'API | passerelle | FastAPI, pypiserver, Verdaccio, relais CONNECT asyncio | C |
+| Réseau | AWS | VPC, sous-réseau public (plateforme), sous-réseau privé sans route Internet (passerelle, serveur), groupes de sécurité, WireGuard | C |
 
-Groupe de sécurité : 22, 8080 et 3128 ouverts aux seules IP de l'équipe ; rien d'autre.
-
-## Les flux de données
-
-```
-                          ┌───────────────────────── boîtier (EC2) ─────────────────────────┐
- Poste dev ──(1)──────────▶ index :8080 ──(4)──▶ pypi.org / pypiserver de démo              │
-           ◀─(2)──────────           │                                                      │
-           ──(3) CONNECT──▶ proxy :3128 ─────────(opaque TLS)──▶ n'importe quel site autorisé│
-                          │      │ Flow                │ nouvelle version                   │
-                          │      ▼                     ▼                                    │
-                          │   egress ──corrélation──▶ pipeline ──(5)──▶ api.osv.dev          │
-                          │      │                     │      ──(6)──▶ pypi.org JSON         │
-                          │      │──(7)──▶ rdap.org    │      ──(8)──▶ flux RSS              │
-                          │      ▼                     ▼                                    │
-                          │   egress_agent ──(9)──▶ Ollama :11434 ◀──(9)── llm              │
-                          │                     SQLite ◀── tout                              │
- Navigateur ──(10)────────▶ console :8080                                                   │
-                          └─────────────────────────────────────────────────────────────────┘
-```
+## 3. Les flux
 
 | # | De → vers | Protocole | Contenu |
 |---|---|---|---|
-| 1 | poste → index | HTTP `GET /simple/<paquet>/` puis `GET /files/<fichier>` | nom du paquet ; en-tête `User-Agent` de pip ; IP source = identité du poste |
-| 2 | index → poste | HTML PEP 503 (liens + `#sha256=` + `data-requires-python`), puis l'archive `.whl`/`.tar.gz` | versions **visibles seulement** ; octets du paquet vérifiés |
-| 3 | poste → proxy | `CONNECT domaine:443 HTTP/1.1`, puis octets TLS opaques | le sas lit : domaine, port, heure, octets montants/descendants, durée. **Jamais le contenu** |
-| 4 | index → amont | HTTPS, Simple API JSON PEP 691 + téléchargement des fichiers | nom du paquet ; fichiers publics |
-| 5 | pipeline → OSV | HTTPS `POST /v1/query` `{"package":{"name","ecosystem":"PyPI"},"version"}` | nom + version seulement ; réponse : avis CVE/MAL |
-| 6 | pipeline → PyPI JSON | HTTPS `GET /pypi/<nom>/<version>/json` | nom + version ; réponse : date, mainteneurs, `yanked`, changelog |
-| 7 | egress → RDAP | HTTPS `GET /domain/<domaine>` | un domaine ; réponse : date de création |
-| 8 | veille → flux RSS | HTTPS `GET` | rien d'envoyé ; réponse : XML des articles |
-| 9 | sas → Ollama (local) | HTTP `POST /api/chat` `{"model","messages","format":<schéma>,"options":{"temperature":0},"stream":false}` | constats, extraits ≤ 200 car., changelog, articles, résumés de flux ; réponse JSON validée |
-| 10 | navigateur → console | HTTP, pages HTML + fragments HTMX | états, signaux, alertes, décisions humaines |
+| 1 | plateforme → Internet | HTTPS | métadonnées et archives publiques de PyPI/npm ; nom + version vers OSV ; flux RSS |
+| 2 | plateforme → passerelle | HTTPS + TLS mutuel | `POST /v1/publish` (manifeste signé + archives), `POST /v1/revoke`, `GET /v1/inventory` |
+| 3 | serveur → passerelle | HTTP (réseau local) | `pip`/`npm` : pages d'index et archives des seules versions publiées |
+| 4 | serveur → passerelle → plateforme → Internet | CONNECT, sans déchiffrement | appels d'API vers des domaines en liste fermée, journalisés |
+| 5 | navigateur → plateforme | HTTPS | interface web, après connexion |
+| 6 | pipeline → Ollama, Chroma | local | extraits ≤ 200 caractères, constats, rapport de sandbox, passages du RAG ; réponse JSON validée |
 
-**Ce qui ne quitte jamais le boîtier :** le code des projets de la PME, la liste complète de ses
-dépendances, l'identité de ses postes, le contenu de ses connexions, les verdicts.
+**Ce qui ne quitte jamais la PME :** le code et les données des serveurs, l'inventaire, les verdicts.
+**Ce qui sort vers Internet :** des noms de paquets avec leurs versions, des téléchargements publics,
+et les appels d'API explicitement autorisés.
 
-**Ce qui sort :** des noms de paquets avec leurs versions (5, 6), des noms de domaines (7), des
-lectures de flux publics (8).
-
-## Les données stockées (SQLite)
-
-| Table | Une ligne = | Champs clés |
-|---|---|---|
-| `versions` | une version d'un paquet vue par le sas | état, date de publication, date de découverte, raison |
-| `files` | un fichier de cette version | nom, SHA-256, chemin en cache |
-| `signals` | un indice levé | source (checks, diff, llm, watch, egress), niveau, sorte, preuve JSON |
-| `installs` | un fichier servi à un poste | poste, paquet, version, heure |
-| `flows` | une connexion sortante | poste, domaine, port, octets, durée |
-| `domains` | un domaine vu | première vue, date RDAP, bloqué |
-| `hosts` / `ci_allowlist` | un poste et sa liste fermée | type `dev` ou `ci` |
-| `alerts` | une alerte de sortie | poste, résumé français, signaux cités |
-| `journal` | une décision | acteur, action, sujet, charge JSON, hash précédent, hash |
-
-## Les états d'une version
+## 4. Les états d'une version
 
 ```
-            découverte
-                │
-                ▼
-          ┌─quarantine─┐── délai écoulé, rien ──▶ approved
-          │            │── correctif CVE, propre ─▶ fast_track
-          │            │── 1 signal fort / LLM / article ─▶ review ──clic──▶ approved | blocked
-          └────────────┘── signal bloque / 2 forts / corrélation ─▶ blocked
-     approved ── signal tardif (veille, corrélation) ──▶ blocked | review
+nouvelle ─▶ en_attente (3 jours, veille active) ─▶ en_analyse ─┬─▶ approuvée ─▶ publiée
+                     │                                          ├─▶ à_revoir ──(humain)──▶ approuvée | bloquée
+                     └── signal bloquant de la veille ──────────┴─▶ bloquée
+publiée ── signal tardif ──▶ révoquée (retirée de la passerelle)
 ```
 
-## Configuration d'un poste (une fois)
+## 5. La sandbox (détail)
 
-```bash
-pip config set global.index-url http://<ip-du-sas>:8080/simple
-setx HTTPS_PROXY http://<ip-du-sas>:3128
+- **Le conteneur :**
+  - image `python:3.12-slim` ou `node:20-slim` ;
+  - `--network` sur un réseau Docker **interne**, sans sortie, où ne se trouve qu'un **faux DNS et faux
+    HTTP** qui répondent à tout et enregistrent chaque requête ;
+  - `--read-only` sauf `/tmp`, `--cap-drop ALL`, `--pids-limit 256`, `--memory 1g`, durée maximale
+    120 s.
+- **Le scénario :**
+  1. installer l'archive (`pip install --no-deps <fichier>` ou `npm install <tgz>`) ;
+  2. importer ou `require` le module ;
+  3. attendre 60 s pour attraper un battement.
+- **Les leurres :** de fausses variables `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN` et `NPM_TOKEN`, et de
+  faux fichiers `~/.aws/credentials`, `~/.ssh/id_rsa` et `~/.npmrc`.
+- **Le rapport (`SandboxReport`) :**
+  - les requêtes DNS ;
+  - les connexions tentées ;
+  - les fichiers sensibles lus (`strace -e trace=openat`) ;
+  - les processus lancés ;
+  - la lecture des leurres ;
+  - le code de sortie et la durée.
+
+## 6. Le RAG
+
+- **Sources, téléchargées sur la plateforme et indexées une fois :**
+  - les avis OSV et GHSA des écosystèmes PyPI et npm ;
+  - OpenSSF malicious-packages ;
+  - CWE, CAPEC, et les techniques MITRE ATT&CK de la chaîne d'approvisionnement ;
+  - une sélection de rapports de chercheurs.
+- **Index :** Chroma persistant. Les embeddings sont calculés par Ollama avec `nomic-embed-text`.
+- **Usage :** les constats et le rapport de sandbox servent de requête. Les 5 meilleurs passages sont
+  donnés au LLM comme **données**. Le verdict cite leurs identifiants (`MAL-2024-…`, `CWE-506`…).
+
+## 7. La démo sur AWS
+
+- **Région :** `eu-west-3`. **Un VPC, deux sous-réseaux :**
+  - public : la plateforme, sur `g4dn.xlarge` (GPU T4), avec IP publique ;
+  - **privé, sans passerelle NAT ni route vers Internet** : la passerelle (`t3.small`) et un serveur
+    sensible (`t3.small`).
+- **Groupes de sécurité :**
+  - passerelle : 8443 depuis la plateforme seulement ; 8080, 4873 et 3128 depuis le serveur seulement ;
+  - serveur : SSH par un bastion (la plateforme), rien d'autre.
+- **Mode « hors site » :** WireGuard entre la plateforme et la passerelle (UDP 51820). C'est une
+  extension (M2).
+- **Repli si le quota GPU vaut 0 :** `c7i.4xlarge` (CPU) avec `qwen2.5-coder:3b`.
+- **Mode démo :** délai réglable à quelques minutes, et une **source amont de démo** (pypiserver sur la
+  plateforme) qui publie des versions avec des dates contrôlées.
+
+## 8. Le dépôt
+
 ```
-
-Côté pare-feu de la PME, on n'autorise la sortie que depuis le sas. Dans la démo, cette règle n'est
-pas appliquée sur le PC ; elle est dite.
+sas-pme/
+├── CLAUDE.md                 # lu à chaque prompt par Claude Code
+├── .kiro/steering/           # lu à chaque prompt par Kiro
+├── docs/                     # contexte, architecture, contrats, roadmap, organisation, sauvegardes
+├── commun/                   # contrats partagés (schémas pydantic, états) — tâche M0, changements par PR à 3
+├── plateforme/
+│   ├── web/                  # A
+│   ├── db/                   # A (schéma + accès)
+│   ├── pipeline/             # B (veille, délai, statique, llm, rag, politique)
+│   ├── sandbox/              # C
+│   └── signature/            # C (signer)
+├── passerelle/               # C (récepteur, vérification, pypiserver, verdaccio, inventaire, relais)
+├── infra/                    # C (AWS, WireGuard, sauvegardes)
+├── demo/                     # A script ; B paquets piégés et corpus ; C réseau de démo
+├── mesure/                   # B
+└── tests/                    # miroir des dossiers ci-dessus
+```

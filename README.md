@@ -1,44 +1,37 @@
 # sas-pme
 
-**Le sas de sécurité qui fait attendre les mises à jour, pas vos développeurs.**
+**Vos serveurs n'installent que ce qu'on a vérifié.**
 
-Un sas local, posé dans la PME, qui :
-- retient chaque nouvelle version de paquet Python le temps qu'une IA locale l'examine et lise ce
-  qu'Internet en dit ;
-- surveille les connexions sortantes des postes ;
-- démasque un paquet piégé dès qu'il appelle son serveur, s'il a quand même été installé.
+Les serveurs sensibles d'une PME n'ont pas accès à Internet. Ils prennent leurs paquets pip et npm dans
+une **passerelle sans Internet**. Cette passerelle ne reçoit que des versions **attendues 3 jours,
+analysées localement** (code, sandbox, LLM + RAG) et **signées** par une plateforme agréée, qui est la
+seule machine connectée.
 
-Projet de hackathon, Track 3 « Open Track » (IA × cybersécurité défensive).
+Projet de hackathon, Track 3 « Open Track » (IA × cybersécurité défensive). Objectif : un MVP
+démontrable.
 
-**Avant toute chose, lire [`docs/contexte-projet.md`](docs/contexte-projet.md).** Il contient le
-problème, le client, les décisions et leurs raisons, l'équipe, le planning et les règles de travail.
+## À lire
+
+| Document | Contenu |
+|---|---|
+| [docs/contexte.md](docs/contexte.md) | problème, client idéal, produit, principes, décisions, équipe |
+| [docs/architecture.md](docs/architecture.md) | zones, composants, flux, sandbox, RAG, démo sur AWS, dépôt |
+| [docs/contrats.md](docs/contrats.md) | interfaces entre A, B et C : types, fonctions, API de la passerelle, manifeste signé |
+| [docs/roadmap.md](docs/roadmap.md) | jalons M0 à M3, points de rencontre, ordre de coupe, démo |
+| [docs/organisation.md](docs/organisation.md) | branches, propriété des dossiers, routine, consignes aux agents |
+| [docs/sauvegardes.md](docs/sauvegardes.md) | ce qu'on sauvegarde, où, et le cloud |
+| [docs/roadmap.pdf](docs/roadmap.pdf) | la roadmap à imprimer |
+
+`CLAUDE.md` (Claude Code) et `.kiro/steering/sas-pme.md` (Kiro) font lire ces documents à l'agent à
+chaque prompt.
 
 ## Démarrer
 
 ```bash
 git clone https://github.com/samflppp/sas-pme.git
 cd sas-pme
-python -m venv .venv
-.venv\Scripts\activate          # Linux/macOS : source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
+git switch -c <a|b|c>/<tâche>
 ```
 
-Python 3.12 au minimum.
-
-## Branches
-
-| Branche | Qui |
-|---|---|
-| `main` | fusions aux points de synchronisation (H6, H13, H17) |
-| `pipeline-plateforme` | Sam (A) et Mouabd19 (B) |
-| `infra-reseau` | STEUSSO (C) |
-
-Routine : `git pull --rebase`, puis un petit commit, `pytest`, et `git pull --rebase && git push`.
-
-## Documents
-
-- [Contexte complet](docs/contexte-projet.md)
-- [Architecture : machines, logiciels, flux de données](docs/architecture.md)
-- [Roadmap (PDF)](docs/roadmap.pdf)
-- Spec Kiro : [exigences](.kiro/specs/sas-pme/requirements.md) · [design](.kiro/specs/sas-pme/design.md) · [tâches](.kiro/specs/sas-pme/tasks.md)
+Le code arrive en M0 (`commun/`, `pyproject.toml`). Ensuite :
+`python -m venv .venv && .venv\Scripts\activate && pip install -e ".[dev]"`. Python 3.12 au minimum.

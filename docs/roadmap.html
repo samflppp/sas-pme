@@ -2,279 +2,242 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>sas-pme — Roadmap hackathon</title>
+<title>sas-pme — Roadmap du MVP</title>
 <style>
-  @page { size: A4 landscape; margin: 12mm; }
+  @page { size: A4 landscape; margin: 11mm; }
   :root { --ink:#1b1f24; --mute:#5b6470; --line:#d9dee4; --a:#2563eb; --b:#9333ea; --c:#0f8a5f; --all:#e0632b; --bg:#f5f7f9; }
   * { box-sizing: border-box; }
-  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 9.5pt; line-height: 1.35; margin: 0; }
-  h1 { font-size: 22pt; margin: 0 0 2mm; letter-spacing: -0.3px; }
-  h2 { font-size: 13pt; margin: 0 0 3mm; padding-bottom: 1.5mm; border-bottom: 2px solid var(--ink); }
-  h3 { font-size: 10.5pt; margin: 3mm 0 1.5mm; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 9pt; line-height: 1.33; margin: 0; }
+  h1 { font-size: 21pt; margin: 0 0 1mm; letter-spacing: -0.3px; }
+  h2 { font-size: 12.5pt; margin: 0 0 2.5mm; padding-bottom: 1.2mm; border-bottom: 2px solid var(--ink); }
+  h3 { font-size: 10pt; margin: 3mm 0 1.5mm; }
   p { margin: 0 0 2mm; }
   .page { page-break-after: always; }
   .page:last-child { page-break-after: auto; }
-  .sub { color: var(--mute); font-size: 10.5pt; margin-bottom: 5mm; }
-  .pitch { background: var(--bg); border-left: 4px solid var(--ink); padding: 3mm 4mm; font-size: 11pt; margin-bottom: 5mm; }
+  .sub { color: var(--mute); font-size: 10pt; margin-bottom: 4mm; }
+  .pitch { background: var(--bg); border-left: 4px solid var(--ink); padding: 3mm 4mm; font-size: 10.5pt; margin-bottom: 4mm; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
-  .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5mm; }
-  table { border-collapse: collapse; width: 100%; font-size: 8.6pt; }
-  th, td { border-bottom: 1px solid var(--line); padding: 1.3mm 1.6mm; text-align: left; vertical-align: top; }
+  .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
+  table { border-collapse: collapse; width: 100%; font-size: 8.4pt; }
+  th, td { border-bottom: 1px solid var(--line); padding: 1.2mm 1.5mm; text-align: left; vertical-align: top; }
   th { background: var(--bg); font-weight: 600; }
-  code, pre { font-family: Consolas, "Courier New", monospace; font-size: 8pt; }
-  pre { background: var(--bg); padding: 2.5mm; margin: 0; white-space: pre; line-height: 1.25; }
+  code, pre { font-family: Consolas, "Courier New", monospace; font-size: 7.8pt; }
+  pre { background: var(--bg); padding: 2.5mm; margin: 0; white-space: pre; line-height: 1.22; }
   .tag { display: inline-block; color: #fff; font-weight: 700; border-radius: 3px; padding: 0 1.6mm; font-size: 8.5pt; }
   .A { background: var(--a); } .B { background: var(--b); } .C { background: var(--c); } .ALL { background: var(--all); }
-  .card { border: 1px solid var(--line); border-top: 4px solid; padding: 3mm; border-radius: 3px; }
-  .card.A { border-top-color: var(--a); background: #fff; } .card.B { border-top-color: var(--b); background:#fff; } .card.C { border-top-color: var(--c); background:#fff; }
-  .card ul { margin: 1mm 0 0; padding-left: 4mm; }
-  .card li { margin-bottom: 0.6mm; font-size: 8.4pt; line-height: 1.28; }
-  /* Gantt */
-  .gantt { display: grid; grid-template-columns: 22mm repeat(34, 1fr); border: 1px solid var(--line); font-size: 7.6pt; }
+  .gantt { display: grid; grid-template-columns: 24mm repeat(30, 1fr); border: 1px solid var(--line); font-size: 7.4pt; }
   .gantt .hcell { border-right: 1px solid var(--line); background: var(--bg); text-align: center; padding: 1mm 0; font-weight: 600; }
-  .gantt .lane { background: var(--bg); font-weight: 700; padding: 1.5mm; border-top: 1px solid var(--line); display:flex; align-items:center; }
-  .gantt .bar { font-size:7.2pt; margin: 1mm 0.4mm; border-radius: 2px; color: #fff; padding: 1mm 1.2mm; font-weight: 600; line-height: 1.15; overflow: hidden; }
+  .gantt .lane { background: var(--bg); font-weight: 700; padding: 1.5mm; border-top: 1px solid var(--line); display:flex; align-items:center; line-height:1.15; }
+  .gantt .bar { margin: 1mm 0.4mm; border-radius: 2px; color: #fff; padding: 1mm 1.2mm; font-weight: 600; line-height: 1.15; overflow: hidden; font-size: 7.1pt; }
   .bar.A { background: var(--a); } .bar.B { background: var(--b); } .bar.C { background: var(--c); } .bar.ALL { background: var(--all); }
-  .bar.light { opacity: .55; }
-  .sync { background: var(--ink); color: #fff; text-align: center; font-weight: 700; margin: 1mm 0.4mm; border-radius: 2px; padding: 1mm 0; }
-  .legend { margin-top: 2mm; color: var(--mute); font-size: 8.2pt; }
-  .check li { list-style: none; margin-left: -4mm; }
-  .check li::before { content: "☐ "; }
-  .warn { border-left: 4px solid var(--all); background: #fdf1eb; padding: 2mm 3mm; margin-top: 3mm; }
+  .bar.light { opacity: .5; }
+  .ms { background: var(--ink); color:#fff; text-align:center; font-weight:700; margin: 1mm 0.4mm; border-radius:2px; padding:1mm 0; font-size:7.4pt; }
+  .pt { background: var(--all); color:#fff; text-align:center; font-weight:700; margin: 1mm 0.4mm; border-radius:2px; padding:1mm 0; }
+  .legend { margin-top: 1.5mm; color: var(--mute); font-size: 7.8pt; }
+  .mtab td:first-child { width: 15%; font-weight: 600; }
+  .mtab td.A2 { border-left: 3px solid var(--a); } .mtab td.B2 { border-left: 3px solid var(--b); } .mtab td.C2 { border-left: 3px solid var(--c); }
+  .warn { border-left: 4px solid var(--all); background: #fdf1eb; padding: 2mm 3mm; margin-top: 2.5mm; }
+  .ok { border-left: 4px solid var(--c); background: #ecf7f2; padding: 2mm 3mm; margin-top: 2.5mm; }
 </style>
 </head>
 <body>
 
-<!-- PAGE 1 -->
 <section class="page">
-  <h1>sas-pme — Roadmap des 34 prochaines heures</h1>
-  <div class="sub">Hackathon Track 3 « Open Track » · IA × cybersécurité défensive · A = Sam · B = Mouabd19 · C = STEUSSO · branches <code>pipeline-plateforme</code> (A+B) et <code>infra-reseau</code> (C) · H0 = début du chantier</div>
-
-  <div class="pitch"><b>Le pitch.</b> Un sas de sécurité posé dans la PME retient chaque nouvelle version de paquet Python le temps
-  qu'une IA locale l'examine et lise ce qu'Internet en dit, puis surveille les connexions sortantes. Si un paquet piégé passe
-  quand même, le sas le démasque dès qu'il appelle son serveur.<br><b>« Le sas qui fait attendre les mises à jour, pas vos développeurs. »</b></div>
-
-  <div class="cols">
-    <div>
-      <h2>Le défenseur aidé</h2>
-      <p>Le responsable technique d'une PME ou startup qui développe en Python (5 à 100 personnes), sans RSSI ni SOC. Vente par l'infogérant.</p>
-      <h2 style="margin-top:4mm">Principes non négociables</h2>
-      <table>
-        <tr><td><b>Le code décide, l'IA alerte</b></td><td>un LLM peut monter un risque, jamais l'abaisser ni approuver</td></tr>
-        <tr><td><b>Un texte lu n'est pas un ordre</b></td><td>code, changelog, article : des données à juger (anti-injection)</td></tr>
-        <tr><td><b>Tout local</b></td><td>LLM sur le boîtier (Ollama) ; aucun service cloud managé</td></tr>
-        <tr><td><b>On lit Internet, on ne lui parle pas de vous</b></td><td>ne sortent que nom de paquet + version, et des domaines</td></tr>
-        <tr><td><b>Transparent</b></td><td>une ligne de config ; pip ne voit jamais d'erreur due à la quarantaine</td></tr>
-      </table>
-    </div>
-    <div>
-      <h2>Ce que fait le sas</h2>
-      <table>
-        <tr><th>Barrière</th><th>Comment</th></tr>
-        <tr><td><b>1. Index PyPI filtré</b></td><td>pip ne voit que les versions approuvées ; une version neuve part en quarantaine (48 h), pip prend la précédente sans erreur</td></tr>
-        <tr><td><b>2. Analyse du paquet</b></td><td>étage 1 : typosquat, âge, mainteneurs, OSV, OpenSSF · étage 2 : diff avec la version précédente (setup.py, exec, base64, secrets, domaines) · étage 3 : LLM local, verdict JSON + phrase en français</td></tr>
-        <tr><td><b>3. Veille</b></td><td>toutes les 2 h : OSV, statut PyPI (yanked), blogs de chercheurs ; un article peut bloquer, jamais débloquer</td></tr>
-        <tr><td><b>4. Sorties</b></td><td>proxy CONNECT sans déchiffrement : domaine nouveau, domaine jeune, IP brute, battement ; <b>corrélation paquet installé ↔ domaine contacté</b> → blocage des deux</td></tr>
-        <tr><td><b>5. Console + journal</b></td><td>une phrase et ses preuves par décision ; approuver/bloquer en un clic ; journal chaîné par hash (NIS2, CRA)</td></tr>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- PAGE 2 : ARCHITECTURE -->
-<section class="page">
-  <h2>Architecture : machines, logiciels, données en transit</h2>
+  <h1>sas-pme — Roadmap du MVP</h1>
+  <div class="sub">Hackathon Track 3 · A = Sam (plateforme web) · B = Mouabd19 (pipeline + IA) · C = STEUSSO (réseau + passerelle) · H0 = début de la roadmap · ~30 h</div>
+  <div class="pitch"><b>Vos serveurs n'installent que ce qu'on a vérifié.</b> Les serveurs sensibles de la PME n'ont pas Internet : ils prennent pip et npm dans une
+  <b>passerelle sans Internet</b>, qui ne reçoit que des versions <b>attendues 3 jours, analysées localement</b> (code, sandbox, LLM + RAG) et <b>signées</b>
+  par une <b>plateforme agréée</b>, la seule machine connectée. Objectif : <b>un MVP démontrable</b>, pas plus.</div>
   <div class="cols">
     <div>
 <pre>
- BOÎTIER = EC2 g4dn.xlarge (GPU T4)
- ──────────────────────────────────
- Poste dev ─(1)─▶ index :8080 ─(4)─▶ pypi.org / pypiserver démo :8081
-           ◀(2)──     │ version neuve
-                      ▼
-                   pipeline ─(5)─▶ api.osv.dev
-                      │     ─(6)─▶ pypi.org JSON
-                      │     ─(8)─▶ flux RSS
-                      ▼
-                 Ollama :11434 (qwen2.5-coder:7b)  ◀─(9)─ llm, egress_agent
-
- Poste dev ─(3)─▶ proxy :3128 ─(TLS opaque)─▶ sites autorisés
-   CONNECT            │ Flow
-                      ▼
-                   egress ─(7)─▶ rdap.org
-                      └─ corrélation paquet ↔ domaine ─▶ pipeline
-
- Navigateur ─(10)─▶ console :8080      SQLite sas.db (état, signaux, flux, journal)
+                    INTERNET
+                       │ PyPI, npm, OSV, RSS, API autorisées
+ ┌─────────────────────▼──────────────────────┐
+ │ PLATEFORME AGRÉÉE  (sur site ou hors site) │
+ │ web « GitHub local » · comptes             │
+ │ veille → 3 jours → statique → sandbox      │
+ │ → LLM + RAG → politique → signature        │
+ └─────────────────────┬──────────────────────┘
+       lien unique : LAN ou WireGuard
+       TLS mutuel · manifestes signés Ed25519
+       la plateforme pousse ; la passerelle
+       ne joint que la plateforme (relais API)
+ ┌─────────────────────▼──────────────────────┐
+ │ PASSERELLE « BOÎTE NOIRE »  (sans Internet)│
+ │ vérifie signature + hash · pypiserver      │
+ │ verdaccio · inventaire · relais API        │
+ └─────────────────────┬──────────────────────┘
+                       │ pip / npm / API (LAN)
+ ┌─────────────────────▼──────────────────────┐
+ │ SERVEURS SENSIBLES  (sans Internet)        │
+ │ voient la dernière version VÉRIFIÉE        │
+ └────────────────────────────────────────────┘
 </pre>
-      <h3>Logiciels sur le boîtier</h3>
-      <table>
-        <tr><th>Logiciel</th><th>Rôle</th><th>Port</th></tr>
-        <tr><td>Ubuntu 22.04, AMI Deep Learning (pilote NVIDIA)</td><td>système</td><td>—</td></tr>
-        <tr><td>Python 3.12 · FastAPI · uvicorn</td><td>index filtré + console + tâches de fond</td><td>8080</td></tr>
-        <tr><td>Proxy CONNECT maison (asyncio)</td><td>relais des sorties, comptage, blocage</td><td>3128</td></tr>
-        <tr><td>Ollama + qwen2.5-coder:7b</td><td>LLM local (verdicts, articles, résumés)</td><td>11434 local</td></tr>
-        <tr><td>SQLite</td><td>état, signaux, flux, journal chaîné</td><td>fichier</td></tr>
-        <tr><td>pypiserver</td><td>paquets piégés + flux RSS de démo</td><td>8081 local</td></tr>
-        <tr><td>httpx · pydantic · rapidfuzz · packaging · feedparser · Jinja2 · HTMX · pytest · respx</td><td>HTTP, schémas, typosquat, versions, RSS, pages, tests</td><td>—</td></tr>
-      </table>
     </div>
     <div>
-      <h3 style="margin-top:0">Données en transit</h3>
+      <h3 style="margin-top:0">Principes non négociables</h3>
       <table>
-        <tr><th>#</th><th>De → vers</th><th>Protocole</th><th>Contenu</th></tr>
-        <tr><td>1</td><td>poste → index</td><td>HTTP GET <code>/simple/&lt;p&gt;/</code>, <code>/files/…</code></td><td>nom du paquet ; IP source = poste</td></tr>
-        <tr><td>2</td><td>index → poste</td><td>HTML PEP 503 + archive</td><td>versions visibles seulement, <code>#sha256</code> vérifié</td></tr>
-        <tr><td>3</td><td>poste → proxy</td><td><code>CONNECT host:443</code> + TLS opaque</td><td>sas lit domaine, port, heure, octets, durée — <b>jamais le contenu</b></td></tr>
-        <tr><td>4</td><td>index → amont</td><td>HTTPS, JSON PEP 691</td><td>nom ; fichiers publics</td></tr>
-        <tr><td>5</td><td>pipeline → OSV</td><td>HTTPS POST <code>/v1/query</code></td><td>nom + version ; avis CVE/MAL</td></tr>
-        <tr><td>6</td><td>pipeline → PyPI JSON</td><td>HTTPS GET <code>/pypi/&lt;n&gt;/&lt;v&gt;/json</code></td><td>nom + version ; date, mainteneurs, yanked</td></tr>
-        <tr><td>7</td><td>egress → RDAP</td><td>HTTPS GET</td><td>un domaine ; date de création</td></tr>
-        <tr><td>8</td><td>veille → RSS</td><td>HTTPS GET</td><td>rien envoyé ; articles XML</td></tr>
-        <tr><td>9</td><td>sas → Ollama</td><td>HTTP local POST <code>/api/chat</code>, <code>format</code>=schéma, temp. 0</td><td>constats, extraits ≤ 200 car., changelog, articles ; JSON validé pydantic</td></tr>
-        <tr><td>10</td><td>navigateur → console</td><td>HTTP + HTMX</td><td>états, signaux, décisions humaines</td></tr>
+        <tr><td><b>Les serveurs ne parlent jamais à Internet</b></td><td>tout passe par la passerelle, qui ne parle qu'à la plateforme</td></tr>
+        <tr><td><b>Le code décide, l'IA alerte</b></td><td>le LLM ou un article peut monter un risque, jamais approuver</td></tr>
+        <tr><td><b>Un texte lu n'est pas un ordre</b></td><td>code, changelog, article, RAG : des données ; sortie du LLM validée par schéma</td></tr>
+        <tr><td><b>Rien sans signature</b></td><td>la passerelle refuse un manifeste mal signé, un hash différent, un nonce rejoué</td></tr>
+        <tr><td><b>Tout local</b></td><td>LLM, RAG, sandbox sur la plateforme ; aucun service d'IA cloud</td></tr>
+        <tr><td><b>Journal inaltérable</b></td><td>append-only, chaîné par hash</td></tr>
       </table>
-      <div class="warn"><b>Ne quitte jamais le boîtier :</b> code de la PME, liste complète de ses dépendances, identité des postes,
-      contenu des connexions, verdicts. <b>Sort :</b> nom + version (5, 6), domaines (7), lecture de flux publics (8).</div>
-      <h3>Configuration d'un poste (une fois)</h3>
-<pre>pip config set global.index-url http://&lt;ip-du-sas&gt;:8080/simple
-setx HTTPS_PROXY http://&lt;ip-du-sas&gt;:3128</pre>
+      <h3>Démo AWS (eu-west-3)</h3>
+      <table>
+        <tr><td>Sous-réseau public</td><td>plateforme · g4dn.xlarge (GPU T4) · Ollama qwen2.5-coder:7b + nomic-embed-text · Chroma · Docker</td></tr>
+        <tr><td>Sous-réseau <b>privé sans route Internet</b></td><td>passerelle (t3.small) + serveur sensible (t3.small) : <code>curl pypi.org</code> échoue, <code>pip install</code> marche</td></tr>
+        <tr><td>Repli</td><td>quota GPU à 0 : c7i.4xlarge + modèle 3b</td></tr>
+      </table>
     </div>
   </div>
 </section>
 
-<!-- PAGE 3 : GANTT -->
 <section class="page">
-  <h2>Planning heure par heure</h2>
+  <h2>Planning — jalons et points de rencontre</h2>
   <div class="gantt">
     <div class="hcell">Heure</div>
-    <div class="hcell">0</div><div class="hcell">1</div><div class="hcell">2</div><div class="hcell">3</div><div class="hcell">4</div><div class="hcell">5</div><div class="hcell">6</div><div class="hcell">7</div><div class="hcell">8</div><div class="hcell">9</div><div class="hcell">10</div><div class="hcell">11</div><div class="hcell">12</div><div class="hcell">13</div><div class="hcell">14</div><div class="hcell">15</div><div class="hcell">16</div><div class="hcell">17</div><div class="hcell">18</div><div class="hcell">19</div><div class="hcell">20</div><div class="hcell">21</div><div class="hcell">22</div><div class="hcell">23</div><div class="hcell">24</div><div class="hcell">25</div><div class="hcell">26</div><div class="hcell">27</div><div class="hcell">28</div><div class="hcell">29</div><div class="hcell">30</div><div class="hcell">31</div><div class="hcell">32</div><div class="hcell">33</div>
+    <div class="hcell">0</div><div class="hcell">1</div><div class="hcell">2</div><div class="hcell">3</div><div class="hcell">4</div><div class="hcell">5</div><div class="hcell">6</div><div class="hcell">7</div><div class="hcell">8</div><div class="hcell">9</div><div class="hcell">10</div><div class="hcell">11</div><div class="hcell">12</div><div class="hcell">13</div><div class="hcell">14</div><div class="hcell">15</div><div class="hcell">16</div><div class="hcell">17</div><div class="hcell">18</div><div class="hcell">19</div><div class="hcell">20</div><div class="hcell">21</div><div class="hcell">22</div><div class="hcell">23</div><div class="hcell">24</div><div class="hcell">25</div><div class="hcell">26</div><div class="hcell">27</div><div class="hcell">28</div><div class="hcell">29</div>
 
-    <!-- Sync row -->
-    <div class="lane">Points</div>
-    <div class="sync" style="grid-column: 3 / 4">H1</div>
-    <div class="sync" style="grid-column: 8 / 9">H6</div>
-    <div class="sync" style="grid-column: 15 / 16">H13</div>
-    <div class="sync" style="grid-column: 19 / 20">H17</div>
-    <div class="sync" style="grid-column: 24 / 25">H22</div>
+    <div class="lane">Jalons</div>
+    <div class="ms" style="grid-column: 2 / 5">M0 socle</div>
+    <div class="ms" style="grid-column: 5 / 12">M1 MVP pip</div>
+    <div class="ms" style="grid-column: 12 / 18">M2 différence</div>
+    <div class="ms" style="grid-column: 18 / 24">M3 finition</div>
+    <div class="ms" style="grid-column: 24 / 32; opacity:.45">marge · sommeil · répétitions</div>
 
-    <!-- A -->
-    <div class="lane" style="grid-row: 3 / 6; color: var(--a)">A · Sam<br>plateforme</div>
-    <div class="bar A" style="grid-row:3; grid-column: 2 / 3">T0</div>
-    <div class="bar A" style="grid-row:3; grid-column: 3 / 5">A1 store + journal</div>
-    <div class="bar A" style="grid-row:3; grid-column: 5 / 6">A2</div>
-    <div class="bar A" style="grid-row:3; grid-column: 6 / 9">A3 index filtré</div>
-    <div class="bar A" style="grid-row:3; grid-column: 9 / 13">A4 pipeline + minuteries</div>
-    <div class="bar A" style="grid-row:4; grid-column: 14 / 19">A5 console</div>
-    <div class="bar A" style="grid-row:4; grid-column: 19 / 26">A6 deck + fiche de défense</div>
-    <div class="bar A light" style="grid-row:5; grid-column: 26 / 36">marge · sommeil (1er) · répétition du pitch</div>
+    <div class="lane">Rencontres</div>
+    <div class="pt" style="grid-row:3; grid-column: 3 / 4">H1</div>
+    <div class="pt" style="grid-row:3; grid-column: 5 / 6">H3</div>
+    <div class="pt" style="grid-row:3; grid-column: 12 / 13">H10</div>
+    <div class="pt" style="grid-row:3; grid-column: 18 / 19">H16</div>
+    <div class="pt" style="grid-row:3; grid-column: 24 / 25">H22</div>
 
-    <!-- B -->
-    <div class="lane" style="grid-row: 6 / 9; color: var(--b)">B · Mouabd19<br>agentique IA</div>
-    <div class="bar B" style="grid-row:6; grid-column: 2 / 4">B0 corpus</div>
-    <div class="bar B" style="grid-row:6; grid-column: 4 / 7">B1 contrôles (étage 1)</div>
-    <div class="bar B" style="grid-row:6; grid-column: 7 / 10">B2 diff (étage 2)</div>
-    <div class="bar B" style="grid-row:6; grid-column: 10 / 13">B3 LLM confiné</div>
-    <div class="bar B" style="grid-row:7; grid-column: 13 / 14">B6</div>
-    <div class="bar B" style="grid-row:7; grid-column: 14 / 15">B5</div>
-    <div class="bar B" style="grid-row:7; grid-column: 15 / 17">B4 veille</div>
-    <div class="bar B" style="grid-row:7; grid-column: 17 / 19">B7 agent sorties</div>
-    <div class="bar B" style="grid-row:7; grid-column: 19 / 22">B5 mesure finale + diapo</div>
-    <div class="bar B light" style="grid-row:8; grid-column: 22 / 36">bugs · sommeil (2e) · réponses du jury sur la mesure</div>
+    <div class="lane" style="grid-row: 4 / 6; color: var(--a)">A · Sam<br>plateforme web</div>
+    <div class="bar A" style="grid-row:4; grid-column: 2 / 5">commun/ · db · web vide</div>
+    <div class="bar A" style="grid-row:4; grid-column: 5 / 12">comptes · catalogue · fiche version · file d'attente · demandes · journal</div>
+    <div class="bar A" style="grid-row:4; grid-column: 12 / 18">décision humaine · révocation · tableau de bord · inventaire</div>
+    <div class="bar A" style="grid-row:4; grid-column: 18 / 24">deck · fiche de défense · pitch</div>
+    <div class="bar A light" style="grid-row:5; grid-column: 24 / 32">marge · sommeil (1er) · répétition du pitch</div>
 
-    <!-- C -->
-    <div class="lane" style="grid-row: 9 / 12; color: var(--c)">C · STEUSSO<br>infra + réseau</div>
-    <div class="bar C" style="grid-row:9; grid-column: 2 / 5">C0 EC2 + quota GPU + Ollama</div>
-    <div class="bar C" style="grid-row:9; grid-column: 5 / 9">C1 proxy CONNECT</div>
-    <div class="bar C" style="grid-row:9; grid-column: 9 / 14">C2 signaux + corrélation</div>
-    <div class="bar C" style="grid-row:10; grid-column: 14 / 17">C3 réseau de démo</div>
-    <div class="bar C" style="grid-row:10; grid-column: 17 / 18">C4</div>
-    <div class="bar C" style="grid-row:10; grid-column: 18 / 20">C5 durciss.</div>
-    <div class="bar C" style="grid-row:10; grid-column: 22 / 26">C6 vidéo de démo</div>
-    <div class="bar C light" style="grid-row:11; grid-column: 26 / 36">marge · sommeil (3e) · démo en direct prête</div>
+    <div class="lane" style="grid-row: 6 / 8; color: var(--b)">B · Mouabd19<br>pipeline + IA</div>
+    <div class="bar B" style="grid-row:6; grid-column: 2 / 5">client PyPI · demander() · politique factice</div>
+    <div class="bar B" style="grid-row:6; grid-column: 5 / 12">délai 3 j · veille OSV · statique + diff · LLM confiné · politique</div>
+    <div class="bar B" style="grid-row:6; grid-column: 12 / 18">RAG (Chroma) · sandbox dans le prompt · veille RSS · npm (ext.)</div>
+    <div class="bar B" style="grid-row:6; grid-column: 18 / 24">mesure finale (3 colonnes) + diapo</div>
+    <div class="bar B light" style="grid-row:7; grid-column: 24 / 32">bugs · sommeil (2e) · questions du jury sur la mesure</div>
 
-    <!-- ALL -->
-    <div class="lane" style="grid-row: 12; color: var(--all)">Tous</div>
-    <div class="bar ALL" style="grid-row:12; grid-column: 2 / 4">phrase</div>
-    <div class="bar ALL" style="grid-row:12; grid-column: 19 / 21">répétition</div>
-    <div class="bar ALL" style="grid-row:12; grid-column: 26 / 28">fiche + répétitions</div>
+    <div class="lane" style="grid-row: 8 / 10; color: var(--c)">C · STEUSSO<br>réseau + passerelle</div>
+    <div class="bar C" style="grid-row:8; grid-column: 2 / 5">VPC · sous-réseau privé · pypiserver · stubs</div>
+    <div class="bar C" style="grid-row:8; grid-column: 5 / 12">récepteur · TLS mutuel · signature Ed25519 · inventaire · sandbox v1</div>
+    <div class="bar C" style="grid-row:8; grid-column: 12 / 18">sandbox v2 · relais API · sauvegardes · Verdaccio, WireGuard (ext.)</div>
+    <div class="bar C" style="grid-row:8; grid-column: 18 / 24">vidéo · schéma réseau · diapo « plateforme compromise ? »</div>
+    <div class="bar C light" style="grid-row:9; grid-column: 24 / 32">marge · sommeil (3e) · démo en direct prête</div>
   </div>
-  <div class="legend">Une colonne = une heure depuis le début du chantier. Barres pâles = marge et sommeil en quinconce (une personne dort pendant que deux veillent). Noir = point de synchronisation de 15 min. T0 = contrats partagés ; A2 = politique ; B6 = paquets et flux de démo ; B5 = mesure v1 ; C4 = config des postes + mode CI ; « phrase » = phrase-problème envoyée aux organisateurs.</div>
+  <div class="legend">Une colonne = une heure. Orange = point de rencontre (15 min, les trois, devant la démo de bout en bout). H1 = contrats <code>commun/</code> sur <code>main</code>. « ext. » = extension, coupée en premier.</div>
 
-  <h3>Points de synchronisation et règles de coupe</h3>
+  <h3>Points de rencontre</h3>
   <table>
-    <tr><th style="width:9%">Heure</th><th style="width:46%">Ce qui doit marcher</th><th>Si non</th></tr>
-    <tr><td><b>H1</b></td><td><code>models.py</code> commité ; EC2 lancée ou quota GPU demandé ; phrase-problème envoyée</td><td>A pousse les contrats avant tout le reste</td></tr>
-    <tr><td><b>H6</b></td><td><code>pip install</code> depuis un PC passe par l'index du sas sur l'EC2 ; 1re fusion <code>infra-reseau</code> → <code>main</code></td><td>C aide A sur l'index ; le proxy glisse d'une heure</td></tr>
-    <tr><td><b>H13</b></td><td>mesure configuration 1 de bout en bout ; proxy relaie ; LLM répond en &lt; 5 s ; fusion des deux branches</td><td><b>on coupe la veille (B4)</b> ; modèle <code>3b</code> si lent</td></tr>
-    <tr><td><b>H17</b></td><td>démo complète répétée une fois</td><td>gel des fonctions, plus que des corrections</td></tr>
-    <tr><td><b>H22</b></td><td>deck, mesure finale, vidéo enregistrée</td><td>la vidéo passe avant le deck</td></tr>
+    <tr><th style="width:8%">Heure</th><th style="width:52%">Doit marcher de bout en bout</th><th>Sinon</th></tr>
+    <tr><td><b>H1</b></td><td><code>commun/modeles.py</code> + <code>pyproject.toml</code> sur <code>main</code> ; quota GPU demandé</td><td>A ne fait rien d'autre avant</td></tr>
+    <tr><td><b>H3</b></td><td>demande de <code>requests</code> dans le web → téléchargée → approuvée (factice) → copiée sur la passerelle → <code>pip install</code> marche sur le serveur, <code>curl pypi.org</code> échoue</td><td>les trois sur le maillon qui casse</td></tr>
+    <tr><td><b>H10</b></td><td><b>MVP</b> : version propre attendue, analysée, signée, publiée, installée ; version piégée bloquée avec preuves statiques + sandbox + phrase ; publication forgée refusée</td><td>c'est la démo minimale garantie : on la stabilise avant M2</td></tr>
+    <tr><td><b>H16</b></td><td>démo complète répétée une fois ; on gèle les fonctions</td><td>appliquer l'ordre de coupe</td></tr>
+    <tr><td><b>H22</b></td><td>vidéo, deck, mesure terminés</td><td>la vidéo passe avant le deck</td></tr>
   </table>
+  <div class="warn"><b>Ordre de coupe :</b> 1. npm · 2. WireGuard (le LAN suffit en démo) · 3. veille RSS · 4. RAG · 5. sandbox v2. <b>Jamais coupés :</b> cloisonnement, signature, sandbox v1, mesure.</div>
 </section>
 
-<!-- PAGE 4 : TÂCHES PAR PERSONNE -->
 <section class="page">
-  <h2>Tâches par personne — rien n'est laissé de côté</h2>
-  <div class="cols3">
-    <div class="card A">
-      <span class="tag A">A</span> <b>Sam · plateforme</b> <span style="color:var(--mute)">· branche pipeline-plateforme</span>
-      <ul class="check">
-        <li><b>T0 (H0–H1)</b> <code>pyproject.toml</code>, <code>models.py</code> : State, Level, Source, Signal, Finding, Flow, HumanDecision — <b>bloque B et C</b></li>
-        <li><b>A1 (H1–H3)</b> <code>Store</code> SQLite + <code>Journal</code> chaîné SHA-256, <code>verify()</code></li>
-        <li><b>A2 (H3–H4)</b> <code>policy.decide()</code> fonction pure ; invariant « llm/article n'assouplit jamais » sur 200 cas</li>
-        <li><b>A3 (H4–H7)</b> <code>Upstream</code> PEP 691 ; <code>/simple</code> filtré, <code>/files</code> avec hash ; fail-closed ; adoption initiale ; test <code>pip download</code> réel</li>
-        <li><b>A4 (H7–H11)</b> <code>Pipeline</code> + <code>app.py</code> : file asyncio, étages 1→2→3, <code>tick</code> 60 s, veille 2 h ; branche le proxy et <code>Egress</code> de C</li>
-        <li><b>A5 (H12–H17)</b> console HTMX : compteurs, fil, fiche version, fiche poste, journal, approuver/bloquer</li>
-        <li><b>A6 (H17–H24)</b> deck 8 diapos, fiche de défense, <code>demo/script.md</code></li>
-      </ul>
-    </div>
-    <div class="card B">
-      <span class="tag B">B</span> <b>Mouabd19 · agentique IA</b> <span style="color:var(--mute)">· branche pipeline-plateforme</span>
-      <ul class="check">
-        <li><b>B0 (H0–H2)</b> corpus : 30 malveillants (OpenSSF), 50 mises à jour saines. <b>Jamais installer ni exécuter un échantillon.</b></li>
-        <li><b>B1 (H2–H5)</b> <code>checks.run_fast / run</code> : typosquat, âge, mainteneurs, sdist seul, OpenSSF, OSV</li>
-        <li><b>B2 (H5–H8)</b> <code>diffscan.scan</code> : lignes ajoutées ; setup.py/.pth/__init__, exec/base64, secrets, domaines, entropie ; archives bornées</li>
-        <li><b>B3 (H8–H11)</b> <code>llm.judge_release / classify_article / summarise_host</code> : Ollama, schéma JSON, balises <code>&lt;donnee&gt;</code>, test d'injection</li>
-        <li><b>B6 (H11–H12)</b> paquets piégés de démo + flux RSS (vrai et faux article), remis à C</li>
-        <li><b>B5 v1 (H12–H13)</b> mesure configuration 1 — <b>point de contrôle H13</b></li>
-        <li><b>B4 (H13–H15)</b> veille : OSV, yanked, RSS ; un article ne débloque jamais</li>
-        <li><b>B7 (H15–H17)</b> agent des sorties : résumé français par poste, aucun signal effacé</li>
-        <li><b>B5 final (H17–H20)</b> trois colonnes détection / fausses alertes + diapo</li>
-      </ul>
-    </div>
-    <div class="card C">
-      <span class="tag C">C</span> <b>STEUSSO · infra + réseau</b> <span style="color:var(--mute)">· branche infra-reseau</span>
-      <ul class="check">
-        <li><b>C0 (H0–H3)</b> <b>quota GPU « G and VT » dès H0</b> ; g4dn.xlarge eu-west-3 ; Ollama + <code>qwen2.5-coder:7b</code> &lt; 5 s ; systemd ; repli c7i.4xlarge + 3b</li>
-        <li><b>C1 (H3–H7)</b> <code>serve_proxy</code> : CONNECT seul, relais et comptage, domaines bloqués, liste fermée CI</li>
-        <li><b>C2 (H7–H12)</b> <code>Egress.on_flow</code> : domaine nouveau, RDAP &lt; 30 j, IP brute, battement, <b>corrélation 10 min</b></li>
-        <li><b>C3 (H12–H15)</b> réseau de démo : pypiserver, serveur de battement TLS, <code>hosts</code>, RDAP simulé, <code>network.md</code>, repli tunnel SSH</li>
-        <li><b>C4 (H15–H16)</b> <code>poste-setup.ps1/.sh</code> (et <code>--retirer</code>) ; poste CI à liste fermée, refus 403 montré</li>
-        <li><b>C5 (H16–H18)</b> durcissement : ufw, SSH par clés, utilisateur sans droits, sorties du boîtier limitées, diapo « et si le sas est compromis ? »</li>
-        <li><b>C6 (H20–H24)</b> vidéo de démo ≤ 3 min, plan de secours</li>
-      </ul>
-    </div>
-  </div>
+  <h2>Tâches par jalon et par personne</h2>
+  <table class="mtab">
+    <tr><th>Jalon</th><th><span class="tag A">A</span> Sam — plateforme web</th><th><span class="tag B">B</span> Mouabd19 — pipeline + IA</th><th><span class="tag C">C</span> STEUSSO — réseau + passerelle</th></tr>
+    <tr><td>M0 · H0–H3<br>socle commun</td>
+      <td class="A2"><code>commun/modeles.py</code> (contrats) <b>avant H1</b> ; <code>pyproject.toml</code> ; <code>plateforme/db</code> (schéma SQLite + <code>acces.py</code>) ; web : connexion fixe, catalogue vide</td>
+      <td class="B2">client PyPI (métadonnées, téléchargement) ; <code>pipeline.demander()</code> ; politique factice « tout approuver »</td>
+      <td class="C2">VPC + sous-réseau public + <b>sous-réseau privé sans Internet</b> ; pypiserver sur la passerelle ; stubs <code>sandbox.executer</code> et <code>signature.publier</code> (copie par scp)</td></tr>
+    <tr><td>En attendant</td><td class="A2">maquette des pages</td><td class="B2">corpus : 30 malveillants OpenSSF, 50 sains (ne jamais exécuter)</td><td class="C2">quota GPU, Ollama + modèles</td></tr>
+    <tr><td>M1 · H3–H10<br>MVP pip</td>
+      <td class="A2">comptes + rôles + sessions ; catalogue ; <b>fiche version</b> (verdict, signaux, preuves, rapport sandbox) ; <b>file d'attente</b> avec compte à rebours ; « demander un paquet » ; journal chaîné</td>
+      <td class="B2"><b>délai 3 j</b> (réglable en démo) ; veille OSV + statut PyPI ; <b>statique</b> : typosquat, âge, mainteneurs, OpenSSF, diff (code à l'installation, exec/base64, secrets, domaines) ; <b>LLM</b> confiné (JSON, phrase FR) ; <b>politique</b></td>
+      <td class="C2"><b>récepteur</b> <code>/v1/publish</code>, <code>/v1/revoke</code>, <code>/v1/inventory</code> ; <b>TLS mutuel</b> ; <b>Ed25519</b> : signer (plateforme), vérifier hash + âge + nonce (passerelle) ; inventaire ; <b>sandbox v1</b> (sans réseau, faux DNS, leurres)</td></tr>
+    <tr><td>En attendant</td><td class="A2">script de démo</td><td class="B2">mesure v1 (statique seul)</td><td class="C2">durcissement passerelle (ufw, utilisateur sans droits)</td></tr>
+    <tr><td>M2 · H10–H16<br>différence</td>
+      <td class="A2">décision humaine ; <b>révocation</b> ; tableau de bord ; page inventaire ; (ext.) affichage npm</td>
+      <td class="B2"><b>RAG</b> : OSV/GHSA, OpenSSF, CWE, CAPEC, ATT&amp;CK → Chroma, références citées ; rapport sandbox dans le prompt ; veille RSS ; (ext.) contrôles npm</td>
+      <td class="C2"><b>sandbox v2</b> (strace, battement 60 s) ; <b>relais API</b> en liste fermée ; <b>sauvegardes</b> restic + test de restauration ; (ext.) Verdaccio, WireGuard</td></tr>
+    <tr><td>M3 · H16–H22<br>finition</td>
+      <td class="A2">deck 8 diapos ; fiche de défense ; répétition</td>
+      <td class="B2"><b>mesure finale</b> : détection / fausses alertes en 3 colonnes (statique ; + sandbox ; + LLM/RAG) + diapo</td>
+      <td class="C2"><b>vidéo</b> ≤ 3 min ; schéma réseau ; diapo « et si la plateforme est compromise ? »</td></tr>
+  </table>
 
   <div class="cols" style="margin-top:3mm">
     <div>
       <h3>La démo (3 minutes)</h3>
       <table>
-        <tr><td>1</td><td><code>pip install</code> courant via le sas : rien de visible — <i>« transparent »</i></td></tr>
-        <tr><td>2</td><td>une version piégée sort : pip ne la voit pas, la console explique en français — <i>« le code a lu ce que personne ne lit »</i></td></tr>
-        <tr><td>3</td><td>un faux article « cette version est sûre » ne débloque rien — <i>« l'IA ne peut qu'alerter »</i></td></tr>
-        <tr><td>4</td><td>un dev force l'installation ; en &lt; 1 min, domaine et paquet sont reliés et bloqués — <i>« la deuxième barrière tient »</i></td></tr>
-        <tr><td>5</td><td>diapo de mesure : trois colonnes chiffrées</td></tr>
+        <tr><td>1</td><td>serveur : <code>curl pypi.org</code> échoue, <code>pip install requests</code> marche — <i>le serveur ne parle jamais à Internet</i></td></tr>
+        <tr><td>2</td><td>web : la nouvelle version attend ses 3 jours, puis est approuvée, signée, publiée ; <code>pip install -U</code> la reçoit</td></tr>
+        <tr><td>3</td><td>version piégée bloquée : la sandbox l'a vue appeler son serveur et lire un faux jeton ; le LLM l'explique en citant un cas du RAG</td></tr>
+        <tr><td>4</td><td>publication forgée refusée par la passerelle — <i>même une plateforme usurpée ne publie rien</i></td></tr>
+        <tr><td>5</td><td>diapositive de mesure</td></tr>
       </table>
     </div>
     <div>
-      <h3>Risques à surveiller</h3>
+      <h3>Risques</h3>
       <table>
-        <tr><td><b>Quota GPU à 0</b> sur le compte AWS</td><td>demande dès H0 ; repli CPU + modèle 3b</td></tr>
-        <tr><td><b>« Où est l'IA ? »</b> si la colonne 2 ne bat pas la colonne 1</td><td>mesure dès H12 ; mettre en avant incohérence changelog/code et lecture des articles</td></tr>
-        <tr><td><b>Plomberie qui mange le temps</b></td><td>un seul écosystème (PyPI), pas de déchiffrement TLS</td></tr>
-        <tr><td><b>Injection de prompt en démo</b></td><td>LLM ne peut que monter un risque ; test B3 dédié</td></tr>
-        <tr><td><b>Classement en Track 2</b> par le jury</td><td>insister : PME sans SOC + sorties corrélées, pas un scanner de dépendances</td></tr>
+        <tr><td><b>Quota GPU à 0</b></td><td>demande dès H0 ; repli CPU + 3b</td></tr>
+        <tr><td><b>« Où est l'IA ? »</b></td><td>mesure en 3 colonnes ; sandbox + RAG cités dans le verdict</td></tr>
+        <tr><td><b>Docker dans la sandbox</b></td><td>v1 simple dès M1 ; v2 seulement si v1 tient</td></tr>
+        <tr><td><b>Injection de prompt</b></td><td>le LLM ne peut que monter un risque ; test dédié</td></tr>
+        <tr><td><b>Échantillons malveillants</b></td><td>jamais exécutés hors sandbox ; Python en <code>-I</code></td></tr>
       </table>
+    </div>
+  </div>
+</section>
+
+<section class="page">
+  <h2>Comment on travaille, et les sauvegardes</h2>
+  <div class="cols">
+    <div>
+      <h3 style="margin-top:0">Branches : pourquoi pas trois branches longues</h3>
+      <p>Trois branches longues divergent en quelques heures : chaque fusion devient une crise, et chacun code contre une version périmée du travail des autres — c'est « travailler dans le vide ».</p>
+      <div class="ok"><b>Retenu :</b> <code>main</code> comme tronc + <b>une branche courte par tâche</b> (<code>a/…</code>, <code>b/…</code>, <code>c/…</code>), vivante 1 à 3 h, fusionnée par PR dès que les tests passent. Chacun repart de <code>main</code> à chaque tâche et voit le travail des autres en quelques heures. Pas de conflit : chacun possède ses dossiers.</div>
+      <h3>Qui possède quoi</h3>
+      <table>
+        <tr><td><b>A</b></td><td><code>plateforme/web/</code>, <code>plateforme/db/</code>, <code>demo/script.md</code></td></tr>
+        <tr><td><b>B</b></td><td><code>plateforme/pipeline/</code>, <code>mesure/</code>, <code>demo/paquets/</code>, <code>demo/corpus/</code></td></tr>
+        <tr><td><b>C</b></td><td><code>plateforme/sandbox/</code>, <code>plateforme/signature/</code>, <code>passerelle/</code>, <code>infra/</code>, <code>demo/reseau.md</code></td></tr>
+        <tr><td><b>Commun</b></td><td><code>commun/</code> (contrats) : <b>PR relue par les trois</b> ; <code>docs/</code> ; <code>pyproject.toml</code> (une section par personne)</td></tr>
+      </table>
+      <h3>Stubs</h3>
+      <p>Chaque interface de <code>docs/contrats.md</code> existe dès M0 en faux : B code le pipeline avant la sandbox de C, A affiche une fiche avant le verdict réel de B. Le vrai remplace le faux sans rien changer chez les autres.</p>
+      <h3>Agents (Claude Code, Kiro)</h3>
+      <p><code>CLAUDE.md</code> et <code>.kiro/steering/sas-pme.md</code> font lire <code>docs/</code> à chaque prompt. L'agent demande « A, B ou C ? » puis reste dans les dossiers de cette personne.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Sauvegardes — le local les rend plus faciles</h3>
+      <p>Tout ce qui compte vit sur deux machines connues ; presque tout est reconstructible (les paquets sont publics). Ce qui ne l'est pas : <b>notre jugement</b> — verdicts, journal, clés.</p>
+      <table>
+        <tr><th>Donnée</th><th>Perte</th><th>Reconstructible</th></tr>
+        <tr><td><b>Clé privée de signature</b></td><td>critique</td><td>non</td></tr>
+        <tr><td>Base : verdicts, journal, comptes</td><td>forte</td><td>non</td></tr>
+        <tr><td>Archives approuvées</td><td>moyenne</td><td>oui (re-téléchargement + hash)</td></tr>
+        <tr><td>Dépôts de la passerelle</td><td>faible</td><td>oui (republication)</td></tr>
+        <tr><td>Index RAG, modèles</td><td>faible</td><td>oui</td></tr>
+      </table>
+      <h3>Schéma 3-2-1</h3>
+      <table>
+        <tr><td>1</td><td><b>Locale quotidienne</b> : restic chiffré vers un NAS ou disque sur site, 30 jours</td></tr>
+        <tr><td>2</td><td><b>Hors ligne hebdomadaire</b> : disque USB chiffré débranché (contre un rançongiciel)</td></tr>
+        <tr><td>3</td><td><b>Cloud : oui, en option, chiffré côté client</b> (restic → S3 ou hébergeur français), clé détenue par la PME seule ; seule copie qui survit à un incendie</td></tr>
+      </table>
+      <div class="warn"><b>La clé privée de signature ne va jamais dans le cloud</b> : deux copies hors ligne (USB chiffré au coffre, papier).</div>
+      <p style="margin-top:2mm"><b>Dans le MVP (M2, C) :</b> <code>infra/sauvegarde.sh</code> + test de restauration (effacer la base, restaurer, vérifier la chaîne du journal). Le cloud : feuille de route.</p>
+      <h3>Après le hackathon</h3>
+      <p><b>Priorité n° 1 : la plateforme d'intégration</b> — installation en une commande, configuration automatique de pip/npm sur les serveurs, image d'appliance : le « seamless » chez une PME. Puis npm complet, Docker/Maven/NuGet, console multi-clients pour infogérants, télémétrie partagée.</p>
     </div>
   </div>
 </section>
