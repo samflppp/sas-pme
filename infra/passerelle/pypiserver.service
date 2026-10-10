@@ -15,7 +15,7 @@ Environment=PYTHONPATH=/opt/pypiserver
 # les GET /packages/<archive> (une archive servie prouve une installation). Format d'une ligne :
 #   2026-10-11 09:00:01 10.42.2.20 - - "GET /packages/requests-2.32.4-...whl HTTP/1.1"
 Environment=SAS_JOURNAL_ACCES=/var/lib/sas/pypiserver-acces.log
-ExecStart=/usr/bin/python3 -m pypiserver run --host 0.0.0.0 --port 8080 --disable-fallback \
+ExecStart=/usr/bin/python3 -m pypiserver run --host 0.0.0.0 --port 8080 --disable-fallback -v \
   --log-file /var/lib/sas/pypiserver-acces.log \
   --log-frmt "%(asctime)s %(message)s" \
   --log-req-frmt "%(REMOTE_ADDR)s - - \"%(REQUEST_METHOD)s %(PATH_INFO)s %(SERVER_PROTOCOL)s\"" \

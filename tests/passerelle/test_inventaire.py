@@ -96,3 +96,14 @@ def test_forme_pypiserver_reelle_asctime_sans_code():
     assert len(inv) == 1
     assert inv[0].telechargements == 2
     assert inv[0].dernier == datetime(2026, 10, 11, 10, 0, 0, tzinfo=timezone.utc)
+
+
+def test_pypiserver_ecrit_bien_les_requetes_dans_le_journal():
+    """Sans -v, pypiserver n'écrit pas ses requêtes (niveau INFO) : le journal reste vide et
+    /v1/inventory rend [] (constaté sur AWS, séance M1)."""
+    from pathlib import Path
+
+    unite = (Path(__file__).parents[2] / "infra/passerelle/pypiserver.service").read_text()
+    commande = unite.split("ExecStart=", 1)[1].split("\n/srv/pypi/packages", 1)[0]
+    assert " -v " in commande
+    assert "--log-file /var/lib/sas/pypiserver-acces.log" in commande

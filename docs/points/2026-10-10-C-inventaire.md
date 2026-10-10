@@ -90,6 +90,73 @@ bash detruire.sh                    # NE PAS OUBLIER en fin de séance (~0,8 €
 Attendu : `verifier_m1.sh` finit sur « M1 côté C : TOUS LES CONSTATS PASSENT ». Coller sa sortie
 ici (sections 1 à 4) clôt le M1 côté C.
 
+### Résultat de la séance AWS (2026-10-10, us-east-1, poste de STEUSSO)
+- Infra recréée (`creer.sh`), puis `installer.sh` de cette branche, sans retouche, toutes étapes OK
+  (étape 8 `ufw` comprise, sans coupure SSH).
+- **Premier passage : 1 KO.** `/v1/inventory` rendait `[]`. Le journal
+  `/var/lib/sas/pypiserver-acces.log` restait vide (0 octet) : sans `-v`, pypiserver n'écrit pas
+  ses requêtes (niveau INFO, alors que le défaut est WARNING).
+- **Correctif :** `-v` ajouté dans `infra/passerelle/pypiserver.service`, plus un test qui vérifie
+  `-v` et `--log-file` dans l'unité (vu au rouge sans `-v`). Le format `--log-req-frmt` de cette
+  branche est le bon : les lignes réelles sont
+  `2026-10-10 20:16:28,293 10.42.2.20 - - "GET /packages/requests-2.34.2-py3-none-any.whl HTTP/1.1"`.
+- **Second passage : tous les constats passent.** Sortie de `verifier_m1.sh` :
+
+```text
+1. Inventaire : pip install depuis le serveur, puis /v1/inventory depuis la plateforme
+  OK  serveur : pip install requests via la passerelle
+    réponse brute /v1/inventory :
+      [{"ecosysteme":"pypi","nom":"certifi","version":"2026.7.22","telechargements":2,"dernier":"2026-10-10T20:17:16.910000Z","machines":["10.42.2.20"]},{"ecosysteme":"pypi","nom":"charset-normalizer","version":"3.5.2","telechargements":2,"dernier":"2026-10-10T20:17:16.832000Z","machines":["10.42.2.20"]},{"ecosysteme":"pypi","nom":"idna","version":"3.20","telechargements":2,"dernier":"2026-10-10T20:17:16.845000Z","machines":["10.42.2.20"]},{"ecosysteme":"pypi","nom":"requests","version":"2.34.2","telechargements":2,"dernier":"2026-10-10T20:17:16.819000Z","machines":["10.42.2.20"]},{"ecosysteme":"pypi","nom":"urllib3","version":"2.8.0","telechargements":2,"dernier":"2026-10-10T20:17:16.897000Z","machines":["10.42.2.20"]}]
+  OK  /v1/inventory liste requests (lu dans le journal de pypiserver)
+  OK  machine 10.42.2.20 (serveur) présente dans le JSON brut
+
+2. Durcissement ufw : un port non prévu est refusé
+  OK  port 9999 de la passerelle refusé depuis la plateforme (ufw DROP)
+  OK  le serveur ne joint pas 8443 (réservé à la plateforme)
+  OK  le serveur joint 8080 (pypiserver) — règle légitime préservée
+    ufw status (passerelle) :
+      Status: active
+      Logging: on (low)
+      Default: deny (incoming), allow (outgoing), disabled (routed)
+      New profiles: skip
+      
+      To                         Action      From
+      --                         ------      ----
+      22/tcp                     ALLOW IN    10.42.1.10                
+      8443/tcp                   ALLOW IN    10.42.1.10                
+      8080/tcp                   ALLOW IN    10.42.2.20                
+      4873/tcp                   ALLOW IN    10.42.2.20                
+      
+
+3. verifier_h3.sh doit toujours donner 5 OK sur 5
+1. Routes du sous-réseau privé (attendu : 10.42.0.0/16 seulement)
+  OK  10.42.0.0/16
+2. Serveur → https://pypi.org (doit échouer)
+  OK  curl échoue
+3. Passerelle → https://pypi.org (doit échouer)
+  OK  curl échoue
+4. Serveur : pip install requests via la passerelle
+2.34.2
+  OK  requests installé depuis http://passerelle:8080/simple/
+5. Serveur : un paquet non publié est introuvable (pas de repli vers pypi.org)
+  OK  flask introuvable
+  OK  verifier_h3.sh : 5 OK sur 5 (cloisonnement intact après durcissement)
+
+4. Tests marqués docker/ollama sur la plateforme
+      ...                                                                      [100%]
+      =============================== warnings summary ===============================
+      .venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+        /home/ubuntu/sas-code/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+          from starlette.testclient import TestClient as TestClient  # noqa
+      
+      -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+      3 passed, 349 deselected, 1 warning in 32.00s
+  OK  pytest -m 'docker or ollama' : vert sur la plateforme
+
+```
+
+**Verdict : « M1 côté C : TOUS LES CONSTATS PASSENT — le M1 peut être clos. »**
+
 - **AWS nettoyé** : l'infra de la dernière séance (VPC `sas-pme` orphelin en us-east-1, 3 SG, 2
   subnets, IGW, key pair — toutes les instances étaient déjà `terminated`) a été détruite à la
   main (`etat.env` perdu, donc `detruire.sh` inutilisable). Compte propre, rien ne facture.
