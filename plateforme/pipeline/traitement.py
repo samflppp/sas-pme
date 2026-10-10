@@ -13,7 +13,7 @@ from packaging.version import InvalidVersion, Version as VersionPep440
 
 from commun.modeles import Etat, RapportSandbox, Signal, Version
 from plateforme.db.acces import Base
-from plateforme.pipeline import llm as llm_local, politique, pypi, veille
+from plateforme.pipeline import llm as llm_local, politique, pypi, rag, veille
 from plateforme.pipeline.sandbox_signaux import signaux_sandbox
 from plateforme.pipeline.statique.code import controler_code
 from plateforme.pipeline.statique.meta import controler_metadonnees
@@ -40,9 +40,15 @@ def _meta_reseau(v: Version, precedente: str | None, maintenant: datetime) -> li
 
 def _llm_reseau(base: Base, v: Version, signaux: list[Signal],
                 rapport: RapportSandbox) -> llm_local.ResultatLLM:
+    # Les cas connus les plus proches (RAG), donnés comme données ; sans index, aucun passage.
+    try:
+        ix = rag.ouvrir()
+    except Exception:  # noqa: BLE001 — index illisible : journalisé comme absent
+        ix = None
+    passages = rag.passages(base, v, signaux, rapport, ix)
     with httpx.Client(timeout=300) as client:   # CPU : jusqu'à quelques dizaines de secondes
         return llm_local.analyser(base, v, signaux, rapport, client=client, url=llm_local.url(),
-                                  modele=llm_local.modele())
+                                  modele=llm_local.modele(), passages=passages)
 
 
 def _pep(version: str) -> VersionPep440 | None:
