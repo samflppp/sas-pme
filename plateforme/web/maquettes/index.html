@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquettes M1 — sas-pme</title><link rel="stylesheet" href="maquette.css"></head>
+<body>
+<header><span class="marque">sas-pme</span><span class="droite">maquettes statiques, données fictives</span></header>
+<main>
+<h1>Maquettes des pages M1</h1>
+<p class="sous">Pages statiques avec données inventées, pour se mettre d'accord avant de coder. Ouvrir chaque fichier dans un navigateur.</p>
+<table>
+  <thead><tr><th>Page</th><th>Ce qu'elle montre</th><th>Données venant de</th></tr></thead>
+  <tbody>
+    <tr><td><a href="file-attente.html">File d'attente</a></td><td>versions en délai de 3 jours, compte à rebours, signaux de veille déjà levés</td><td><code>base.lister_versions(EN_ATTENTE)</code>, signaux (B)</td></tr>
+    <tr><td><a href="fiche-bloquee.html">Fiche d'une version bloquée</a></td><td>le cœur de la démo : verdict, preuves statiques, sandbox, explication du LLM et références du RAG</td><td><code>base.fiche()</code>, verdict (B), rapport sandbox (C)</td></tr>
+    <tr><td><a href="fiche-a-revoir.html">Fiche d'une version à revoir</a></td><td>décision humaine : approuver ou bloquer, avec raison obligatoire</td><td><code>pipeline.decision_humaine()</code> (B)</td></tr>
+    <tr><td><a href="catalogue.html">Catalogue</a></td><td>versions publiées dans la passerelle, filtre par écosystème et état, tableau de bord</td><td><code>base.lister_versions()</code></td></tr>
+    <tr><td><a href="comptes.html">Comptes</a></td><td>comptes et rôles (admin, dev), réservé à l'admin</td><td>table <code>comptes</code> (A, M1)</td></tr>
+    <tr><td><a href="journal.html">Journal</a></td><td>journal chaîné, vérification de la chaîne en un clic</td><td><code>base.journal()</code>, <code>base.verifier_journal()</code></td></tr>
+  </tbody>
+</table>
+<h2>Rôles</h2>
+<table>
+  <tr><th>Rôle</th><th>Peut</th></tr>
+  <tr><td><b>dev</b></td><td>voir le catalogue, la file d'attente et les fiches ; demander un paquet</td></tr>
+  <tr><td><b>admin</b></td><td>tout ce que fait dev ; approuver ou bloquer une version à revoir ; révoquer une version publiée ; gérer les comptes ; vérifier le journal</td></tr>
+</table>
+</main></body></html>

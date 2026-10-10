@@ -1,0 +1,44 @@
+/* Maquettes M1 : mêmes couleurs que gabarits/base.html. */
+:root { --encre:#1b1f24; --doux:#5b6470; --trait:#d9dee4; --fond:#f5f7f9; --accent:#2563eb;
+        --vert:#0f8a5f; --bleu:#2563eb; --orange:#d97706; --rouge:#c0262d; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; color: var(--encre); background: #fff; font-size: 15px; }
+header { display:flex; align-items:center; gap:24px; padding: 12px 24px; border-bottom: 1px solid var(--trait); }
+header .marque { font-weight: 700; }
+header nav a { color: var(--encre); text-decoration: none; margin-right: 16px; }
+header nav a.actif { font-weight: 600; border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
+header .droite { margin-left: auto; color: var(--doux); display:flex; gap:12px; align-items:center; }
+.role { font-size: 12px; background: var(--fond); border: 1px solid var(--trait); border-radius: 10px; padding: 1px 8px; }
+main { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+h1 { font-size: 22px; margin: 0 0 6px; }
+h2 { font-size: 17px; margin: 28px 0 10px; }
+.sous { color: var(--doux); margin: 0 0 18px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--trait); vertical-align: top; }
+th { background: var(--fond); font-weight: 600; font-size: 14px; }
+.etat { display:inline-block; padding: 2px 8px; border-radius: 10px; color:#fff; font-size: 13px; white-space: nowrap; }
+.publiee { background: var(--vert); } .en_attente, .en_analyse { background: var(--bleu); }
+.a_revoir { background: var(--orange); } .bloquee, .revoquee { background: var(--rouge); }
+.niveau { font-weight: 600; } .n-bloquant { color: var(--rouge); } .n-fort { color: var(--orange); } .n-moyen { color: var(--bleu); } .n-info { color: var(--doux); }
+.barre { height: 6px; background: var(--fond); border-radius: 3px; overflow: hidden; min-width: 120px; margin-top: 4px; }
+.barre > span { display:block; height: 100%; background: var(--bleu); }
+.rebours { font-variant-numeric: tabular-nums; font-weight: 600; }
+.carte { border: 1px solid var(--trait); border-radius: 6px; padding: 16px; }
+.grille { display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 8px; }
+.chiffre { font-size: 28px; font-weight: 700; } .libelle { color: var(--doux); font-size: 13px; }
+.verdict { border-left: 5px solid var(--rouge); background: #fdf0f0; padding: 14px 16px; margin: 14px 0; }
+.verdict.ok { border-left-color: var(--vert); background: #ecf7f2; }
+.verdict p { margin: 6px 0 0; }
+.ref { font-family: Consolas, monospace; font-size: 13px; background: var(--fond); padding: 1px 6px; border-radius: 3px; }
+code, pre { font-family: Consolas, monospace; font-size: 13px; }
+pre { background: var(--fond); padding: 10px; overflow-x: auto; margin: 6px 0 0; }
+.alerte { color: var(--rouge); font-weight: 600; }
+button, .bouton { font: inherit; padding: 7px 12px; border-radius: 4px; border: 1px solid var(--trait); background: #fff; cursor: pointer; text-decoration: none; color: var(--encre); display:inline-block; }
+.bouton.principal, button.principal { background: var(--accent); color:#fff; border-color: var(--accent); }
+.bouton.danger, button.danger { background: var(--rouge); color:#fff; border-color: var(--rouge); }
+.actions { display:flex; gap:8px; margin: 14px 0; }
+input, select { font: inherit; padding: 7px 10px; border: 1px solid var(--trait); border-radius: 4px; }
+.note { background: #fffbe6; border: 1px dashed #d4b106; padding: 8px 12px; font-size: 13px; color: #6b5800; margin-bottom: 18px; }
+.mono { font-family: Consolas, monospace; font-size: 12px; color: var(--doux); }
+.ok-chaine { color: var(--vert); font-weight: 600; }
+@media (max-width: 760px) { .grille { grid-template-columns: 1fr; } header { flex-wrap: wrap; } }
