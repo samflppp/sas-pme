@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titre %}Catalogue{% endblock %}
+{% block contenu %}
+<h1>Catalogue des versions</h1>
+{% if versions %}
+<table>
+  <thead><tr><th>Écosystème</th><th>Paquet</th><th>Version</th><th>État</th><th>Publiée sur Internet le</th></tr></thead>
+  <tbody>
+  {% for v in versions %}
+    <tr>
+      <td>{{ v.ecosysteme.value }}</td>
+      <td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a></td>
+      <td>{{ v.version }}</td>
+      <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value }}</span></td>
+      <td>{{ v.publiee_le.strftime("%d/%m/%Y %H:%M") }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="vide">Aucune version pour l'instant. <a href="/demander">Demander un paquet</a>.</p>
+{% endif %}
+{% endblock %}

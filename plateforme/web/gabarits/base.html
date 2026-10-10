@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titre %}sas-pme{% endblock %} — plateforme agréée</title>
+<style>
+  :root { --encre:#1b1f24; --doux:#5b6470; --trait:#d9dee4; --fond:#f5f7f9; --accent:#2563eb;
+          --vert:#0f8a5f; --bleu:#2563eb; --orange:#d97706; --rouge:#c0262d; --gris:#6b7280; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; color: var(--encre); background: #fff; }
+  header { display:flex; align-items:center; gap:24px; padding: 12px 24px; border-bottom: 1px solid var(--trait); }
+  header .marque { font-weight: 700; }
+  header nav a { color: var(--encre); text-decoration: none; margin-right: 16px; }
+  header .droite { margin-left: auto; color: var(--doux); display:flex; gap:12px; align-items:center; }
+  main { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--trait); }
+  th { background: var(--fond); font-weight: 600; }
+  .etat { display:inline-block; padding: 2px 8px; border-radius: 10px; color:#fff; font-size: 13px; }
+  .etat-publiee, .etat-approuvee { background: var(--vert); }
+  .etat-en_attente, .etat-nouvelle, .etat-en_analyse { background: var(--bleu); }
+  .etat-a_revoir { background: var(--orange); }
+  .etat-bloquee, .etat-revoquee { background: var(--rouge); }
+  .vide { color: var(--doux); padding: 24px 0; }
+  form.carte { max-width: 380px; display:flex; flex-direction:column; gap:10px; }
+  input, select, button { font: inherit; padding: 8px 10px; border: 1px solid var(--trait); border-radius: 4px; }
+  button { background: var(--accent); color: #fff; border: none; cursor: pointer; }
+  button.lien { background: none; color: var(--doux); padding: 0; }
+  .erreur { color: var(--rouge); }
+  .raison { background: var(--fond); border-left: 4px solid var(--encre); padding: 10px 14px; margin: 12px 0; }
+  code { background: var(--fond); padding: 1px 4px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="marque">sas-pme</span>
+  {% if utilisateur %}
+  <nav><a href="/">Catalogue</a><a href="/demander">Demander un paquet</a></nav>
+  <div class="droite">{{ utilisateur }}
+    <form method="post" action="/deconnexion"><button class="lien">Se déconnecter</button></form>
+  </div>
+  {% endif %}
+</header>
+<main>{% block contenu %}{% endblock %}</main>
+</body>
+</html>

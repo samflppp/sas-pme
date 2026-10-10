@@ -11,6 +11,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
+    "itsdangerous>=2.2",
     # --- B (Mouabd19) : pipeline et IA ---
     "httpx>=0.27",
     "rapidfuzz>=3.9",
@@ -45,3 +46,4 @@ markers = [
 
 [tool.setuptools.package-data]
 "plateforme.db" = ["*.sql"]
+"plateforme.web" = ["gabarits/*.html"]

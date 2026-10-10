@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% set v = fiche.version %}
+{% block titre %}{{ v.nom }} {{ v.version }}{% endblock %}
+{% block contenu %}
+<h1>{{ v.nom }} <small>{{ v.version }}</small> <span class="etat etat-{{ v.etat.value }}">{{ v.etat.value }}</span></h1>
+<p>{{ v.ecosysteme.value }} · publiée sur Internet le {{ v.publiee_le.strftime("%d/%m/%Y %H:%M") }}
+ · détectée le {{ v.detectee_le.strftime("%d/%m/%Y %H:%M") }}</p>
+
+{% if fiche.verdict %}
+<div class="raison"><strong>Verdict :</strong> {{ fiche.verdict.raison }}
+  {% if fiche.verdict.explication_llm %}<p>{{ fiche.verdict.explication_llm }}</p>{% endif %}
+  {% if fiche.verdict.refs_rag %}<p>Références : {{ fiche.verdict.refs_rag | join(", ") }}</p>{% endif %}
+</div>
+{% elif fiche.raison %}
+<div class="raison">{{ fiche.raison }}</div>
+{% endif %}
+
+<h2>Signaux</h2>
+{% if fiche.signaux %}
+<table>
+  <thead><tr><th>Source</th><th>Niveau</th><th>Sorte</th><th>Preuve</th></tr></thead>
+  <tbody>
+  {% for s in fiche.signaux %}
+    <tr><td>{{ s.source.value }}</td><td>{{ s.niveau.value }}</td><td>{{ s.sorte }}</td>
+        <td>{% for k, val in s.preuve.items() %}<code>{{ k }}</code> {{ val }}<br>{% endfor %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="vide">Aucun signal.</p>{% endif %}
+
+<h2>Sandbox</h2>
+{% set r = fiche.rapport_sandbox %}
+{% if r %}
+<table>
+  <tr><th>Requêtes DNS</th><td>{{ r.requetes_dns | join(", ") or "aucune" }}</td></tr>
+  <tr><th>Connexions tentées</th><td>{{ r.connexions | join(", ") or "aucune" }}</td></tr>
+  <tr><th>Fichiers sensibles lus</th><td>{{ r.fichiers_sensibles | join(", ") or "aucun" }}</td></tr>
+  <tr><th>Leurres lus</th><td>{{ r.leurres_lus | join(", ") or "aucun" }}</td></tr>
+  <tr><th>Processus</th><td>{{ r.processus | join(", ") }}</td></tr>
+  <tr><th>Durée</th><td>{{ "%.1f"|format(r.duree_s) }} s{% if r.delai_depasse %} (délai dépassé){% endif %}</td></tr>
+</table>
+{% else %}<p class="vide">Pas encore passée en sandbox.</p>{% endif %}
+{% endblock %}

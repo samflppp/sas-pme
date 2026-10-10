@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titre %}Connexion{% endblock %}
+{% block contenu %}
+<h1>Connexion à la plateforme agréée</h1>
+<form class="carte" method="post" action="/connexion">
+  <label>Identifiant <input name="identifiant" autocomplete="username" required></label>
+  <label>Mot de passe <input name="mot_de_passe" type="password" autocomplete="current-password" required></label>
+  {% if erreur %}<p class="erreur">{{ erreur }}</p>{% endif %}
+  <button type="submit">Se connecter</button>
+</form>
+{% endblock %}
