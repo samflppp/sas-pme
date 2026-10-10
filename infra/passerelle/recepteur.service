@@ -4,7 +4,8 @@ After=network-online.target
 
 [Service]
 User=recepteur
-Group=pypi
+Group=recepteur
+SupplementaryGroups=pypi
 Environment=PYTHONPATH=/opt/recepteur/code:/opt/recepteur/lib
 Environment=SAS_DEPOT=/srv/pypi/packages
 Environment=SAS_CLE_PUBLIQUE=/etc/sas/plateforme_signature.pub
