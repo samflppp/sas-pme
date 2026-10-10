@@ -88,13 +88,28 @@ def _verifier_empreinte(mot_de_passe: str, empreinte: str) -> bool:
 _EMPREINTE_LEURRE = _empreinte("leurre")  # même coût pour un identifiant inconnu
 
 
-def _hash(prec: str, a: str, acteur: str, action: str, sujet: str, charge: str) -> str:
+CLE_JOURNAL_MIN = 32  # caractères de SAS_CLE_JOURNAL
+
+
+def _hash(cle: bytes, prec: str, a: str, acteur: str, action: str, sujet: str, charge: str) -> str:
+    """HMAC-SHA256 avec une clé hors de la base : qui a la base sans la clé ne peut pas réécrire une
+    entrée et recalculer la chaîne (relecture de B, A1)."""
     corps = json.dumps([a, acteur, action, sujet, charge], ensure_ascii=False, separators=(",", ":"))
-    return hashlib.sha256((prec + corps).encode("utf-8")).hexdigest()
+    return hmac.new(cle, (prec + corps).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _cle_journal(cle: str | None) -> bytes:
+    cle = cle if cle is not None else os.environ.get("SAS_CLE_JOURNAL", "")
+    if len(cle) < CLE_JOURNAL_MIN:
+        raise RuntimeError(f"SAS_CLE_JOURNAL manquante ou trop courte ({CLE_JOURNAL_MIN} caractères "
+                           "au moins) : clé HMAC du journal, gardée hors de la base et hors de Git.")
+    return cle.encode("utf-8")
 
 
 class Base:
-    def __init__(self, chemin: str):
+    def __init__(self, chemin: str, cle_journal: str | None = None):
+        """`cle_journal` : la clé HMAC du journal ; sans, SAS_CLE_JOURNAL. RuntimeError si absente."""
+        self._cle = _cle_journal(cle_journal)
         self._verrou = threading.Lock()
         self._c = sqlite3.connect(chemin, check_same_thread=False, isolation_level=None)
         self._c.row_factory = sqlite3.Row
@@ -212,11 +227,17 @@ class Base:
         """Remplace l'instantané précédent par celui lu sur la passerelle."""
         with self._verrou:
             self._c.execute("BEGIN")
-            self._c.execute("DELETE FROM inventaire")
-            self._c.executemany(
-                "INSERT INTO inventaire VALUES (?,?,?,?,?)",
-                [(e.ecosysteme.value, e.nom, e.version, e.telechargements,
-                  _iso(e.dernier) if e.dernier else None) for e in entrees])
+            try:
+                self._c.execute("DELETE FROM inventaire")
+                self._c.executemany(
+                    "INSERT INTO inventaire VALUES (?,?,?,?,?)",
+                    [(e.ecosysteme.value, e.nom, e.version, e.telechargements,
+                      _iso(e.dernier) if e.dernier else None) for e in entrees])
+            except BaseException:
+                # Sans ROLLBACK, la transaction restait ouverte : plus rien n'était validé ensuite,
+                # journal compris (relecture de B, A2). L'ancien instantané reste en place.
+                self._c.execute("ROLLBACK")
+                raise
             self._c.execute("COMMIT")
 
     def inventaire(self) -> list[tuple[Ecosysteme, str, str]]:
@@ -346,7 +367,7 @@ class Base:
         """(intègre, seq de la première entrée qui casse la chaîne)."""
         prec = _GENESE
         for r in self._c.execute("SELECT * FROM journal ORDER BY seq"):
-            attendu = _hash(prec, r["a"], r["acteur"], r["action"], r["sujet"], r["charge"])
+            attendu = _hash(self._cle, prec, r["a"], r["acteur"], r["action"], r["sujet"], r["charge"])
             if r["prec"] != prec or r["hash"] != attendu:
                 return False, r["seq"]
             prec = r["hash"]
@@ -359,7 +380,7 @@ class Base:
         texte = json.dumps(charge, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         self._c.execute(
             "INSERT INTO journal (a, acteur, action, sujet, charge, prec, hash) VALUES (?,?,?,?,?,?,?)",
-            (a, acteur, action, sujet, texte, prec, _hash(prec, a, acteur, action, sujet, texte)))
+            (a, acteur, action, sujet, texte, prec, _hash(self._cle, prec, a, acteur, action, sujet, texte)))
 
     @staticmethod
     def _entree(r: sqlite3.Row) -> EntreeJournal:

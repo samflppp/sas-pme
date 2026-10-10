@@ -32,6 +32,10 @@ ssh -F infra/secrets/ssh_config sas-plateforme
 cd ~/sas-pme
 export SAS_DB=~/sas.db SAS_ARCHIVES=~/archives
 export SAS_ADMIN_MOTDEPASSE='<à choisir>'  # ne sert qu'au premier lancement (base neuve)
+# Clé HMAC du journal : tirée une fois, gardée hors de la base et hors de Git. Sans elle, la plateforme
+# ne démarre pas ; avec une autre, le journal d'une base existante apparaît falsifié.
+[ -f ~/.sas-cle-journal ] || (umask 077; openssl rand -hex 32 > ~/.sas-cle-journal)
+export SAS_CLE_JOURNAL=$(cat ~/.sas-cle-journal)
 export SAS_TRAITEMENT_INTERVALLE=10        # démo : on voit les états changer vite
 export SAS_DELAI=120                       # démo : 2 minutes d'attente au lieu de 3 jours
 # Publication signée en TLS mutuel (C) ; sans SAS_PASSERELLE_URL, copie scp du M0.
