@@ -31,7 +31,7 @@ def base(tmp_path):
 @pytest.fixture
 def faux(tmp_path):
     """Faux de PyPI (B), de la sandbox et de la signature (C), qui notent leurs appels."""
-    appels = {"executer": [], "publier": []}
+    appels = {"executer": [], "publier": [], "veiller": []}
 
     def telecharger(nom, version, dossier):
         if nom == "casse":
@@ -48,8 +48,11 @@ def faux(tmp_path):
     def publier(eco, nom, version, archives, verdict_id):
         appels["publier"].append((nom, version, [a.name for a in archives], verdict_id))
 
+    def veiller(base, maintenant):
+        appels["veiller"].append(maintenant)
+
     return dict(dossier=tmp_path / "archives", telecharger=telecharger, executer=executer,
-                publier=publier), appels
+                publier=publier, veiller=veiller), appels
 
 
 def etat(base, nom):
@@ -174,3 +177,24 @@ def test_sas_delai_raccourcit_l_attente_pour_la_demo(base, faux, monkeypatch):
                                      detectee_le=MAINTENANT, etat=Etat.EN_ATTENTE))
     traites = {v.nom for v, _ in traitement.traiter(base, MAINTENANT, **deps)}
     assert traites == {"mure", "jeune", "demo-piegee"}   # 2 min écoulées pour tous
+
+
+def test_la_veille_passe_avant_l_analyse_a_chaque_tour(base, faux):
+    deps, appels = faux
+
+    def veiller(b, maintenant):     # la veille bloque « mure » (ex. retirée de PyPI)
+        appels["veiller"].append(maintenant)
+        b.changer_etat(Ecosysteme.PYPI, "mure", "1.0", Etat.BLOQUEE, "retirée de PyPI")
+
+    assert traitement.traiter(base, MAINTENANT, **{**deps, "veiller": veiller}) == []
+    assert appels["veiller"] == [MAINTENANT] and appels["executer"] == []
+
+
+def test_une_veille_en_erreur_n_empeche_pas_le_traitement(base, faux):
+    deps, appels = faux
+
+    def veiller(b, maintenant):
+        raise RuntimeError("OSV injoignable")
+
+    resultats = traitement.traiter(base, MAINTENANT, **{**deps, "veiller": veiller})
+    assert [(v.nom, e) for v, e in resultats] == [("mure", Etat.PUBLIEE)]
