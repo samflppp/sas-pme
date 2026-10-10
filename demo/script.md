@@ -76,7 +76,7 @@ https://pypi.org` échoue. Se lance **sans** `SAS_PYPI_URL` (le vrai PyPI).
 elles ne passent pas par la file d'attente. Une version qui **attend** arrive par la veille de B
 (nouvelle version d'un paquet déjà au catalogue).
 
-## H10 — le MVP (la démo de 3 minutes)
+## H10 — le MVP (la démo de 3 minutes ; atteint le 2026-10-10 : `docs/points/2026-10-10-C-h10-aws.md`)
 
 ### Ce qui doit être prêt avant
 

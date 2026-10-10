@@ -17,7 +17,7 @@ H0 = début de la roadmap. Le budget est d'environ 30 h, dont 6 de marge et de s
 |---|---|---|
 | `commun/modeles.py` (contrats de `contrats.md`) poussé **avant H1** ; `pyproject.toml` ; `plateforme/db` (schéma SQLite + accès) ; web : page de connexion fixe et catalogue vide | `plateforme/pipeline` : client PyPI (métadonnées, téléchargement) ; `demander()` qui enregistre une version ; politique factice « tout approuver » | AWS : VPC, sous-réseau public (plateforme), **sous-réseau privé sans Internet** (passerelle + serveur) ; pypiserver sur la passerelle ; stubs `sandbox.executer` et `signature.publier` (copie des archives par `scp`) |
 
-**Point H3, la preuve de vie :**
+**Point H3, la preuve de vie :** atteint le 2026-10-10 (`docs/points/2026-10-10-C-h3-ok.md`).
 1. une personne demande `requests` dans l'interface web ;
 2. la version est téléchargée, approuvée et copiée sur la passerelle ;
 3. sur le serveur, `pip install requests` marche, alors que `curl https://pypi.org` échoue.
@@ -33,7 +33,7 @@ H0 = début de la roadmap. Le budget est d'environ 30 h, dont 6 de marge et de s
 |---|---|---|
 | Comptes et rôles (admin, dev), sessions ; catalogue des versions publiées ; **fiche d'une version** (verdict, signaux, preuves, rapport de sandbox) ; **file d'attente** avec compte à rebours ; page « demander un paquet » ; journal chaîné par hash | **délai de 3 jours** (réglable en démo) ; veille OSV + statut PyPI ; **analyse statique** (typosquat, âge, mainteneurs, OpenSSF, diff avec la version précédente : code à l'installation, `exec`/`base64`, secrets, domaines) ; **LLM local** (verdict JSON, phrase en français, confiné) ; **politique** déterministe | **récepteur de la passerelle** (`/v1/publish`, `/v1/revoke`, `/v1/inventory`) ; **TLS mutuel** ; **signature Ed25519** côté plateforme et vérification côté passerelle (hash, âge, nonce) ; inventaire lu dans les journaux de pypiserver ; **sandbox v1** (conteneur sans réseau + faux DNS qui enregistre + leurres) |
 
-**Point H10, le MVP :**
+**Point H10, le MVP :** atteint le 2026-10-10, M1 validé pour A, B et C (`docs/points/2026-10-10-A-m1-valide.md`).
 1. une version propre attend son délai, est analysée, approuvée, signée et publiée, et le serveur
    l'installe ;
 2. la version piégée de démo est **bloquée**, avec les preuves statiques, les preuves de sandbox (DNS
