@@ -42,3 +42,6 @@ markers = [
     "docker: lance un vrai conteneur (hors CI)",
     "aws: touche l'infrastructure AWS (hors CI)",
 ]
+
+[tool.setuptools.package-data]
+"plateforme.db" = ["*.sql"]

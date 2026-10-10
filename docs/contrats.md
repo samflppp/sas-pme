@@ -59,17 +59,31 @@ def canonique(m: Manifeste) -> bytes                        # octets exacts à s
 
 ## 2. Pipeline → base de données (B appelle A)
 
-`plateforme/db/acces.py`, écrit par A. B ne fait jamais de SQL lui-même.
+`plateforme/db/acces.py`, écrit par A (**fait**). B ne fait jamais de SQL lui-même. On crée une
+instance avec `base = Base("sas.db")`, et toutes les méthodes sont sûres entre threads.
 
 ```python
-def versions_a_traiter(maintenant: datetime) -> list[Version]   # en_attente dont le délai est écoulé
-def enregistrer_version(v: Version) -> bool                      # True si nouvelle
-def changer_etat(eco, nom, version, etat: Etat, raison: str) -> None
-def ajouter_signal(s: Signal) -> int
-def enregistrer_verdict(eco, nom, version, v: Verdict) -> None
-def enregistrer_rapport_sandbox(eco, nom, version, r: RapportSandbox) -> None
-def inventaire() -> list[tuple[Ecosysteme, str, str]]            # (éco, nom, version utilisée)
+base.enregistrer_version(v: Version, acteur="pipeline") -> bool          # True si nouvelle
+base.versions_a_traiter(maintenant, delai=timedelta(days=3)) -> list[Version]  # en_attente, délai écoulé
+base.changer_etat(eco, nom, version, etat: Etat, raison: str, acteur="pipeline") -> None  # KeyError si inconnue
+base.ajouter_signal(s: Signal) -> int
+base.enregistrer_verdict(eco, nom, version, v: Verdict, acteur="pipeline") -> int  # id repris dans le manifeste
+base.enregistrer_rapport_sandbox(eco, nom, version, r: RapportSandbox) -> None
+base.enregistrer_inventaire(entrees: list[EntreeInventaire]) -> None    # remplace l'instantané
+base.inventaire() -> list[tuple[Ecosysteme, str, str]]
+# pour le web
+base.lire_version(eco, nom, version) -> Version | None
+base.lister_versions(etat: Etat | None = None) -> list[Version]
+base.fiche(eco, nom, version) -> Fiche | None    # version, raison, signaux, verdict, verdict_id, rapport_sandbox
+base.journaliser(acteur, action, sujet, charge: dict) -> None
+base.journal(limite=500) -> list[EntreeJournal]
+base.verifier_journal() -> tuple[bool, int | None]
 ```
+
+Ces trois méthodes écrivent elles-mêmes dans le journal chaîné : `enregistrer_version`, `changer_etat`
+et `enregistrer_verdict`. Le journal refuse toute modification et toute suppression (triggers SQLite).
+Si un attaquant retire ces triggers, la vérification de la chaîne de hash détecte quand même la
+falsification.
 
 ## 3. Pipeline → sandbox (B appelle C)
 
