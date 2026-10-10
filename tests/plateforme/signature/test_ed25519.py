@@ -1,6 +1,7 @@
 """Signature Ed25519 des manifestes, côté plateforme (docs/contrats.md § 4)."""
 
 import base64
+import os
 from datetime import datetime, timezone
 
 import pytest
@@ -20,6 +21,7 @@ def _manifeste(**k) -> Manifeste:
     return Manifeste(**champs)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="droits POSIX absents sous Windows")
 def test_generer_cree_une_cle_privee_lisible_par_moi_seul(tmp_path):
     chemin = tmp_path / "signature.pem"
     ed25519.generer_cle(chemin)
