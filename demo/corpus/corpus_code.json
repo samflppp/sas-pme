@@ -1,0 +1,1692 @@
+{
+  "genere_le": "2026-10-10T18:54:34Z",
+  "sources": {
+    "malveillants": "https://github.com/DataDog/malicious-software-packages-dataset (samples/pypi, zips chiffrés, mot de passe « infected »)",
+    "sains": "corpus.json (populaires) et populaires_pypi.txt, rangs 2000+"
+  },
+  "avertissement": "Échantillons malveillants réels : les lire seulement, avec Python en -I, dans un dossier à part. Ne jamais les installer ni les exécuter hors de la sandbox.",
+  "malveillants": [
+    {
+      "ecosysteme": "pypi",
+      "nom": "durabletask",
+      "version": "1.4.1",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/durabletask/1.4.1/2026-05-19-durabletask-v1.4.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "durabletask",
+      "version": "1.4.2",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/durabletask/1.4.2/2026-05-19-durabletask-v1.4.2.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "durabletask",
+      "version": "1.4.3",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/durabletask/1.4.3/2026-05-19-durabletask-v1.4.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "elementary-data",
+      "version": "0.23.3",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/elementary-data/0.23.3/2026-04-24-elementary-data-v0.23.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "embiggen",
+      "version": "0.11.97",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/embiggen/0.11.97/2026-06-08-embiggen-v0.11.97.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "gpsea",
+      "version": "0.9.14",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/gpsea/0.9.14/2026-06-08-gpsea-v0.9.14.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "guardrails-ai",
+      "version": "0.10.1",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/guardrails-ai/0.10.1/2026-05-12-guardrails-ai-v0.10.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "lightning",
+      "version": "2.6.2",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/lightning/2.6.2/2026-04-30-lightning-v2.6.2.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "lightning",
+      "version": "2.6.3",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/lightning/2.6.3/2026-04-30-lightning-v2.6.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "litellm",
+      "version": "1.82.7",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/litellm/1.82.7/2026-03-24-litellm-v1.82.7.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "litellm",
+      "version": "1.82.8",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/litellm/1.82.8/2026-03-24-litellm-v1.82.8.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "mflux-streamlit",
+      "version": "0.0.3",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/mflux-streamlit/0.0.3/2026-06-07-mflux-streamlit-v0.0.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "mflux-streamlit",
+      "version": "0.0.4",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/mflux-streamlit/0.0.4/2026-06-07-mflux-streamlit-v0.0.4.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "mistralai",
+      "version": "2.4.6",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/mistralai/2.4.6/2026-05-12-mistralai-v2.4.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "nhmpy",
+      "version": "2.4.7",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/nhmpy/2.4.7/2026-06-07-nhmpy-v2.4.7.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "num2words",
+      "version": "0.5.15",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/num2words/0.5.15/2025-07-28-num2words-v0.5.15.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "num2words",
+      "version": "0.5.16",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/num2words/0.5.16/2025-07-28-num2words-v0.5.16.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ppkt2synergy",
+      "version": "0.1.1",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/ppkt2synergy/0.1.1/2026-06-08-ppkt2synergy-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pyphetools",
+      "version": "0.9.120",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/pyphetools/0.9.120/2026-06-08-pyphetools-v0.9.120.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "telnyx",
+      "version": "4.87.1",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/telnyx/4.87.1/2026-03-27-telnyx-v4.87.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "telnyx",
+      "version": "4.87.2",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/telnyx/4.87.2/2026-03-27-telnyx-v4.87.2.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ultralytics",
+      "version": "8.3.41",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/ultralytics/8.3.41/2024-12-04-ultralytics-v8.3.41.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ultralytics",
+      "version": "8.3.42",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/ultralytics/8.3.42/2024-12-05-ultralytics-v8.3.42.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ultralytics",
+      "version": "8.3.45",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/ultralytics/8.3.45/2024-12-07-ultralytics-v8.3.45.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ultralytics",
+      "version": "8.3.46",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/ultralytics/8.3.46/2024-12-07-ultralytics-v8.3.46.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "xinference",
+      "version": "2.6.0",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/xinference/2.6.0/2026-04-21-xinference-v2.6.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "xinference",
+      "version": "2.6.1",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/xinference/2.6.1/2026-04-21-xinference-v2.6.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "xinference",
+      "version": "2.6.2",
+      "categorie": "compromised_lib",
+      "echantillon": "samples/pypi/compromised_lib/xinference/2.6.2/2026-04-21-xinference-v2.6.2.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "0wneg",
+      "version": "0.9.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/0wneg/0.9.0/2023-05-14-0wneg-v0.9.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ai-labs-snippets-sdk",
+      "version": "1.2.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/ai-labs-snippets-sdk/1.2.0/2025-05-19-ai-labs-snippets-sdk-v1.2.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "aiogram-types-v3",
+      "version": "3.0.5",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/aiogram-types-v3/3.0.5/2025-12-28-aiogram-types-v3-v3.0.5.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "airnitro",
+      "version": "1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/airnitro/1.0/2023-06-04-airnitro-v1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "artifact-lab-3-package-34b21b63",
+      "version": "0.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/artifact-lab-3-package-34b21b63/0.1.1/2024-08-18-artifact-lab-3-package-34b21b63-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "artifact-lab-3-package-db7d716a",
+      "version": "0.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/artifact-lab-3-package-db7d716a/0.1.1/2024-09-21-artifact-lab-3-package-db7d716a-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "atlasctf-21-prod-05",
+      "version": "99.99.99.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/atlasctf-21-prod-05/99.99.99.1/2025-06-07-atlasctf-21-prod-05-v99.99.99.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "atlasctf-21-prod-16",
+      "version": "99.99.99.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/atlasctf-21-prod-16/99.99.99.1/2025-06-07-atlasctf-21-prod-16-v99.99.99.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "b10connoisseur",
+      "version": "0.12.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/b10connoisseur/0.12.0/2026-03-06-b10connoisseur-v0.12.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "backwwi",
+      "version": "0.1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/backwwi/0.1.0/2024-11-12-backwwi-v0.1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "boogishell6",
+      "version": "0.1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/boogishell6/0.1.0/2023-05-15-boogishell6-v0.1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "bytedance-chat",
+      "version": "0.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/bytedance-chat/0.1.1/2024-11-29-bytedance-chat-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "bytedtrace",
+      "version": "0.1.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/bytedtrace/0.1.6/2023-06-06-bytedtrace-v0.1.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "bytedtrace",
+      "version": "0.3.9",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/bytedtrace/0.3.9/2023-06-06-bytedtrace-v0.3.9.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "cascadev",
+      "version": "99.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/cascadev/99.6/2024-11-19-cascadev-v99.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "colorara",
+      "version": "0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/colorara/0.1/2023-05-07-colorara-v0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "compresai",
+      "version": "94.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/compresai/94.6/2024-11-13-compresai-v94.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "cryptograohy",
+      "version": "0.5.7",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/cryptograohy/0.5.7/2024-09-28-cryptograohy-v0.5.7.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ctftestsowwy",
+      "version": "0.1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/ctftestsowwy/0.1.0/2025-05-10-ctftestsowwy-v0.1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "data-pipeline-check",
+      "version": "0.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/data-pipeline-check/0.1.1/2026-05-24-data-pipeline-check-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "dependency-analyzer",
+      "version": "1.0.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/dependency-analyzer/1.0.0/2024-06-13-dependency-analyzer-v1.0.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "discconnect",
+      "version": "0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/discconnect/0.1/2024-11-16-discconnect-v0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "e3po",
+      "version": "912.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/e3po/912.6/2024-11-07-e3po-v912.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "esqcraftremc",
+      "version": "9.12",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/esqcraftremc/9.12/2023-02-27-esqcraftremc-v9.12.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "esqinfostrosint",
+      "version": "9.73",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/esqinfostrosint/9.73/2023-03-08-esqinfostrosint-v9.73.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "esqnvidiaultrapep",
+      "version": "7.81",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/esqnvidiaultrapep/7.81/2023-02-27-esqnvidiaultrapep-v7.81.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "esqrandadget",
+      "version": "3.2",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/esqrandadget/3.2/2023-02-27-esqrandadget-v3.2.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "esqtoolvisaram",
+      "version": "5.90",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/esqtoolvisaram/5.90/2023-02-27-esqtoolvisaram-v5.90.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "example-package-sthnck",
+      "version": "0.0.1.dev1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/example-package-sthnck/0.0.1.dev1/2026-03-23-example-package-sthnck-v0.0.1.dev1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "fc-clip",
+      "version": "99.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/fc-clip/99.6/2024-11-19-fc-clip-v99.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "flsak",
+      "version": "2.2.3",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/flsak/2.2.3/2023-03-20-flsak-v2.2.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "genz-translator",
+      "version": "9000.0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/genz-translator/9000.0.1/2024-12-02-genz-translator-v9000.0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "git-config-sync",
+      "version": "0.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/git-config-sync/0.1.1/2026-05-24-git-config-sync-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "hakepip",
+      "version": "0.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/hakepip/0.1.1/2023-05-14-hakepip-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "http3-client",
+      "version": "1.0.15",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/http3-client/1.0.15/2023-06-18-http3-client-v1.0.15.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "hybrid-sd",
+      "version": "912.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/hybrid-sd/912.6/2024-11-07-hybrid-sd-v912.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "install-crypto",
+      "version": "4.18.5",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/install-crypto/4.18.5/2023-05-20-install-crypto-v4.18.5.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "jupyter-calendar-extension",
+      "version": "0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/jupyter-calendar-extension/0.1/2024-05-20-jupyter-calendar-extension-v0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "kersa",
+      "version": "0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/kersa/0.1/2024-09-20-kersa-v0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "kube-health-tools",
+      "version": "2.0.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/kube-health-tools/2.0.0/2026-04-01-kube-health-tools-v2.0.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "ld-impl-linux",
+      "version": "64",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/ld-impl-linux/64/2022-11-17-ld-impl-linux-64.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "libguicraftcandy",
+      "version": "10.87",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/libguicraftcandy/10.87/2023-02-27-libguicraftcandy-v10.87.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "libintelpostlib",
+      "version": "6.37",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/libintelpostlib/6.37/2023-02-27-libintelpostlib-v6.37.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "libnvidiareplacerandom",
+      "version": "3.3",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/libnvidiareplacerandom/3.3/2023-02-27-libnvidiareplacerandom-v3.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "librandlgtbultra",
+      "version": "6.97",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/librandlgtbultra/6.97/2023-02-27-librandlgtbultra-v6.97.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "liburlstringping",
+      "version": "3.86",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/liburlstringping/3.86/2023-02-27-liburlstringping-v3.86.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "lightseeq",
+      "version": "99.7",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/lightseeq/99.7/2024-11-05-lightseeq-v99.7.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "magic3d",
+      "version": "9.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/magic3d/9.6/2024-11-18-magic3d-v9.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "matplotlibp",
+      "version": "0.3",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/matplotlibp/0.3/2024-11-10-matplotlibp-v0.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "mjrl",
+      "version": "1.0.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/mjrl/1.0.0/2023-06-27-mjrl-v1.0.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "mqbench",
+      "version": "94.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/mqbench/94.6/2024-11-13-mqbench-v94.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "my-fun-tools",
+      "version": "0.1.2",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/my-fun-tools/0.1.2/2025-06-06-my-fun-tools-v0.1.2.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "networkx-match",
+      "version": "0.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/networkx-match/0.1.1/2024-05-22-networkx-match-v0.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "oe-extract-ids",
+      "version": "1.5.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/oe-extract-ids/1.5.0/2024-10-27-oe-extract-ids-v1.5.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "oz-merkle-tree",
+      "version": "0.1.8",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/oz-merkle-tree/0.1.8/2024-08-24-oz-merkle-tree-v0.1.8.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "peloton-client123",
+      "version": "0.8.10",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/peloton-client123/0.8.10/2023-08-13-peloton-client123-v0.8.10.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pip-doom",
+      "version": "0.1.5",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pip-doom/0.1.5/2026-04-03-pip-doom-v0.1.5.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pplgdfhuighsdfyisfdty2",
+      "version": "1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pplgdfhuighsdfyisfdty2/1/2024-10-23-pplgdfhuighsdfyisfdty2-v1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pxz",
+      "version": "1.1.11",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pxz/1.1.11/2025-02-05-pxz-v1.1.11.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "py-cpuintre",
+      "version": "9.14",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/py-cpuintre/9.14/2023-02-27-py-cpuintre-v9.14.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "py-libhttpreplace",
+      "version": "8.77",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/py-libhttpreplace/8.77/2023-02-27-py-libhttpreplace-v8.77.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "py-proofnvidiavm",
+      "version": "7.87",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/py-proofnvidiavm/7.87/2023-03-02-py-proofnvidiavm-v7.87.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "py-ultrageturl",
+      "version": "4.17",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/py-ultrageturl/4.17/2023-03-02-py-ultrageturl-v4.17.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pycapmonster",
+      "version": "1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pycapmonster/1.0/2023-03-23-pycapmonster-v1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pycrypterexe",
+      "version": "1.0.4",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pycrypterexe/1.0.4/2023-03-14-pycrypterexe-v1.0.4.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pydefender",
+      "version": "1.0.3",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pydefender/1.0.3/2023-03-20-pydefender-v1.0.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pylint-beautifulsoup",
+      "version": "3.12.3",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pylint-beautifulsoup/3.12.3/2023-05-20-pylint-beautifulsoup-v3.12.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pyprettifier",
+      "version": "0.1.5",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pyprettifier/0.1.5/2024-09-26-pyprettifier-v0.1.5.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pytest-pandas",
+      "version": "16.6.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pytest-pandas/16.6.6/2023-05-20-pytest-pandas-v16.6.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pytkit",
+      "version": "0.0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/pytkit/0.0.1/2024-10-09-pytkit-v0.0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "quasarlib",
+      "version": "1.0.8",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/quasarlib/1.0.8/2023-11-24-quasarlib-v1.0.8.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "reallydonothing",
+      "version": "0.3",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/reallydonothing/0.3/2024-05-17-reallydonothing-v0.3.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "requestsx",
+      "version": "0.1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/requestsx/0.1.0/2023-01-25-requestsx-v0.1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "reverse-shell",
+      "version": "1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/reverse-shell/1.0/2023-03-21-reverse-shell-v1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "robloxapiaccess",
+      "version": "0.0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/robloxapiaccess/0.0.1/2023-03-18-robloxapiaccess-v0.0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "saazsdz",
+      "version": "0.1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/saazsdz/0.1.0/2023-05-15-saazsdz-v0.1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "selfccvirtualgame",
+      "version": "6.70",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/selfccvirtualgame/6.70/2023-03-07-selfccvirtualgame-v6.70.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "selfguiurlpush",
+      "version": "4.72",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/selfguiurlpush/4.72/2023-03-08-selfguiurlpush-v4.72.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "selfmccontrolstudy",
+      "version": "4.26",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/selfmccontrolstudy/4.26/2023-03-12-selfmccontrolstudy-v4.26.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "selfproofkillcraft",
+      "version": "5.31",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/selfproofkillcraft/5.31/2023-02-27-selfproofkillcraft-v5.31.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "selfstudyhydrakill",
+      "version": "6.95",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/selfstudyhydrakill/6.95/2023-02-27-selfstudyhydrakill-v6.95.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "setuptolos",
+      "version": "0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/setuptolos/0.1/2024-09-21-setuptolos-v0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "siamttviews",
+      "version": "5.1.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/siamttviews/5.1.1/2023-02-28-siamttviews-v5.1.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "spacefilterapi",
+      "version": "1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/spacefilterapi/1.0/2023-02-25-spacefilterapi-v1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "sqlalchemy-os",
+      "version": "14.0.10",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/sqlalchemy-os/14.0.10/2023-05-20-sqlalchemy-os-v14.0.10.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "suyo",
+      "version": "1.3.4",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/suyo/1.3.4/2025-09-19-suyo-v1.3.4.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "synapse-sso-proconnect",
+      "version": "0.1.16",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/synapse-sso-proconnect/0.1.16/2025-04-30-synapse-sso-proconnect-v0.1.16.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "synthetictest1",
+      "version": "0.0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/synthetictest1/0.0.1/2023-03-17-synthetictest1-v0.0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "test23414234234",
+      "version": "0.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/test23414234234/0.6/2023-04-14-test23414234234-v0.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "thisismytest",
+      "version": "5.0.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/thisismytest/5.0.0/2026-03-21-thisismytest-v5.0.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "torchs-visions",
+      "version": "94.6",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/torchs-visions/94.6/2024-11-14-torchs-visions-v94.6.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tpedpingpull",
+      "version": "8.64",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/tpedpingpull/8.64/2023-02-27-tpedpingpull-v8.64.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tpintgrandre",
+      "version": "8.5",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/tpintgrandre/8.5/2023-02-27-tpintgrandre-v8.5.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tppinghackedpaypal",
+      "version": "6.85",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/tppinghackedpaypal/6.85/2023-03-03-tppinghackedpaypal-v6.85.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tprandstringpep",
+      "version": "6.33",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/tprandstringpep/6.33/2023-02-27-tprandstringpep-v6.33.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tpvirtualcontrolmc",
+      "version": "2.74",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/tpvirtualcontrolmc/2.74/2023-02-27-tpvirtualcontrolmc-v2.74.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "usar-agent",
+      "version": "0.1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/usar-agent/0.1.0/2025-02-09-usar-agent-v0.1.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "voto3",
+      "version": "0.2.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/voto3/0.2.0/2024-11-10-voto3-v0.2.0.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "websend",
+      "version": "0.0.1",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/websend/0.0.1/2024-09-30-websend-v0.0.1.zip"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "xboxsolver",
+      "version": "1.0",
+      "categorie": "malicious_intent",
+      "echantillon": "samples/pypi/malicious_intent/xboxsolver/1.0/2023-03-23-xboxsolver-v1.0.zip"
+    }
+  ],
+  "sains": [
+    {
+      "ecosysteme": "pypi",
+      "nom": "requests",
+      "version_precedente": "2.34.1",
+      "version": "2.34.2",
+      "publiee_le": "2026-05-14T19:25:26.443000Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "urllib3",
+      "version_precedente": "2.6.3",
+      "version": "2.7.0",
+      "publiee_le": "2026-05-07T16:13:17.151740Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "certifi",
+      "version_precedente": "2026.6.17",
+      "version": "2026.7.22",
+      "publiee_le": "2026-07-22T03:35:11.276376Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "idna",
+      "version_precedente": "3.18",
+      "version": "3.19",
+      "publiee_le": "2026-08-18T05:14:22.343598Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "charset-normalizer",
+      "version_precedente": "3.5.0",
+      "version": "3.5.1",
+      "publiee_le": "2026-08-15T08:16:22.964547Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "numpy",
+      "version_precedente": "2.5.2",
+      "version": "2.5.3",
+      "publiee_le": "2026-09-06T16:24:29.244371Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pandas",
+      "version_precedente": "3.0.3",
+      "version": "3.0.5",
+      "publiee_le": "2026-07-22T22:17:48.274862Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "python-dateutil",
+      "version_precedente": "2.9.0",
+      "version": "2.9.0.post0",
+      "publiee_le": "2024-03-01T18:36:18.570437Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pytz",
+      "version_precedente": "2026.3",
+      "version": "2026.3.post1",
+      "publiee_le": "2026-07-25T15:12:05.782880Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "six",
+      "version_precedente": "1.16.0",
+      "version": "1.17.0",
+      "publiee_le": "2024-12-04T17:35:26.475808Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "setuptools",
+      "version_precedente": "83.0.0",
+      "version": "84.0.0",
+      "publiee_le": "2026-08-08T18:27:56.719708Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "wheel",
+      "version_precedente": "0.47.0",
+      "version": "0.48.0",
+      "publiee_le": "2026-08-11T22:02:26.100721Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "packaging",
+      "version_precedente": "26.2",
+      "version": "26.3",
+      "publiee_le": "2026-08-04T18:15:27.159957Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "PyYAML",
+      "version_precedente": "6.0.2",
+      "version": "6.0.3",
+      "publiee_le": "2025-09-25T21:31:46.040932Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "attrs",
+      "version_precedente": "25.4.0",
+      "version": "26.1.0",
+      "publiee_le": "2026-03-19T14:22:23.645947Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "click",
+      "version_precedente": "8.4.2",
+      "version": "8.5.0",
+      "publiee_le": "2026-08-26T13:33:12.928043Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "Jinja2",
+      "version_precedente": "3.1.5",
+      "version": "3.1.6",
+      "publiee_le": "2025-03-05T20:05:00.369721Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "MarkupSafe",
+      "version_precedente": "3.0.2",
+      "version": "3.0.3",
+      "publiee_le": "2025-09-27T18:36:05.558229Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "Flask",
+      "version_precedente": "3.1.2",
+      "version": "3.1.3",
+      "publiee_le": "2026-02-19T05:00:56.027585Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "Django",
+      "version_precedente": "6.1",
+      "version": "6.1.1",
+      "publiee_le": "2026-09-02T17:20:39.153093Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "fastapi",
+      "version_precedente": "0.141.0",
+      "version": "0.141.1",
+      "publiee_le": "2026-07-29T17:18:04.364385Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pydantic",
+      "version_precedente": "2.13.4",
+      "version": "2.13.5",
+      "publiee_le": "2026-08-28T14:03:59.136157Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "starlette",
+      "version_precedente": "1.5.1",
+      "version": "1.6.0",
+      "publiee_le": "2026-08-08T18:27:56.196765Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "uvicorn",
+      "version_precedente": "0.52.3",
+      "version": "0.52.4",
+      "publiee_le": "2026-08-19T06:27:40.360546Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "httpx",
+      "version_precedente": "0.28.0",
+      "version": "0.28.1",
+      "publiee_le": "2024-12-06T15:37:21.509172Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "SQLAlchemy",
+      "version_precedente": "2.0.51",
+      "version": "2.0.52",
+      "publiee_le": "2026-08-11T19:07:09.829565Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "boto3",
+      "version_precedente": "1.43.90",
+      "version": "1.43.91",
+      "publiee_le": "2026-09-09T19:24:37.588312Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "botocore",
+      "version_precedente": "1.43.90",
+      "version": "1.43.91",
+      "publiee_le": "2026-09-09T19:24:31.222510Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "s3transfer",
+      "version_precedente": "0.19.1",
+      "version": "0.19.2",
+      "publiee_le": "2026-07-22T19:30:43.251801Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "cryptography",
+      "version_precedente": "50.0.0",
+      "version": "50.0.1",
+      "publiee_le": "2026-08-25T19:44:03.155112Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "cffi",
+      "version_precedente": "2.1.0",
+      "version": "2.1.1",
+      "publiee_le": "2026-08-03T21:19:15.602573Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pycparser",
+      "version_precedente": "2.23",
+      "version": "3.0",
+      "publiee_le": "2026-01-21T14:26:50.693739Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "rsa",
+      "version_precedente": "4.9",
+      "version": "4.9.1",
+      "publiee_le": "2025-04-16T09:51:17.142309Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pyasn1",
+      "version_precedente": "0.6.3",
+      "version": "0.6.4",
+      "publiee_le": "2026-07-09T01:12:32.920042Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "jmespath",
+      "version_precedente": "1.0.1",
+      "version": "1.1.0",
+      "publiee_le": "2026-01-22T16:35:24.919874Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "typing-extensions",
+      "version_precedente": "4.15.0",
+      "version": "4.16.0",
+      "publiee_le": "2026-07-02T08:40:04.659120Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "filelock",
+      "version_precedente": "3.32.5",
+      "version": "3.32.6",
+      "publiee_le": "2026-09-08T22:57:10.182186Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "platformdirs",
+      "version_precedente": "4.11.7",
+      "version": "4.11.8",
+      "publiee_le": "2026-09-08T22:20:41.537525Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pytest",
+      "version_precedente": "9.1.0",
+      "version": "9.1.1",
+      "publiee_le": "2026-06-19T10:58:31.347074Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pluggy",
+      "version_precedente": "1.5.0",
+      "version": "1.6.0",
+      "publiee_le": "2025-05-15T12:30:06.134003Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "rich",
+      "version_precedente": "14.3.4",
+      "version": "15.0.0",
+      "publiee_le": "2026-04-12T08:24:00.750018Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "Pygments",
+      "version_precedente": "2.20.0",
+      "version": "2.21.0",
+      "publiee_le": "2026-08-17T08:02:44.912148Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tqdm",
+      "version_precedente": "4.69.1",
+      "version": "4.70.0",
+      "publiee_le": "2026-07-27T11:33:13.167874Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "protobuf",
+      "version_precedente": "7.36.0",
+      "version": "7.36.1",
+      "publiee_le": "2026-08-31T22:39:56.865753Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "aiohttp",
+      "version_precedente": "3.14.2",
+      "version": "3.14.3",
+      "publiee_le": "2026-07-23T01:52:08.217234Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "multidict",
+      "version_precedente": "6.7.1",
+      "version": "6.8.0",
+      "publiee_le": "2026-09-09T13:52:49.534768Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "yarl",
+      "version_precedente": "1.24.2",
+      "version": "1.24.5",
+      "publiee_le": "2026-07-20T02:04:21.695642Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "Werkzeug",
+      "version_precedente": "3.1.7",
+      "version": "3.1.8",
+      "publiee_le": "2026-04-02T18:49:12.720503Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "itsdangerous",
+      "version_precedente": "2.1.2",
+      "version": "2.2.0",
+      "publiee_le": "2024-04-16T21:28:14.499616Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "scipy",
+      "version_precedente": "1.18.0",
+      "version": "1.18.1",
+      "publiee_le": "2026-08-21T23:23:44.522812Z",
+      "groupe": "populaire"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "asgi-correlation-id",
+      "version_precedente": "5.0.0",
+      "version": "5.0.1",
+      "publiee_le": "2026-06-09T15:09:48.155485Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "commonmark",
+      "version_precedente": "0.9.1",
+      "version": "0.9.2",
+      "publiee_le": "2026-05-28T20:42:31.040750Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "docling-parse",
+      "version_precedente": "7.18.0",
+      "version": "7.19.0",
+      "publiee_le": "2026-09-10T11:23:21.078170Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "sphinx-copybutton",
+      "version_precedente": "0.5.1",
+      "version": "0.5.2",
+      "publiee_le": "2023-04-14T08:10:20.844249Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "azure-mgmt-hdinsight",
+      "version_precedente": "9.0.0",
+      "version": "9.0.1",
+      "publiee_le": "2026-05-18T05:59:29.477613Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "azure-cli-telemetry",
+      "version_precedente": "1.0.8",
+      "version": "1.1.0",
+      "publiee_le": "2023-08-01T02:15:31.121079Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "docling",
+      "version_precedente": "2.125.0",
+      "version": "2.126.0",
+      "publiee_le": "2026-09-04T15:57:24.333443Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "resampy",
+      "version_precedente": "0.4.2",
+      "version": "0.4.3",
+      "publiee_le": "2024-03-05T20:36:02.439454Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "mypy-boto3-sns",
+      "version_precedente": "1.43.0",
+      "version": "1.43.23",
+      "publiee_le": "2026-06-04T21:04:40.800458Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tabledata",
+      "version_precedente": "1.3.4",
+      "version": "1.3.5",
+      "publiee_le": "2026-05-11T12:03:24.907536Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "cloudflare",
+      "version_precedente": "5.6.0",
+      "version": "5.7.0",
+      "publiee_le": "2026-09-04T21:56:53.220967Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "hypothesis-jsonschema",
+      "version_precedente": "0.23.0",
+      "version": "0.23.1",
+      "publiee_le": "2024-02-28T20:33:48.744067Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "taskiq",
+      "version_precedente": "0.12.5",
+      "version": "0.12.6",
+      "publiee_le": "2026-08-29T08:07:42.591978Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "singer-sdk",
+      "version_precedente": "0.54.4",
+      "version": "0.54.5",
+      "publiee_le": "2026-06-16T02:43:09.743724Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "sqlalchemy-stubs",
+      "version_precedente": "0.3",
+      "version": "0.4",
+      "publiee_le": "2021-01-12T14:02:02.723646Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pytest-ordering",
+      "version_precedente": "0.5",
+      "version": "0.6",
+      "publiee_le": "2018-10-25T16:25:18.445394Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "hyperopt",
+      "version_precedente": "0.2.7",
+      "version": "0.3.0",
+      "publiee_le": "2026-07-24T13:39:45.563611Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "hogql-parser",
+      "version_precedente": "1.3.85",
+      "version": "1.3.86",
+      "publiee_le": "2026-09-04T19:33:36.920338Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "mitmproxy-wireguard",
+      "version_precedente": "0.1.21",
+      "version": "0.1.23",
+      "publiee_le": "2023-04-04T12:28:33.421891Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "scmrepo",
+      "version_precedente": "3.6.1",
+      "version": "3.6.2",
+      "publiee_le": "2026-03-31T05:05:10.986019Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "aiosmtpd",
+      "version_precedente": "1.4.5",
+      "version": "1.4.6",
+      "publiee_le": "2024-05-18T11:37:47.877442Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "loongsuite-util-genai",
+      "version_precedente": "0.4.0",
+      "version": "0.5.0",
+      "publiee_le": "2026-05-11T06:07:51.183515Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "rerun-sdk",
+      "version_precedente": "0.37.1",
+      "version": "0.37.2",
+      "publiee_le": "2026-09-10T16:24:46.046571Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "python-chess",
+      "version_precedente": "1.2.0",
+      "version": "1.999",
+      "publiee_le": "2020-10-26T11:30:07.758783Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "sqlalchemy-drill",
+      "version_precedente": "1.1.9",
+      "version": "1.1.10",
+      "publiee_le": "2026-02-05T05:38:37.753588Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "django-types",
+      "version_precedente": "0.23.0",
+      "version": "0.24.0",
+      "publiee_le": "2026-04-22T22:19:01.999511Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "os-service-types",
+      "version_precedente": "1.8.2",
+      "version": "1.9.0",
+      "publiee_le": "2026-08-04T13:07:42.258414Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "tree-sitter-html",
+      "version_precedente": "0.23.1",
+      "version": "0.23.2",
+      "publiee_le": "2024-11-11T05:57:58.684595Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "requests-oauth2client",
+      "version_precedente": "1.7.0",
+      "version": "1.8.0",
+      "publiee_le": "2025-12-22T20:22:01.828035Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "Wand",
+      "version_precedente": "0.7.1",
+      "version": "0.7.2",
+      "publiee_le": "2026-06-25T13:48:31.512745Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "codemagic-cli-tools",
+      "version_precedente": "0.68.0",
+      "version": "0.69.0",
+      "publiee_le": "2026-07-15T14:46:30.873851Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "django-constance",
+      "version_precedente": "4.3.4",
+      "version": "4.3.5",
+      "publiee_le": "2026-03-15T11:23:49.166990Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "complexipy",
+      "version_precedente": "8.0.0",
+      "version": "8.0.1",
+      "publiee_le": "2026-09-07T02:26:32.607638Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "authzed",
+      "version_precedente": "1.24.4",
+      "version": "1.25.0",
+      "publiee_le": "2026-07-14T14:04:02.489293Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pypsrp",
+      "version_precedente": "0.9.0",
+      "version": "0.9.1",
+      "publiee_le": "2026-03-16T03:47:38.345209Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "oslo.serialization",
+      "version_precedente": "5.10.0",
+      "version": "5.11.0",
+      "publiee_le": "2026-07-10T12:47:46.867735Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pygraphviz",
+      "version_precedente": "2.0",
+      "version": "2.0.1",
+      "publiee_le": "2026-07-20T09:58:55.201936Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "plyfile",
+      "version_precedente": "1.1.4",
+      "version": "1.1.5",
+      "publiee_le": "2026-07-28T08:23:12.140745Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "django-colorfield",
+      "version_precedente": "0.13.0",
+      "version": "0.14.0",
+      "publiee_le": "2025-04-30T19:27:38.245293Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pyshark",
+      "version_precedente": "0.5.3",
+      "version": "0.6",
+      "publiee_le": "2023-04-26T09:33:41.022000Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "openinference-instrumentation-claude-agent-sdk",
+      "version_precedente": "0.1.17",
+      "version": "0.1.18",
+      "publiee_le": "2026-09-10T05:43:23.431808Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "urwid-readline",
+      "version_precedente": "0.15",
+      "version": "0.15.1",
+      "publiee_le": "2024-09-22T17:51:55.144357Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "stix2",
+      "version_precedente": "3.0.1",
+      "version": "3.0.2",
+      "publiee_le": "2026-02-12T08:44:48.771930Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "sphinx-reredirects",
+      "version_precedente": "1.0.0",
+      "version": "1.1.0",
+      "publiee_le": "2025-12-22T08:27:59.724893Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "apache-airflow-providers-mongo",
+      "version_precedente": "5.3.5",
+      "version": "5.4.0",
+      "publiee_le": "2026-05-23T12:31:45.227054Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "remote-pdb",
+      "version_precedente": "2.0.0",
+      "version": "2.1.0",
+      "publiee_le": "2020-07-24T13:31:31.535191Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "pyseccomp",
+      "version_precedente": "0.1.1",
+      "version": "0.1.2",
+      "publiee_le": "2021-01-02T22:48:00.578402Z",
+      "groupe": "peu_connu"
+    },
+    {
+      "ecosysteme": "pypi",
+      "nom": "dictor",
+      "version_precedente": "0.1.11",
+      "version": "0.1.12",
+      "publiee_le": "2023-09-15T21:56:18.958308Z",
+      "groupe": "peu_connu"
+    }
+  ]
+}
