@@ -74,6 +74,16 @@ git clone --depth 1 --filter=blob:none --no-checkout \
 # saines, 10 min)
 ```
 
+## Réponses à vos demandes
+- **(C, C-h10-aws : `fichier_sensibles` du 3B, le schéma l'accepte-t-il ?)** Oui, c'est voulu. La
+  sorte d'un signal du LLM est une étiquette libre en `snake_case` (40 caractères au plus) : on ne
+  peut pas lister d'avance ce qu'il remarque. Ce qui est fermé, c'est son **niveau**, au plus
+  FORT : jamais BLOQUANT, jamais une approbation.
+  - Le vrai problème du 3B n'est pas le nom, c'est le FORT inventé sur la 1.1 saine : elle passe
+    « à revoir », donc un humain tranche, mais c'est une fausse alerte à l'écran pendant la démo.
+  - **D'accord pour garder le 7B** : c'est déjà le défaut (#33), et ta mesure le confirme
+    (conforme, juste sur 1.1 et 1.2, 47 s pour 1.2).
+
 ## Demandes
 Aucune.
 
