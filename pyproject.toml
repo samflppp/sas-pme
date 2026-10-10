@@ -1,0 +1,44 @@
+[project]
+name = "sas-pme"
+version = "0.1.0"
+description = "Plateforme agréée et passerelle sans Internet : les serveurs n'installent que des versions vérifiées"
+requires-python = ">=3.12"
+dependencies = [
+    # --- commun ---
+    "pydantic>=2.7",
+    # --- A (Sam) : plateforme web ---
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    # --- B (Mouabd19) : pipeline et IA ---
+    "httpx>=0.27",
+    "rapidfuzz>=3.9",
+    "packaging>=24.0",
+    "feedparser>=6.0",
+    # --- C (STEUSSO) : réseau, passerelle, signature, sandbox ---
+    "cryptography>=43.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["commun*", "plateforme*", "passerelle*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "ollama: appelle un vrai Ollama local (hors CI)",
+    "docker: lance un vrai conteneur (hors CI)",
+    "aws: touche l'infrastructure AWS (hors CI)",
+]

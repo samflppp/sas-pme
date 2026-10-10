@@ -42,7 +42,20 @@ class Verdict(BaseModel):
     raison: str                                       # une phrase en français
     signaux: list[Signal]
     explication_llm: str = ""; refs_rag: list[str] = []
+
+class EntreeInventaire(BaseModel):
+    ecosysteme: Ecosysteme; nom: str; version: str; telechargements: int; dernier: datetime | None
+
+class FichierManifeste(BaseModel): nom: str; sha256: str    # 64 caractères hexadécimaux
+class Manifeste(BaseModel): ...                             # voir § 4
+def canonique(m: Manifeste) -> bytes                        # octets exacts à signer
 ```
+
+**Règles tenues par les types** (une tentative lève `ValidationError`) :
+- un `Signal` de source `LLM` ne peut pas être `BLOQUANT` ;
+- un `Signal` de source `VEILLE` non structuré (un article) ne peut pas être `BLOQUANT` ;
+- un `Verdict` ne conclut que `APPROUVEE`, `A_REVOIR` ou `BLOQUEE` ;
+- tous les modèles sont immuables et refusent les champs inconnus.
 
 ## 2. Pipeline → base de données (B appelle A)
 
