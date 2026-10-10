@@ -13,6 +13,8 @@ import httpx
 from packaging.markers import default_environment
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
+from packaging.tags import compatible_tags, cpython_tags
+from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 from packaging.version import InvalidVersion, Version as VersionPep440
 
 BASE = os.environ.get("SAS_PYPI_URL", "https://pypi.org")
@@ -23,6 +25,11 @@ CIBLE = {**default_environment(), "python_version": "3.12", "python_full_version
          "implementation_name": "cpython", "platform_python_implementation": "CPython",
          "sys_platform": "linux", "platform_system": "Linux", "os_name": "posix",
          "platform_machine": "x86_64", "extra": ""}
+# Roues installables sur les serveurs (Ubuntu 24.04 : CPython 3.12, x86_64, glibc 2.39).
+_PLATEFORMES = [*(f"manylinux_2_{x}_x86_64" for x in range(39, 4, -1)), "manylinux2014_x86_64",
+                "manylinux2010_x86_64", "manylinux1_x86_64", "linux_x86_64"]
+_TAGS_CIBLE = {*cpython_tags((3, 12), abis=["cp312"], platforms=_PLATEFORMES),
+               *compatible_tags((3, 12), "cp312", _PLATEFORMES)}
 _NOM_VALIDE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9._-]{0,212}[A-Za-z0-9])?$")
 
 
@@ -101,9 +108,23 @@ def dependances(nom: str, version: str, *, client: httpx.Client, base: str = BAS
     return gardees
 
 
+def _pour_la_cible(nom_fichier: str) -> bool:
+    if nom_fichier.endswith(".whl"):
+        try:
+            return not parse_wheel_filename(nom_fichier)[3].isdisjoint(_TAGS_CIBLE)
+        except InvalidWheelFilename:
+            return False
+    return nom_fichier.endswith((".tar.gz", ".zip"))  # source : le code d'installation y est
+
+
+def pour_la_cible(fichiers: list[dict]) -> list[dict]:
+    """Les roues que les serveurs installent, plus la source ; ni Windows, ni macOS, ni wasm…"""
+    return [f for f in fichiers if _pour_la_cible(f["filename"])]
+
+
 def telecharger(nom: str, version: str, dossier: Path, *, client: httpx.Client,
                 base: str = BASE) -> list[Path]:
-    """Télécharge tous les fichiers d'une version et vérifie chaque sha256 annoncé par PyPI."""
+    """Télécharge les fichiers d'une version utiles aux serveurs et vérifie chaque sha256."""
     fichiers = metadonnees(nom, client=client, base=base)["releases"].get(version) or []
     if not fichiers:
         raise LookupError(f"aucun fichier pour {nom} {version}")
@@ -111,6 +132,10 @@ def telecharger(nom: str, version: str, dossier: Path, *, client: httpx.Client,
         if not f["filename"] or Path(f["filename"]).name != f["filename"] \
                 or f["filename"].startswith("."):
             raise ValueError(f"nom de fichier refusé : {f['filename']!r}")
+    fichiers = pour_la_cible(fichiers)
+    if not fichiers:
+        raise LookupError(f"{nom} {version} : aucun fichier pour la cible (Linux x86_64, "
+                          "CPython 3.12)")
     dossier.mkdir(parents=True, exist_ok=True)
     ecrits: list[Path] = []
     try:
