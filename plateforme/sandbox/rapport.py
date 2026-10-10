@@ -6,6 +6,7 @@ bornée en taille et en nombre ; une ligne illisible est ignorée. Le rapport ne
 
 import base64
 import json
+import re
 from collections.abc import Iterable
 
 from commun.modeles import RapportSandbox
@@ -20,8 +21,18 @@ SENSIBLES_ABSOLUS = ("/etc/shadow", "/etc/passwd", "/etc/sudoers", "/root/")
 # Fichiers leurres que la sandbox pose dans le HOME.
 FICHIERS_LEURRES = (".aws/credentials", ".ssh/id_rsa", ".npmrc", ".pypirc", ".git-credentials")
 NOMS_LOCAUX = ("localhost", "ip6-localhost", "")
-# Commandes que pip lance lui-même pendant l'installation (détection de la plateforme).
+# Commandes que pip lance lui-même pendant l'installation : détection de la plateforme, et les
+# crochets de construction d'un sdist (le code de setup.py, lui, reste visible : fichiers, réseau,
+# et tout processus qu'il lance).
 PROCESSUS_DE_PIP = ("lsb_release -a", "uname -rs")
+CROCHETS_DE_PIP = re.compile(r"^/usr/local/bin/python /usr/local/lib/python3\.\d+/site-packages/pip/"
+                             r"_vendor/pyproject_hooks/_in_process/_in_process\.py "
+                             r"(get_requires_for_build_wheel|prepare_metadata_for_build_wheel|"
+                             r"build_wheel) /tmp/tmp\w+$")
+
+
+def _de_pip(commande: str) -> bool:
+    return commande in PROCESSUS_DE_PIP or bool(CROCHETS_DE_PIP.match(commande))
 
 
 def _lignes(lignes: Iterable[str]) -> list[dict]:
@@ -99,7 +110,7 @@ def construire(trace: Iterable[str], reseau: Iterable[str], leurres: dict[str, s
                 if s[2:] in FICHIERS_LEURRES:
                     lus.ajouter(s)
         elif sorte == "processus":
-            if not (e.get("p") == "installation" and v in PROCESSUS_DE_PIP):
+            if not (e.get("p") == "installation" and _de_pip(v)):
                 processus.ajouter(v)
         elif sorte == "dns":
             hote = v.rsplit(":", 1)[0]

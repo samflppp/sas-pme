@@ -135,3 +135,12 @@ def test_les_commandes_de_pip_a_l_installation_ne_sont_pas_des_alertes():
                            {"e": "processus", "v": "uname -rs", "p": "import"},
                            {"e": "processus", "v": "curl evil", "p": "installation"}])
     assert r.processus == ["uname -rs", "curl evil"]
+
+
+def test_les_crochets_de_construction_de_pip_ne_sont_pas_des_alertes():
+    crochet = ("/usr/local/bin/python /usr/local/lib/python3.12/site-packages/pip/_vendor/"
+               "pyproject_hooks/_in_process/_in_process.py build_wheel /tmp/tmpg1p8io2e")
+    r = _construire(trace=[{"e": "processus", "v": crochet, "p": "installation"},
+                           {"e": "processus", "v": crochet + " ; curl evil", "p": "installation"},
+                           {"e": "processus", "v": crochet, "p": "import"}])
+    assert r.processus == [crochet + " ; curl evil", crochet]
