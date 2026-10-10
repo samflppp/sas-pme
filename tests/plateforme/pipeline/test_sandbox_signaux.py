@@ -59,3 +59,26 @@ def test_un_tres_long_rapport_reste_un_extrait_court():
     r = rapport(requetes_dns=[f"h{i}.exemple-demo.invalid" for i in range(200)])
     [s] = signaux_sandbox(P, "demo", "1.0", r)
     assert len(s.preuve["extrait"]) <= 200 and len(s.preuve["requetes"]) == 200
+
+
+# --- Alarmes de la sandbox v2 (C, C1 et C2) : une analyse sabotée n'est jamais approuvée ---------
+from plateforme.sandbox.rapport import JOURNAL_TRONQUE, TRACES_EFFACEES  # noqa: E402
+
+
+def test_des_traces_effacees_sont_un_signal_fort_et_mettent_a_revoir():
+    r = rapport(processus=[TRACES_EFFACEES, "pip install --no-deps demo-1.0.whl"])
+    signaux = signaux_sandbox(P, "demo", "1.0", r)
+    assert {s.sorte: s.niveau for s in signaux} == {"traces_effacees": Niveau.FORT}
+    assert politique.decider(signaux).etat is Etat.A_REVOIR
+
+
+def test_un_journal_reseau_tronque_est_un_signal_fort_a_part():
+    signaux = signaux_sandbox(P, "demo", "1.0", rapport(requetes_dns=[JOURNAL_TRONQUE]))
+    assert {s.sorte: s.niveau for s in signaux} == {"journal_tronque": Niveau.FORT}
+    assert politique.decider(signaux).etat is Etat.A_REVOIR
+    # Les vraies requêtes vues avant la troncature restent un signal « dns », sans la marque.
+    signaux = signaux_sandbox(P, "demo", "1.0",
+                              rapport(requetes_dns=[JOURNAL_TRONQUE, "attaquant.invalid"]))
+    dns = next(s for s in signaux if s.sorte == "dns")
+    assert dns.preuve["requetes"] == ["attaquant.invalid"]
+    assert {s.sorte for s in signaux} == {"journal_tronque", "dns"}
