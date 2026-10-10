@@ -12,6 +12,7 @@ import httpx
 from commun.modeles import Etat, RapportSandbox, Version
 from plateforme.db.acces import Base
 from plateforme.pipeline import politique, pypi
+from plateforme.pipeline.statique.nom import controler_nom
 
 Telecharger = Callable[[str, str, Path], list[Path]]
 Executer = Callable[..., RapportSandbox]
@@ -63,14 +64,22 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
     maintenant = maintenant or datetime.now(timezone.utc)
     resultats = []
     # D'abord, les versions approuvées pas encore publiées (passerelle injoignable au tour d'avant).
+    # Les archives vérifiées à l'analyse sont reprises : pas de nouveau téléchargement à chaque tour.
     for v in base.lister_versions(Etat.APPROUVEE):
-        fiche = base.fiche(v.ecosysteme, v.nom, v.version)
+        cle = (v.ecosysteme, v.nom, v.version)
+        fiche = base.fiche(*cle)
         if fiche.verdict_id is None:
             continue
-        try:
-            archives = telecharger(v.nom, v.version, dossier / v.nom / v.version)
-        except Exception:  # noqa: BLE001 — on retentera au tour suivant
-            continue
+        ici = dossier / v.nom / v.version
+        archives = sorted(ici.iterdir()) if ici.is_dir() else []
+        if not archives:
+            try:
+                archives = telecharger(v.nom, v.version, ici)
+            except Exception as e:  # noqa: BLE001 — reste approuvée, retentée au tour suivant
+                raison = f"téléchargement pour publication échoué : {e}"
+                if fiche.raison != raison:
+                    base.changer_etat(*cle, Etat.APPROUVEE, raison)
+                continue
         resultats.append((v, _publier(base, v, archives, fiche.verdict_id, publier)))
     for v in base.versions_a_traiter(maintenant, delai):
         cle = (v.ecosysteme, v.nom, v.version)
@@ -80,7 +89,10 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
             rapport = executer(v.ecosysteme, _archive_a_executer(archives),
                                v.nom.replace("-", "_"))
             base.enregistrer_rapport_sandbox(*cle, rapport)
-            verdict = politique.decider(signaux=[])
+            signaux = controler_nom(v.ecosysteme, v.nom, v.version)
+            for s in signaux:
+                base.ajouter_signal(s)
+            verdict = politique.decider(signaux)
         except Exception as e:  # noqa: BLE001 — une analyse ratée ne doit jamais approuver
             base.changer_etat(*cle, Etat.A_REVOIR, f"analyse impossible : {e}")
             resultats.append((v, Etat.A_REVOIR))

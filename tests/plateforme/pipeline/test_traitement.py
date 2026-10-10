@@ -115,3 +115,52 @@ def test_une_publication_echouee_est_retentee_au_tour_suivant_sans_reanalyse(bas
     assert len(appels["executer"]) == 1                   # pas réanalysée
     assert appels["publier"][0][3] == base.fiche(Ecosysteme.PYPI, "mure", "1.0").verdict_id
     assert base.verifier_journal() == (True, None)
+
+
+def test_la_nouvelle_tentative_reprend_les_archives_deja_telechargees(base, faux):
+    deps, appels = faux
+    vrai_telecharger, vrai_publier = deps["telecharger"], deps["publier"]
+    telechargements = []
+    def telecharger_compte(nom, version, dossier):
+        telechargements.append(nom)
+        return vrai_telecharger(nom, version, dossier)
+    def publier_en_panne(*_a, **_k):
+        raise ConnectionError("passerelle injoignable")
+    deps.update(telecharger=telecharger_compte, publier=publier_en_panne)
+    traitement.traiter(base, MAINTENANT, **deps)
+    traitement.traiter(base, MAINTENANT, **deps)
+    deps["publier"] = vrai_publier
+    traitement.traiter(base, MAINTENANT, **deps)
+    assert telechargements == ["mure"]                    # une seule fois, à l'analyse
+    assert appels["publier"][0][2] == ["mure-1.0-py3-none-any.whl", "mure-1.0.tar.gz"]
+
+
+def test_un_echec_de_telechargement_a_la_nouvelle_tentative_est_ecrit_une_fois(base, faux, tmp_path):
+    deps, _ = faux
+    def publier_en_panne(*_a, **_k):
+        raise ConnectionError("passerelle injoignable")
+    deps["publier"] = publier_en_panne
+    traitement.traiter(base, MAINTENANT, **deps)          # approuvée, non publiée
+    for f in (deps["dossier"] / "mure" / "1.0").iterdir():
+        f.unlink()                                        # archives perdues
+    def telecharger_en_panne(*_a, **_k):
+        raise ConnectionError("pypi injoignable")
+    deps["telecharger"] = telecharger_en_panne
+    traitement.traiter(base, MAINTENANT, **deps)
+    fiche = base.fiche(Ecosysteme.PYPI, "mure", "1.0")
+    assert fiche.version.etat is Etat.APPROUVEE
+    assert "téléchargement" in fiche.raison and "pypi injoignable" in fiche.raison
+    entrees = len(base.journal())
+    traitement.traiter(base, MAINTENANT, **deps)          # même échec : rien de neuf au journal
+    assert len(base.journal()) == entrees
+
+
+def test_un_typosquat_n_est_pas_approuve_et_sa_preuve_est_sur_la_fiche(base, faux):
+    deps, appels = faux
+    base.enregistrer_version(version("reqeusts", 10))
+    resultats = dict((v.nom, e) for v, e in traitement.traiter(base, MAINTENANT, **deps))
+    assert resultats["reqeusts"] is Etat.A_REVOIR
+    assert [p[0] for p in appels["publier"]] == ["mure"]
+    fiche = base.fiche(Ecosysteme.PYPI, "reqeusts", "1.0")
+    assert [s.sorte for s in fiche.signaux] == ["typosquat"]
+    assert fiche.verdict.etat is Etat.A_REVOIR and "requests" in fiche.raison

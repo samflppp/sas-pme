@@ -47,3 +47,4 @@ markers = [
 [tool.setuptools.package-data]
 "plateforme.db" = ["*.sql"]
 "plateforme.web" = ["gabarits/*.html"]
+"plateforme.pipeline" = ["donnees/*.txt"]
