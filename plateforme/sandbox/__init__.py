@@ -15,6 +15,7 @@ import json
 import os
 import secrets
 import shutil
+import stat
 import subprocess
 import tempfile
 import time
@@ -66,11 +67,28 @@ def _image() -> str:
     return image
 
 
-def _lire(chemin: Path, max_octets: int = 5_000_000) -> list[str]:
-    if not chemin.is_file():
+MAX_LIGNES = 2_000_000                 # au-delà, le journal est tronqué et c'est un signal (B, C1)
+MAX_LIGNE = 65536
+LIGNE_TRONQUEE = '{"t": "tronque"}'
+
+
+def _lire(chemin: Path) -> list[str]:
+    """Tout le journal, ligne par ligne (pas de plafond en octets qui laisserait une fuite tardive
+    hors du rapport, B : C1). Un lien symbolique posé par le paquet n'est pas suivi (B : C7)."""
+    try:
+        fd = os.open(chemin, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError:
         return []
-    with open(chemin, "rb") as f:
-        return f.read(max_octets).decode("utf-8", "replace").splitlines()
+    lignes: list[str] = []
+    with os.fdopen(fd, "rb") as f:
+        if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+            return []
+        for brute in f:
+            if len(lignes) >= MAX_LIGNES:
+                lignes.append(LIGNE_TRONQUEE)
+                break
+            lignes.append(brute[:MAX_LIGNE].decode("utf-8", "replace").rstrip("\n"))
+    return lignes
 
 
 def _code(dossier: Path) -> int:

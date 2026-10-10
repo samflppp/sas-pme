@@ -102,7 +102,7 @@ def test_le_rapport_rassemble_dns_connexions_fichiers_et_processus():
         reseau=[{"t": "dns", "nom": "evil.example.com"},
                 {"t": "tcp", "port": 80, "hote": "evil.example.com", "debut": "GET / HTTP/1.1"}])
     assert r.requetes_dns == ["evil.example.com"]
-    assert r.connexions == ["evil.example.com:443", "1.2.3.4:4444", "evil.example.com:80"]
+    assert r.connexions == ["evil.example.com:80", "evil.example.com:443", "1.2.3.4:4444"]  # piège d'abord (C7)
     assert r.fichiers_sensibles == ["~/.ssh/id_rsa", "/etc/passwd"]
     assert r.leurres_lus == ["~/.ssh/id_rsa"]
     assert r.processus == ["curl http://evil.example.com"]
@@ -185,3 +185,52 @@ def test_strace_et_traceur_ne_doublonnent_pas():
                            reseau=[], leurres=LEURRES, home=HOME, code_sortie=0, duree_s=1.0,
                            delai_depasse=False, strace_import=STRACE_IMPORT[1:2])
     assert r.fichiers_sensibles == ["~/.aws/credentials"]
+
+
+# --- B : C1 (sandbox aveuglée par un journal géant) et C7 -----------------------------------------
+
+def test_c1_le_piege_n_ecrit_pas_les_noms_locaux(tmp_path):
+    journal = piege.Journal(str(tmp_path / "reseau.jsonl"))
+    for nom in ("localhost", "localhost.", "ip6-localhost", "evil.example.com"):
+        piege.noter_dns(journal, nom, 1)
+    lignes = (tmp_path / "reseau.jsonl").read_text().splitlines()
+    assert [json.loads(l)["nom"] for l in lignes] == ["evil.example.com"]
+
+
+def test_c1_une_fuite_apres_un_deluge_reste_vue(tmp_path):
+    from plateforme import sandbox
+    f = tmp_path / "reseau.jsonl"
+    with open(f, "w") as o:
+        for _ in range(120_000):                       # plus de 5 Mo de bruit
+            o.write('{"t": "dns", "nom": "bruit.local.example", "type": 1}\n')
+        o.write('{"t": "dns", "nom": "collecte.attaquant.example", "type": 1}\n')
+    lignes = sandbox._lire(f)
+    r = _construire(reseau=[json.loads(l) for l in lignes])
+    assert "collecte.attaquant.example" in r.requetes_dns
+
+
+def test_c1_un_journal_trop_gros_devient_un_signal(tmp_path, monkeypatch):
+    from plateforme import sandbox
+    monkeypatch.setattr(sandbox, "MAX_LIGNES", 1000)
+    f = tmp_path / "reseau.jsonl"
+    f.write_text('{"t": "dns", "nom": "x.example", "type": 1}\n' * 1500)
+    lignes = sandbox._lire(f)
+    assert lignes[-1] == sandbox.LIGNE_TRONQUEE
+    r = rapport.construire(trace=[], reseau=lignes, leurres=LEURRES, home=HOME, code_sortie=0,
+                           duree_s=1.0, delai_depasse=False)
+    assert rapport.JOURNAL_TRONQUE in r.requetes_dns
+
+
+def test_c7_un_lien_symbolique_pose_par_le_paquet_n_est_pas_suivi(tmp_path):
+    from plateforme import sandbox
+    secret = tmp_path / "secret_de_l_hote"
+    secret.write_text('{"t": "dns", "nom": "ne-doit-pas-sortir", "type": 1}\n')
+    (tmp_path / "trace.jsonl").symlink_to(secret)
+    assert sandbox._lire(tmp_path / "trace.jsonl") == []
+
+
+def test_c7_le_piege_passe_avant_le_traceur():
+    trace = [{"e": "connect", "v": f"10.0.0.{i}:80"} for i in range(150)]
+    r = _construire(trace=trace, reseau=[{"t": "tcp", "port": 443, "hote": "collecte.attaquant.example",
+                                           "debut": ""}])
+    assert r.connexions[0] == "collecte.attaquant.example:443"
