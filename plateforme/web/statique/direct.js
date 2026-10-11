@@ -67,6 +67,10 @@
     var cmd = [["t-invite", "serveur:~$"], " " + s.commande];
     if (s.demandee_a) cmd.push(" ", ["t-heure", s.demandee_a]);
     f.appendChild(ligne("t-cmd", cmd));
+    if (s.non_pris) {
+      f.appendChild(ligne("t-note", ["# " + s.non_pris]));
+      return f;
+    }
     f.appendChild(ligne("t-note", ["# index : " + s.index + " : seule source de paquets, pas de repli vers pypi.org"]));
     if (s.erreur) f.appendChild(ligne("t-erreur", ["✗ " + s.erreur]));
     s.lignes.forEach(function (x) {

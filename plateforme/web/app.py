@@ -527,7 +527,10 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     def demander_au_serveur(compte: Compte, eco: Ecosysteme, nom: str, n: int) -> None:
         """Le serveur de démo installe ce qu'on vient de demander : il recevra la dernière version
         vérifiée. On note où en est le journal d'accès, pour ne montrer que la suite. Un refus ou
-        une panne se dit au journal et sur la page ; la demande, elle, est faite."""
+        une panne se dit au journal et sur la page ; la demande, elle, est faite. L'agent n'installe
+        que par pip : une demande npm ne lui est pas envoyée (le panneau le dit)."""
+        if eco is not Ecosysteme.PYPI:
+            return
         try:
             depuis = lire_acces(10 ** 9)["total"]
             rang = installer(eco, nom, n)

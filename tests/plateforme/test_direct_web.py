@@ -261,3 +261,18 @@ def test_avant_toute_requete_du_serveur_on_attend(base):
     p = FaussePasserelle()
     c = client(base, installer=p.installer, lire_acces=p.lire)
     assert not c.get(f"/direct/instantane?demande={demander(c)}").json()["serveur"]["aucune_servie"]
+
+
+def test_une_demande_npm_ne_part_pas_a_l_agent_pip_et_le_panneau_le_dit(base):
+    """L'agent du serveur de démo n'installe que par pip : une demande npm ne lui est pas envoyée
+    (pas d'« installation_echouee »), et le panneau dit pourquoi au lieu d'une erreur."""
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    r = c.post("/demander", data={"ecosysteme": "npm", "nom": "ms"}, follow_redirects=False)
+    n = int(r.headers["location"].split("=")[1])
+    assert p.demandes == []
+    assert "installation_echouee" not in [e.action for e in base.journal()]
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["commande"] == "npm install ms" and "Verdaccio" in s["non_pris"]
+    t = c.get(f"/direct?demande={n}").text
+    assert "Verdaccio" in t and "M0" not in t

@@ -206,6 +206,9 @@ def _pep(v: str):
         return None
 
 
+NOTE_NPM = ("npm : l'agent du serveur de démo n'installe que par pip. La version publiée reste servie par Verdaccio, sur la passerelle, à qui la demande (npm install).")
+
+
 def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
             suivante: EntreeJournal | None, lire_acces, maintenant: datetime,
             delai: timedelta | None, libelle: Callable[[Etat], str],
@@ -221,6 +224,10 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
     sortie = {"configure": True, "index": index, "commande": f"pip install {d.nom}",
               "demandee_a": None, "erreur": None, "lignes": [], "installee": None, "amont": None,
               "aucune_servie": False}
+    if d.ecosysteme is not Ecosysteme.PYPI:
+        sortie["commande"] = f"npm install {d.nom}"
+        sortie["non_pris"] = NOTE_NPM
+        return sortie
     if installation is None:
         return sortie
     sortie["demandee_a"] = installation.a.astimezone().strftime("%H:%M:%S")
