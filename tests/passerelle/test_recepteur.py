@@ -326,3 +326,14 @@ def test_npm_sante_et_inventaire_melent_pip_et_npm_dans_l_ordre_du_contrat(tmp_p
     assert [(e["ecosysteme"], e["nom"], e["version"], e["telechargements"]) for e in inv] == [
         ("npm", "@org/outil", "1.0.0", 1), ("pypi", "requests", "2.32.4", 0)]
     assert inv[0]["machines"] == ["10.42.2.20"]
+
+
+def test_npm_un_fichier_de_jeton_vide_vaut_pas_de_verdaccio(tmp_path, monkeypatch):
+    """Constaté en essai : un jeton vide donnait « Bearer  » et une erreur 502 à la publication."""
+    from passerelle import recepteur
+    jeton = tmp_path / "verdaccio.jeton"
+    jeton.write_text("  \n")
+    monkeypatch.setenv("SAS_VERDACCIO_JETON", str(jeton))
+    assert recepteur._verdaccio_depuis_env() is None
+    jeton.write_text("abc\n")
+    assert recepteur._verdaccio_depuis_env() is not None

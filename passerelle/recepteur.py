@@ -189,12 +189,12 @@ def _ecosysteme(manifeste: str) -> str:
 
 
 def _verdaccio_depuis_env():
-    jeton = Path(os.environ.get("SAS_VERDACCIO_JETON", "/var/lib/sas-recepteur/verdaccio.jeton"))
-    if not jeton.is_file():
+    chemin = Path(os.environ.get("SAS_VERDACCIO_JETON", "/var/lib/sas-recepteur/verdaccio.jeton"))
+    jeton = chemin.read_text().strip() if chemin.is_file() else ""
+    if not jeton:                       # absent ou vide : pas de npm (503), jamais « Bearer  »
         return None
     from passerelle.verdaccio import Verdaccio
-    return Verdaccio(os.environ.get("SAS_VERDACCIO_URL", "http://127.0.0.1:4873"),
-                     jeton.read_text().strip())
+    return Verdaccio(os.environ.get("SAS_VERDACCIO_URL", "http://127.0.0.1:4873"), jeton)
 
 
 def _depuis_env() -> FastAPI:

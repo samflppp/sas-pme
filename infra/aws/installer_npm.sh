@@ -49,6 +49,8 @@ chmod 644 /etc/verdaccio/config.yaml
 install -m 644 /tmp/verdaccio.service /etc/systemd/system/verdaccio.service
 systemctl daemon-reload && systemctl enable --now verdaccio && systemctl restart verdaccio
 for i in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:4873/-/ping && break; sleep 1; done
+# Le jeton n'est tiré qu'une fois. S'il était perdu alors que le compte existe, Verdaccio refuse une
+# nouvelle inscription : supprimer /var/lib/verdaccio/htpasswd, puis relancer ce script.
 if [[ ! -s /var/lib/sas-recepteur/verdaccio.jeton ]]; then
   MDP=$(head -c 32 /dev/urandom | base64 | tr -d '/+=')
   REPONSE=$(curl -fsS -X PUT -H 'content-type: application/json' \
