@@ -22,7 +22,7 @@
 {% else %}
 <p class="t-cmd"><span class="t-invite">serveur:~$</span> {{ s.commande }}{% if s.demandee_a %} <span class="t-heure">{{ s.demandee_a }}</span>{% endif %}</p>
 <p class="t-note"># {{ "registre" if s.manuel else "index" }} : {{ s.index }} : seule source de paquets, pas de repli vers {{ s.repli }}</p>
-{% if s.manuel %}<p class="t-note"># à taper sur le serveur : l'agent de la démo n'installe que les paquets pip</p>{% endif %}
+{% if s.manuel %}<p class="t-note"># à lancer sur le serveur : l'installation automatique couvre les paquets pip</p>{% endif %}
 {% if s.erreur %}<p class="t-erreur">✗ {{ s.erreur }}</p>{% endif %}
 {% for x in s.lignes %}<p class="t-ligne"><span class="t-heure">{{ x.a }}</span> <span class="t-ip">{{ x.ip }}</span> {{ x.texte }}</p>{% endfor %}
 {% if s.installee %}<p class="t-ok">✓ {{ nom }} {{ s.installee }} installée : la dernière version vérifiée et signée</p>

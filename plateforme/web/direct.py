@@ -260,7 +260,7 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
         return {"configure": False}
     verdict = _verdict_console(base, d)
     if d.ecosysteme is Ecosysteme.NPM:
-        # L'agent du serveur de démo n'installe que pip : la commande npm se tape à la main, vers
+        # L'agent d'installation du serveur ne lance que pip : la commande npm se tape à la main, vers
         # le registre de la passerelle (Verdaccio sans source amont). Rien n'est lu ni inventé.
         return {"configure": True, "index": registre, "repli": "registry.npmjs.org",
                 "commande": f"npm install {d.nom}", "manuel": True, "demandee_a": None,

@@ -83,7 +83,7 @@ def _stub_autorise() -> None:
 
 def _verifier_pypi(ecosysteme) -> None:
     if str(ecosysteme) != "pypi":
-        raise NotImplementedError("M0 : pip seulement")
+        raise NotImplementedError(f"écosystème non pris en charge par ce chemin : {ecosysteme}")
 
 
 def _verifier_ecosysteme(ecosysteme) -> None:
