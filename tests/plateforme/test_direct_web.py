@@ -232,3 +232,32 @@ def test_sans_passerelle_le_panneau_serveur_le_dit(base):
     c = client(base)
     s = c.get(f"/direct/instantane?demande={demander(c)}").json()["serveur"]
     assert s == {"configure": False}
+
+
+def test_sans_version_servie_le_panneau_dit_que_pip_n_installe_rien(base):
+    """Le serveur a demandé l'index, mais aucune version du paquet n'est publiée : on ne laisse
+    pas croire qu'une installation va venir."""
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    n = demander(c)
+    p.requete("/simple/requests/")
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["aucune_servie"] and s["installee"] is None
+    assert "aucune version de requests" in c.get(f"/direct?demande={n}").text.lower()
+
+
+def test_une_version_publiee_n_est_pas_dite_absente(base):
+    base.enregistrer_version(Version(ecosysteme=PY, nom="requests", version="2.32.3",
+                                     publiee_le=T0 - timedelta(days=9), detectee_le=T0,
+                                     etat=Etat.PUBLIEE))
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    n = demander(c)
+    p.requete("/simple/requests/")                   # l'archive arrive juste après
+    assert not c.get(f"/direct/instantane?demande={n}").json()["serveur"]["aucune_servie"]
+
+
+def test_avant_toute_requete_du_serveur_on_attend(base):
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    assert not c.get(f"/direct/instantane?demande={demander(c)}").json()["serveur"]["aucune_servie"]
