@@ -1,127 +1,62 @@
 # Pipelad — Defense sheet
 
-Track 3, Open Track · AI × Cybersecurity, defensive side · 11 October 2026.
-Every claim below points to its proof: a demo step, a file in this repository, a measurement or a
-public source. What is not proven is said so (§ 6). The French version, with more detail, is
-`docs/defense.md`.
+Track 3 · AI × Cybersecurity, defensive · Pipelad: an airlock between the internet and an SME's servers.
 
-## 1. The project in two sentences
+## Threat scenario addressed
 
-Tech SMEs without a security team install hundreds of open-source packages on sensitive servers,
-and a single poisoned update is enough to compromise them. Pipelad cuts those servers off the
-internet and lets in only package versions that have waited three days, been analysed on site
-(code, sandbox, local AI) and been signed — developers still just type `pip install`.
+A tech SME (20–80 people, no CISO, no SOC) installs open-source packages from PyPI and npm on
+servers holding sensitive data. An attacker takes over a maintainer account or a publishing
+pipeline and releases a poisoned version (typosquat, emergency "fix", worm). The version steals
+credentials or cloud keys at install or import time, then exfiltrates them or downloads a second
+stage. Real cases: ultralytics (Dec 2024, the emergency fix was poisoned too), Shai-Hulud (Sep
+2025, 500+ npm packages stealing cloud keys), TanStack (May 2026, 84 validly signed versions).
 
-**Who we help:** the CTO of a 20–80 person tech company (healthtech, fintech) that sells to
-regulated clients, with no CISO and no SOC.
+**Defense:** servers have no route and no DNS to the internet. They install only from a gateway
+that accepts versions signed by our platform, which first holds each new version 3 days, runs it in
+a sandbox seeded with fake secrets, checks name, code and metadata, and has a local LLM explain. A
+deterministic policy decides; the AI never approves.
 
-## 2. How it works
+## NIST CSF 2.0 functions covered
 
-| Machine | Where | Role |
-|---|---|---|
-| **Platform** | on the client's premises; the only machine with internet access | watches new versions, holds them 3 days, runs them in a sandbox full of fake secrets, checks name, code and metadata, has a local LLM explain, lets a deterministic policy decide, then signs (Ed25519) |
-| **Gateway** | private network, no internet | accepts a version only if signed, untampered (sha256), recent and never seen (nonce), over mutual TLS; serves pip (pypiserver) and npm (Verdaccio) with no upstream fallback; hosts the API relay (closed list, no TLS decryption) |
-| **Servers** | private network, no route and no DNS to the internet | install only from the gateway; call only allowed APIs through the relay |
-
-Everything runs locally: LLM, RAG, sandbox, hash-chained log. Only package names and versions
-leave for the internet.
-
-## 3. What the demo proves
-
-| Claim | Proof |
+| Function | How |
 |---|---|
-| The server has no internet, yet installs packages | `curl https://pypi.org` fails; `pip install` works from the gateway (`infra/aws/verifier_h3.sh`) |
-| A healthy version passes after its delay | demo package 1.1: waits, analysed, approved, signed, published |
-| A poisoned version is blocked, with evidence | 1.2: static finding (`exfiltration`), sandbox (fake AWS keys read, attacker DNS), LLM explanation citing CWE / ATT&CK |
-| Doubt goes to a human | 1.3: one strong signal → "to review"; an admin decides with a written reason |
-| A forged publication is refused | `demo/forger.sh` → `401 invalid signature` |
-| Taking over the platform gives neither the servers nor internet | 8 checks on AWS, each with its counter-test (`infra/aws/verifier_compromission.sh`) |
-| The log cannot be rewritten silently | "Verify the chain": one altered entry breaks the chain at its number |
+| **Identify** | inventory of every version served and downloaded, per server |
+| **Protect** | network isolation of servers; signed publication (Ed25519) over mutual TLS; API relay with a closed allow-list |
+| **Detect** | advisory watch (OSV, researcher feeds); static analysis; behavioural sandbox; LLM explanation |
+| **Respond** | automatic block; human review for doubtful versions; one-click revocation from the gateway |
+| **Govern** | tamper-evident, hash-chained decision log (who, what, why) for audits and questionnaires |
 
-762 automated tests pass. Each new test was seen failing before the code was written, or the code
-was broken on purpose to check that a test catches it.
+## ATT&CK, ATLAS and OWASP coverage
 
-## 4. The numbers
+- **ATT&CK:** T1195.001 Compromise Software Dependencies (core); T1552.001 Credentials In Files and
+  T1552.005 Cloud Instance Metadata API (decoys, sandbox); T1071.004 DNS and T1041 Exfiltration
+  Over C2 Channel (no route out, sandbox DNS capture); T1105 Ingress Tool Transfer (no internet);
+  T1027 Obfuscated Files (static check); T1496 Resource Hijacking (ultralytics miner, held by delay).
+- **ATLAS:** AML.T0010 AI Supply Chain Compromise (ML libraries such as ultralytics); AML.T0051 LLM
+  Prompt Injection against our own analyst (package content passed as data, schema-validated output,
+  LLM cannot approve).
+- **OWASP:** Top 10:2025 A03 Software Supply Chain Failures, A08 Software or Data Integrity
+  Failures; LLM Top 10:2025 LLM01 Prompt Injection, LLM03 Supply Chain.
 
-Final measurement, 11 October 2026 (`mesure/resultats.md`): 128 real malicious versions (Datadog
-dataset) and 98 healthy ones (PyPI, 48 of them little-known). A version is stopped if any control
-raises a strong or blocking signal.
+## Metrics achieved
 
-| Controls | Malicious stopped | False alarms |
+| Metric | Result | Source |
 |---|---|---|
-| Name + code checks | 93 / 128 (73%) | 0 / 98 |
-| + sandbox | **103 / 128 (80%)** | **0 / 98** |
-| + LLM / RAG | 103 / 128 (80%) | 0 / 98 |
+| Detection rate | **80%** (103 / 128 real malicious versions, Datadog dataset) | `mesure/resultats.md` |
+| False positives | **0 / 98** healthy PyPI versions (48 little-known) | `mesure/resultats.md` |
+| Time to detect | **72 s** from end of delay to blocked verdict (AWS, CPU-only 7B LLM); delay itself 3 days by design | `demo/script.md`, rehearsal |
+| Time to respond | **0** for servers: a blocked version is never signed, so never served; revocation of a published one in one click, inventory lists who downloaded it | demo steps 3–4 |
+| Isolation | **8 / 8** checks pass on AWS with the platform taken over | `infra/aws/verifier_compromission.sh` |
 
-- **The sandbox pays:** +10 detections with no false alarm (attacker DNS, cloud metadata probing,
-  `/etc/passwd` read).
-- **The LLM adds no detection, by design.** The code decides; the AI alerts and explains in plain
-  language for a CTO without a security team. It can never approve, block, or lower another signal,
-  and its alert only counts when another control has found something.
-- **The context:** 454,600 new malicious open-source packages in 2025, +75% (Sonatype); a third
-  party is involved in 30% of breaches, twice the year before (Verizon DBIR 2025).
+Static checks alone reach 73%; the sandbox adds 10 detections with no false alarm; the LLM adds
+none, by design — it explains. 762 automated tests pass.
 
-## 5. Likely questions
+## Known limitations
 
-**"Artifactory, Nexus or Socket already do this."** They are built for large, tooled teams with a
-SOC behind them, at their price. We are local (AI included), the isolation is demonstrated (no
-route, not a proxy rule), and the verdict is explained to a non-analyst — for €300–800 a month.
-
-**"Package managers now have a cooldown for free."** Yes, and that proves the delay works. But a
-cooldown protects only the developer who enabled it. Pipelad enforces it for the whole company,
-adds analysis, isolation and a signed log, and nobody can bypass it from a server.
-
-**"What about an urgent security fix?"** An emergency fix can itself be poisoned: ultralytics
-8.3.42, published in December 2024 to fix a compromised release, carried the same malware. The
-analysis runs during the wait, and the server keeps its working version. Today the delay is set per
-company; a logged per-version override is next (§ 6).
-
-**"An AI reading code can be wrong or manipulated."** Hence the rule: the code decides. Package
-content is passed to the LLM as data between tags, its output is schema-validated, and it can only
-raise a signal, never open the door.
-
-**"What if the platform is compromised?"** A spoofed platform publishes nothing: it needs both the
-mutual-TLS certificate and the signing key. A platform really taken over could sign a poisoned
-version, but cannot reach the servers or give them internet (8 checks on AWS). Next step: the
-signing key moves to hardware (YubiKey / HSM) with a human gesture.
-
-**"Which regulation?"** We do not sell compliance; we provide the evidence our clients' clients
-ask for. NIS2 art. 21 (supply-chain security, reaching suppliers indirectly), DORA since January
-2025 (banks' ICT providers), CRA (exploited vulnerabilities reported from September 2026,
-components documented by December 2027).
-
-## 6. Limits, stated before you find them
-
-- No per-version emergency override yet: the delay applies to all versions.
-- The end of the log is not anchored: deleting the last entries is not detected.
-- A platform really taken over can sign; hardware key planned.
-- No SBOM export yet (CycloneDX / SPDX).
-- The sandbox installs without dependencies: payloads that fire on import of a package that cannot
-  import alone are missed (ultralytics). The delay and the advisory watch cover that case.
-- Measured on datasets, not in production. The LLM runs on CPU: 50–60 s per version, invisible
-  behind a 3-day delay.
-- Automatic installation on servers covers pip; for npm the command is run by hand.
-- No one-command installer or appliance yet: priority number one.
-
-## 7. What's next (6 months)
-
-- **First customers:** medical-AI startups selling to hospitals, B2B fintechs selling to banks,
-  then managed service providers as the channel (one contract, 20+ SMEs).
-- **Roadmap:** one-command appliance and logged emergency override; three design-partner pilots;
-  one-click evidence pack for security questionnaires and SBOM export; multi-client console for
-  MSPs and a guard for AI coding agents that install packages on their own.
-- **Business model:** €300–800 per month per company, flat, not per developer; on site or at a
-  European host.
-- **What we need:** pre-seed funding (Bpifrance), three design partners (ESSEC Alumni network),
-  cloud credits for pilots (AWS), a go-to-market co-founder.
-
-## 8. Sources
-
-- Sonatype, State of the Software Supply Chain, 2026 report.
-- Verizon, 2025 Data Breach Investigations Report.
-- IBM, Cost of a Data Breach Report 2025.
-- ReversingLabs, Wiz: ultralytics compromise, December 2024.
-- CISA alert on Shai-Hulud, 23 September 2025.
-- EU: NIS2 Directive (2022/2555) art. 21; DORA Regulation (2022/2554); Cyber Resilience Act
-  (2024/2847).
-- Full list with links: `docs/defense.md` § 9 and `docs/business.md` § 13.
+- The sandbox installs without dependencies: payloads firing on import are missed (ultralytics); the
+  delay and advisory watch cover that case.
+- A dormant, well-hidden backdoor (xz style) can pass all three layers.
+- A platform really taken over can sign a poisoned version; hardware signing key planned.
+- The end of the log is not anchored: deleting the last entries goes undetected.
+- No per-version emergency override and no SBOM export yet.
+- Measured on datasets, not in production; LLM on CPU takes 50–60 s per version.
