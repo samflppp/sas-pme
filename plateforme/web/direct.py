@@ -31,6 +31,7 @@ ETAPES = [
 _ANALYSE = [cle for cle, _ in ETAPES[2:]]
 # Une étape jamais vue d'une version dans ces états ne viendra plus : elle a été sautée.
 _SANS_SUITE = {Etat.BLOQUEE, Etat.PUBLIEE, Etat.REVOQUEE, Etat.A_REVOIR}
+_ISSUE = {Etat.A_REVOIR: "revoir", Etat.BLOQUEE: "bloque"}   # couleur de la dernière étape franchie
 
 
 class Diffusion:
@@ -162,6 +163,11 @@ def suivi_version(base: Base, diffusion: Diffusion, v: Version, demande_: Demand
                 etat = "saute"                      # décidée sans cette étape (veille, humain)
         sortie.append({"cle": cle, "titre": titre, "etat": etat, "detail": detail,
                        "duree": temps, "texte": texte})
+    # La dernière étape franchie porte le verdict : orange si à revoir, rouge si bloquée.
+    if (issue := _ISSUE.get(v.etat)) is not None:
+        franchies = [e for e in sortie if e["etat"] in ("fait", "erreur")]
+        if franchies:
+            franchies[-1]["etat"] = issue
     return {"sujet": sujet, "nom": v.nom, "version": v.version, "etat": v.etat.value,
             "libelle": libelle(v.etat), "etapes": sortie,
             "lien": f"/catalogue/{v.ecosysteme.value}/{v.nom}/-/{v.version}"}
