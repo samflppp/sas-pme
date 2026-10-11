@@ -1,19 +1,23 @@
-"""Mesure (B) : détection et fausses alertes des contrôles sur le corpus demo/corpus/corpus.json.
+"""Mesure (B) : détection et fausses alertes, en trois lignes qui ajoutent chacune une couche du
+pipeline (contrôles seuls ; + sandbox ; + LLM/RAG), sur demo/corpus/corpus_code.json.
 
 Une version est « détectée » si au moins un signal est FORT ou BLOQUANT : la politique la met alors
 « à revoir » ou « bloquée », donc elle n'atteint pas les serveurs. Un signal MOYEN ne suffit pas.
 
-Ligne 1, nom seul, sur le corpus OpenSSF : seuls le nom et la version sont lus.
-Ligne 2, contrôles statiques (nom + code), sur demo/corpus/corpus_code.json : échantillons
-malveillants de Datadog **lus seulement** (jamais installés ni exécutés), et vraies archives des
-versions saines, comparées à leur version précédente comme dans le pipeline.
+- Ligne 1 : nom + code. Échantillons malveillants de Datadog **lus seulement** ; vraies archives
+  des versions saines, comparées à leur version précédente comme dans le pipeline.
+- Ligne 2 : + le rapport de la sandbox de C. Les échantillons n'y sont installés et importés que
+  dans la sandbox (`mesure/sandbox.py`) ; chaque rapport est gardé dans `<cache>/rapports`.
+- Ligne 3 : + le LLM avec le RAG (Ollama, sur la plateforme), là où il peut changer le résultat.
+- Annexe : le nom seul sur le corpus OpenSSF (demo/corpus/corpus.json).
 
-    python3 -I mesure/mesurer.py                                  # ligne 1 seulement
-    # ligne 2 : les échantillons choisis, dans un dossier à part (voir construire_code.py)
+    # les échantillons choisis, dans un dossier à part (voir demo/corpus/construire_code.py)
     python3 -I -c "import json; print('\\n'.join(e['echantillon'] for e in json.load(open(
         'demo/corpus/corpus_code.json'))['malveillants']))" \\
         | xargs git -C <dossier>/dd checkout HEAD --
-    python3 -I mesure/mesurer.py --echantillons <dossier>/dd --cache <dossier>/archives
+    python3 -I mesure/mesurer.py --echantillons <dossier>/dd --cache <dossier>/cache            # 1
+    python3 -I mesure/mesurer.py --echantillons <dossier>/dd --cache <dossier>/cache --sandbox  # 1-2
+    python3 -I mesure/mesurer.py --echantillons <dossier>/dd --cache <dossier>/cache --llm      # 1-3
 """
 import argparse
 import importlib.util
@@ -151,16 +155,33 @@ def tableau(colonnes: dict[str, Resultat]) -> str:
 
 LIMITES = """## Limites
 
-- **Ligne 1 :** 26 des 30 paquets du corpus OpenSSF n'existent plus sur PyPI ; seuls leur nom et
-  leur version sont lus. Les 50 saines sont des paquets populaires, donc dans la liste du contrôle
-  de typosquat : leurs 0 % de fausses alertes sont acquis par construction.
-- **Ligne 2, détection :** les échantillons de Datadog sont plus anciens (2022 à 2026) que le corpus
-  OpenSSF, et souvent des campagnes en série (mêmes auteurs, même code). Les bibliothèques
-  compromises sont analysées en entier, sans leur version saine précédente : le pipeline, lui, ne
-  regarderait que ce qui change.
-- **Ligne 2, fausses alertes :** les règles ont été réglées sur 20 paquets populaires sains, dont
-  plusieurs sont dans les 50 « populaires » : ce groupe est donc optimiste. Le groupe « peu
-  connus » n'a servi à aucun réglage : c'est le chiffre honnête.
+- **Détection :** les échantillons de Datadog (2022 à 2026) sont souvent des campagnes en série
+  (mêmes auteurs, même code). Les bibliothèques compromises sont analysées en entier, sans leur
+  version saine précédente : le pipeline, lui, ne regarderait que ce qui change.
+- **Fausses alertes :** les règles statiques ont été réglées sur 20 paquets populaires sains, dont
+  plusieurs sont dans les 50 « populaires » : ce groupe est optimiste. Le groupe « peu connus »
+  n'a servi à aucun réglage : c'est le chiffre honnête.
+- **Sandbox (ligne 2) :**
+  - même scénario que le produit : conteneur Linux sans réseau réel, leurres, `strace`,
+    **battement de 60 s** après l'import ;
+  - les échantillons de Datadog sont dépliés : ils sont remis en sdist (s'il y a un `setup.py` ou
+    un `pyproject.toml`) ou en roue, à partir de leurs fichiers, sans rien exécuter hors de la
+    sandbox (`mesure/sandbox.py`) ;
+  - comme le produit, la sandbox installe **sans les dépendances** (`--no-deps`) : une version qui
+    a besoin des siennes pour s'importer échoue à l'import, et la sandbox n'observe alors que son
+    installation. C'est le cas de **40 des 98 versions saines** et de **12 des 25 malveillantes
+    manquées** (dont ultralytics, dont la charge part à l'import). Le 0 % de fausses alertes vaut
+    pour ce que la sandbox a pu observer ;
+  - les paquets qui visent Windows (`ctypes.windll`, PowerShell) n'agissent pas dans un conteneur
+    Linux ; certains sont vus quand même, parce qu'ils lancent `powershell` ;
+  - mesurée hors de la plateforme AWS, avec une image construite du même Dockerfile, à un détail
+    près : `strace` copié de l'hôte, le miroir Debian étant bloqué. Les rapports sont gardés dans
+    `mesure/rapports_sandbox/`.
+- **LLM/RAG (ligne 3) :** le LLM n'est interrogé que là où il peut changer le résultat (voir la note
+  plus haut) ; il tourne sur la plateforme (Ollama, `qwen2.5-coder:7b`, index du RAG).
+- **Annexe, nom seul, corpus OpenSSF :** 26 des 30 paquets n'existent plus sur PyPI ; seuls leur nom
+  et leur version sont lus. Les 50 saines sont des paquets populaires, donc dans la liste du
+  contrôle de typosquat : leurs 0 % de fausses alertes sont acquis par construction.
 - Une version arrêtée n'est pas jetée : un signal FORT la met « à revoir » (un humain tranche),
   seul un signal BLOQUANT la bloque. Une fausse alerte coûte donc une revue, pas une panne.
 - Ne sont pas comptés : les métadonnées (signaux MOYEN au plus, sans effet sur l'arrêt), la veille
