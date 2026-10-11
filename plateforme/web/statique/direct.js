@@ -67,14 +67,16 @@
     var cmd = [["t-invite", "serveur:~$"], " " + s.commande];
     if (s.demandee_a) cmd.push(" ", ["t-heure", s.demandee_a]);
     f.appendChild(ligne("t-cmd", cmd));
-    f.appendChild(ligne("t-note", ["# index : " + s.index + " : seule source de paquets, pas de repli vers pypi.org"]));
+    f.appendChild(ligne("t-note", ["# " + (s.manuel ? "registre" : "index") + " : " + s.index +
+      " : seule source de paquets, pas de repli vers " + s.repli]));
+    if (s.manuel) f.appendChild(ligne("t-note", ["# à taper sur le serveur : l'agent de la démo n'installe que les paquets pip"]));
     if (s.erreur) f.appendChild(ligne("t-erreur", ["✗ " + s.erreur]));
     s.lignes.forEach(function (x) {
       f.appendChild(ligne("t-ligne", [["t-heure", x.a], " ", ["t-ip", x.ip], " " + x.texte]));
     });
     if (s.installee) f.appendChild(ligne("t-ok", ["✓ " + nom + " " + s.installee + " installée : la dernière version vérifiée et signée"]));
     else if (s.aucune_servie) f.appendChild(ligne("t-erreur", ["✗ " + "aucune version de " + nom + " n'est servie par la passerelle : pip n'installe rien"]));
-    else if (!s.erreur) f.appendChild(ligne("t-attente", ["en attente des requêtes du serveur…"]));
+    else if (!s.erreur && !s.manuel) f.appendChild(ligne("t-attente", ["en attente des requêtes du serveur…"]));
     if (s.amont) {
       f.appendChild(ligne("t-amont", ["↳ " + s.amont.version + " sur PyPI : " + s.amont.libelle +
         (s.amont.detail ? ", " + s.amont.detail : "") + ". Pas servie aux serveurs."]));

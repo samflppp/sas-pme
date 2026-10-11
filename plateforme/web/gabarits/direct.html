@@ -21,12 +21,13 @@
 <p class="t-note">Passerelle non configurée : aucun serveur n'est relié à cette plateforme.</p>
 {% else %}
 <p class="t-cmd"><span class="t-invite">serveur:~$</span> {{ s.commande }}{% if s.demandee_a %} <span class="t-heure">{{ s.demandee_a }}</span>{% endif %}</p>
-<p class="t-note"># index : {{ s.index }} : seule source de paquets, pas de repli vers pypi.org</p>
+<p class="t-note"># {{ "registre" if s.manuel else "index" }} : {{ s.index }} : seule source de paquets, pas de repli vers {{ s.repli }}</p>
+{% if s.manuel %}<p class="t-note"># à taper sur le serveur : l'agent de la démo n'installe que les paquets pip</p>{% endif %}
 {% if s.erreur %}<p class="t-erreur">✗ {{ s.erreur }}</p>{% endif %}
 {% for x in s.lignes %}<p class="t-ligne"><span class="t-heure">{{ x.a }}</span> <span class="t-ip">{{ x.ip }}</span> {{ x.texte }}</p>{% endfor %}
 {% if s.installee %}<p class="t-ok">✓ {{ nom }} {{ s.installee }} installée : la dernière version vérifiée et signée</p>
 {% elif s.aucune_servie %}<p class="t-erreur">✗ aucune version de {{ nom }} n'est servie par la passerelle : pip n'installe rien</p>
-{% elif not s.erreur %}<p class="t-attente">en attente des requêtes du serveur…</p>{% endif %}
+{% elif not s.erreur and not s.manuel %}<p class="t-attente">en attente des requêtes du serveur…</p>{% endif %}
 {% if s.amont %}<p class="t-amont">↳ {{ s.amont.version }} sur PyPI : {{ s.amont.libelle }}{% if s.amont.detail %}, {{ s.amont.detail }}{% endif %}. Pas servie aux serveurs.</p>{% endif %}
 {% endif %}
 {%- endmacro %}

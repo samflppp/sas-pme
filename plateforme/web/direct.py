@@ -21,7 +21,7 @@ from plateforme.db.acces import Base, EntreeJournal
 ETAPES = [
     ("demande", "Demande reçue"),
     ("attente", "Délai de 3 jours après la publication"),
-    ("telechargement", "Téléchargement depuis PyPI"),
+    ("telechargement", "Téléchargement depuis le registre public (PyPI ou npm)"),
     ("sandbox", "Sandbox : installation sans réseau réel, avec leurres"),
     ("statique", "Contrôles du nom, du code et des métadonnées"),
     ("ia", "IA locale : lecture et explication"),
@@ -209,7 +209,7 @@ def _pep(v: str):
 def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
             suivante: EntreeJournal | None, lire_acces, maintenant: datetime,
             delai: timedelta | None, libelle: Callable[[Etat], str],
-            duree: Callable[[timedelta], str], index: str) -> dict:
+            duree: Callable[[timedelta], str], index: str, registre: str = "") -> dict:
     """Heures à l'heure locale de la plateforme, comme le journal de pypiserver (asctime) sur la
     passerelle : les deux machines sont réglées pareil (UTC sur AWS).
     Ce que le serveur a demandé à la passerelle depuis l'envoi de cette demande (lignes du
@@ -218,7 +218,15 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
     journal n'est pas montrée."""
     if lire_acces is None:
         return {"configure": False}
-    sortie = {"configure": True, "index": index, "commande": f"pip install {d.nom}",
+    if d.ecosysteme is Ecosysteme.NPM:
+        # L'agent du serveur de démo n'installe que pip : la commande npm se tape à la main, vers
+        # le registre de la passerelle (Verdaccio sans source amont). Rien n'est lu ni inventé.
+        return {"configure": True, "index": registre, "repli": "registry.npmjs.org",
+                "commande": f"npm install {d.nom}", "manuel": True, "demandee_a": None,
+                "erreur": None, "lignes": [], "installee": None, "amont": None,
+                "aucune_servie": False}
+    sortie = {"configure": True, "index": index, "repli": "pypi.org", "manuel": False,
+              "commande": f"pip install {d.nom}",
               "demandee_a": None, "erreur": None, "lignes": [], "installee": None, "amont": None,
               "aucune_servie": False}
     if installation is None:

@@ -234,6 +234,24 @@ def test_sans_passerelle_le_panneau_serveur_le_dit(base):
     assert s == {"configure": False}
 
 
+def test_une_demande_npm_ne_lance_pas_pip_sur_le_serveur(base):
+    """L'agent de démo ne sait installer que pip : une demande npm n'est pas envoyée au serveur, et le
+    panneau montre la commande npm à taper, vers le registre de la passerelle, sans fausse erreur."""
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire,
+               registre_serveur="http://10.42.2.10:4873/")
+    r = c.post("/demander", data={"ecosysteme": "npm", "nom": "ms"}, follow_redirects=False)
+    n = int(r.headers["location"].split("=")[1])
+    assert p.demandes == []
+    assert "installation_echouee" not in [e.action for e in base.journal()]
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["commande"] == "npm install ms" and s["erreur"] is None
+    assert s["index"] == "http://10.42.2.10:4873/" and s["repli"] == "registry.npmjs.org"
+    assert s["manuel"] and s["lignes"] == [] and s["amont"] is None
+    page = c.get(f"/direct?demande={n}").text
+    assert "npm install ms" in page and "pip install" not in page
+
+
 def test_sans_version_servie_le_panneau_dit_que_pip_n_installe_rien(base):
     """Le serveur a demandé l'index, mais aucune version du paquet n'est publiée : on ne laisse
     pas croire qu'une installation va venir."""

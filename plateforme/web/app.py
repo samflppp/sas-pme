@@ -269,7 +269,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
               archives: Path | None = None, images: Path | None = None,
               diffusion: dr.Diffusion | None = None, duree_flux: float = 600,
               installer: Installer | None = None, lire_acces: LireAcces | None = None,
-              index_serveur: str | None = None) -> FastAPI:
+              index_serveur: str | None = None, registre_serveur: str | None = None) -> FastAPI:
     """`installer` et `lire_acces` (panneau « Serveur » de la page Direct) : par défaut, ceux de la
     signature (C) si la passerelle est configurée (SAS_PASSERELLE_URL), sinon aucun."""
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
@@ -318,6 +318,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         installer, lire_acces = _installer_par_defaut, _lire_acces_par_defaut
     index_serveur = index_serveur or os.environ.get("SAS_INDEX_SERVEUR",
                                                     "http://10.42.2.10:8080/simple/")
+    registre_serveur = registre_serveur or os.environ.get("SAS_REGISTRE_SERVEUR",
+                                                          "http://10.42.2.10:4873/")
     lectures: dict[int, tuple[float, dict]] = {}
 
     def lire_acces_court(apres: int) -> dict:
@@ -520,7 +522,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         base.journaliser(compte.identifiant, "demande_resolue", f"{eco.value}:{nom}",
                          {"versions": sujets})
         n = dernier_seq()
-        if installer is not None:
+        if installer is not None and eco is Ecosysteme.PYPI:   # l'agent du serveur : pip seulement
             demander_au_serveur(compte, eco, nom, n)
         return RedirectResponse(f"/direct?demande={n}", status_code=303)
 
@@ -575,7 +577,7 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
                  and e.action == "installation_demandee"]
         i["serveur"] = dr.serveur(base, d, celle, apres[-1] if apres else None,
                                   lire_acces_court if lire_acces else None, maintenant, delai_,
-                                  libelle, duree_lisible, index_serveur)
+                                  libelle, duree_lisible, index_serveur, registre_serveur)
         return i
 
     @app.get("/direct", response_class=HTMLResponse)
