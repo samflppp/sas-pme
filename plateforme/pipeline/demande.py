@@ -8,7 +8,7 @@ from packaging.utils import canonicalize_name
 
 from commun.modeles import Ecosysteme, Etat, Version
 from plateforme.db.acces import Base
-from plateforme.pipeline import pypi
+from plateforme.pipeline import npm, pypi, semver
 
 MAX_PAQUETS = 100  # un paquet et toutes ses dépendances ; au-delà, on refuse plutôt que d'inonder
 
@@ -34,6 +34,35 @@ def _resoudre(client: httpx.Client, nom: str, specifier: SpecifierSet | None,
         _resoudre(client, dep.name, dep.specifier or None, maintenant, delai, choisies)
 
 
+def _resoudre_npm(client: httpx.Client, nom: str, plage: str | None, maintenant: datetime,
+                  delai: timedelta, choisies: dict[str, Version]) -> Version:
+    """Pendant npm de `_resoudre` : la version mûre dans sa plage semver, puis ses dépendances.
+
+    Comme npm, deux paquets peuvent demander deux versions incompatibles d'une même dépendance :
+    une version déjà choisie est reprise si elle entre dans la plage, sinon une autre est ajoutée.
+    `choisies` est indexé par « nom@version ».
+    """
+    nom = npm.valider(nom)
+    p = semver.Plage(plage) if plage else None
+    for v in choisies.values():
+        if v.nom == nom and (p is None or p.contient(v.version)):
+            return v
+    if len(choisies) >= MAX_PAQUETS:
+        raise ValueError(f"plus de {MAX_PAQUETS} paquets avec les dépendances : demande refusée")
+    choix = npm.derniere_version_mure(nom, maintenant, delai=delai, plage=plage, client=client)
+    if choix is None:
+        contrainte = f" {plage}" if plage else ""
+        raise LookupError(f"{nom}{contrainte} : aucune version publiée depuis plus de "
+                          f"{pypi.texte_delai(delai)}")
+    version, publiee_le = choix
+    v = Version(ecosysteme=Ecosysteme.NPM, nom=nom, version=version, publiee_le=publiee_le,
+                detectee_le=maintenant, etat=Etat.EN_ATTENTE)
+    choisies[f"{nom}@{version}"] = v
+    for dep, sa_plage in npm.dependances(nom, version, client=client).items():
+        _resoudre_npm(client, dep, sa_plage, maintenant, delai, choisies)
+    return v
+
+
 def demander(ecosysteme: Ecosysteme | str, nom: str, *, maintenant: datetime | None = None,
              base: Base | None = None) -> Version:
     """Enregistre en attente la dernière version mûre de `nom` et de chacune de ses dépendances.
@@ -43,15 +72,18 @@ def demander(ecosysteme: Ecosysteme | str, nom: str, *, maintenant: datetime | N
     rien n'est enregistré. Le web appelle `demander(eco, nom)` sans base : on prend alors SAS_DB.
 
     Lève LookupError (paquet ou dépendance introuvable, ou trop récent), ValueError (nom invalide,
-    trop de dépendances), NotImplementedError (npm, extension du MVP).
+    trop de dépendances ou plage hors semver).
     """
-    if Ecosysteme(ecosysteme) is not Ecosysteme.PYPI:
-        raise NotImplementedError("npm est une extension du MVP")
+    eco = Ecosysteme(ecosysteme)
     maintenant = maintenant or datetime.now(timezone.utc)
     choisies: dict[str, Version] = {}
     with httpx.Client(timeout=30, follow_redirects=True) as client:
-        _resoudre(client, nom, None, maintenant, pypi.delai(), choisies)
+        if eco is Ecosysteme.NPM:
+            demandee = _resoudre_npm(client, nom, None, maintenant, pypi.delai(), choisies)
+        else:
+            _resoudre(client, nom, None, maintenant, pypi.delai(), choisies)
+            demandee = choisies[canonicalize_name(nom)]
     base = base or Base(os.environ.get("SAS_DB", "sas.db"))
     for v in choisies.values():
         base.enregistrer_version(v)
-    return choisies[canonicalize_name(nom)]
+    return demandee

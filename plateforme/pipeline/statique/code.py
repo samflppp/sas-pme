@@ -180,10 +180,17 @@ def _analyser(archives: list[Path]) -> list[tuple[str, Niveau, str, int, str, di
 
 def controler_code(eco: Ecosysteme, nom: str, version: str, archives: list[Path], *,
                    precedentes: list[Path] | None = None) -> list[Signal]:
-    """Signaux STATIQUE sur le code ; avec `precedentes`, seulement ce qui est nouveau."""
-    deja = {(t[0], t[2], t[4]) for t in _analyser(precedentes)} if precedentes else set()
+    """Signaux STATIQUE sur le code ; avec `precedentes`, seulement ce qui est nouveau.
+
+    Pour npm, les règles sont celles de `code_npm.py` (scripts de package.json, JavaScript)."""
+    if eco is Ecosysteme.NPM:
+        from plateforme.pipeline.statique import code_npm
+        analyser = code_npm.analyser
+    else:
+        analyser = _analyser
+    deja = {(t[0], t[2], t[4]) for t in analyser(precedentes)} if precedentes else set()
     signaux = []
-    for sorte, niveau, fichier, ligne, extrait, plus in _analyser(archives):
+    for sorte, niveau, fichier, ligne, extrait, plus in analyser(archives):
         if (sorte, fichier, extrait) in deja:
             continue
         preuve = {"fichier": fichier, "ligne": ligne, "extrait": extrait,
