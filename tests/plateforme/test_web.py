@@ -108,7 +108,7 @@ def test_une_erreur_du_pipeline_s_affiche_au_lieu_d_une_erreur_500(base, erreur,
     r = client.post("/demander", data={"ecosysteme": "pypi", "nom": "requests"})
     assert r.status_code == code
     assert attendu in r.text
-    assert "Demander un paquet" in r.text  # on reste sur le formulaire
+    assert 'action="/demander"' in r.text and 'name="nom"' in r.text  # on reste sur le formulaire
 
 
 def test_le_vrai_pipeline_recoit_la_base_du_web(base, monkeypatch):
