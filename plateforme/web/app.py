@@ -23,6 +23,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from packaging.utils import canonicalize_name, canonicalize_version
 from starlette.concurrency import run_in_threadpool
@@ -51,6 +52,20 @@ _IDENTIFIANT_VALIDE = re.compile(r"^[a-z][a-z0-9._-]{1,31}$")
 _NOM_VALIDE = re.compile(r"^(@[a-z0-9][a-z0-9._-]*/)?[A-Za-z0-9][A-Za-z0-9._-]{0,213}$")
 
 _gabarits = Jinja2Templates(directory=str(Path(__file__).with_name("gabarits")))
+LIBELLES = {Etat.NOUVELLE: "nouvelle", Etat.EN_ATTENTE: "en attente", Etat.EN_ANALYSE: "en analyse",
+            Etat.A_REVOIR: "à revoir", Etat.APPROUVEE: "approuvée", Etat.BLOQUEE: "bloquée",
+            Etat.PUBLIEE: "publiée", Etat.REVOQUEE: "révoquée"}
+
+
+def libelle(etat: object) -> str:
+    """« en attente » pour `en_attente` ; une valeur inconnue (journal ancien) reste telle quelle."""
+    try:
+        return LIBELLES[Etat(etat)]
+    except ValueError:
+        return str(etat)
+
+
+_gabarits.env.filters["libelle"] = libelle
 
 
 def _demander_par_defaut(base: Base) -> Demander:
@@ -241,6 +256,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             tache.arreter()
 
     app = FastAPI(title="sas-pme — plateforme agréée", lifespan=cycle)
+    # Styles, polices et scripts de l'interface : servis ici, sans aucune ressource extérieure.
+    app.mount("/statique", StaticFiles(directory=Path(__file__).with_name("statique")), name="statique")
     app.add_middleware(SessionMiddleware, secret_key=secret, same_site="strict",
                        https_only=False, max_age=8 * 3600)
 

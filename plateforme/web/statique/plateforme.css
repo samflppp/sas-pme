@@ -1,0 +1,155 @@
+/* Plateforme Pipelad : même langage que pipelad.tech (rapport de données à la Power BI).
+   Canevas gris, tuiles blanches à filet d'un pixel, un seul accent (ambre), barre latérale sombre.
+   Aucune ressource extérieure : polices servies par la plateforme. */
+
+@font-face { font-family: "Selawik"; src: url("polices/selawik-350.woff2") format("woff2"); font-weight: 350; font-display: swap; }
+@font-face { font-family: "Selawik"; src: url("polices/selawik-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Selawik"; src: url("polices/selawik-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Selawik"; src: url("polices/selawik-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("polices/jetbrains-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("polices/jetbrains-mono-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+:root {
+  --canevas: #eceef1;
+  --tuile: #ffffff;
+  --encre: #1b1d20;
+  --doux: #555b63;          /* 6,9:1 sur blanc */
+  --filet: #d6d9de;
+  --filet-fort: #b9bec5;
+  --barre: #1b1d20;
+  --ambre: #b7791f;         /* aplats et grands chiffres seulement */
+  --ambre-texte: #855711;   /* petits textes en ambre : 6,1:1 sur blanc */
+  --ambre-pale: #f6ead6;
+  --vert: #1d6b45;   --vert-pale: #e3f1e9;
+  --bleu: #1f5fa8;   --bleu-pale: #e4edf8;
+  --orange: #8a4b08; --orange-pale: #fbecd9;
+  --rouge: #a8232b;  --rouge-pale: #fae3e4;
+  --gris: #5b6168;   --gris-pale: #eef0f2;
+  --terminal: #15171a;
+  --texte: "Selawik", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --laterale: 232px;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--canevas); color: var(--encre); font: 400 15px/1.5 var(--texte); }
+a { color: var(--encre); text-decoration-color: var(--ambre); text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; }
+code { font: 0.9em var(--mono); background: var(--canevas); padding: 1px 5px; }
+strong, b { font-weight: 600; }
+h1 { font-size: 24px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+h2 { font-size: 15px; font-weight: 600; margin: 28px 0 10px; }
+.evitement { position: absolute; left: 8px; top: -60px; z-index: 30; background: var(--encre); color: #fff; padding: 10px 14px; }
+.evitement:focus { top: 8px; }
+
+/* --- cadre : barre latérale + zone de travail ------------------------------------------------- */
+.cadre { display: grid; grid-template-columns: var(--laterale) minmax(0, 1fr); min-height: 100vh; }
+.laterale { background: var(--barre); color: #c3c8ce; display: flex; flex-direction: column; padding: 16px 0;
+            position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.marque { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; padding: 4px 20px 18px;
+          font-weight: 700; letter-spacing: 0.14em; font-size: 14px; }
+.marque svg { width: 20px; height: 20px; fill: #fff; flex: none; }
+.marque svg rect:last-child { fill: var(--ambre); }
+.marque small { display: block; font-weight: 400; letter-spacing: 0; color: #9aa1a9; font-size: 12px; }
+.laterale h3 { font: 400 11px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: #8a9099;
+               margin: 18px 20px 6px; }
+.laterale ul { list-style: none; margin: 0; padding: 0; }
+.laterale a { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 20px; color: #d4d8dd;
+              text-decoration: none; border-left: 3px solid transparent; font-size: 14px; }
+.laterale a:hover { background: #26292d; color: #fff; }
+.laterale a[aria-current="page"] { background: #2a2d31; color: #fff; border-left-color: var(--ambre); font-weight: 600; }
+.laterale a:focus-visible { outline-color: #fff; outline-offset: -3px; }
+.laterale svg.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.laterale .pied-lateral { margin-top: auto; padding: 14px 20px 0; border-top: 1px solid #2f3337; font-size: 13px; }
+.pied-lateral a { padding: 0; min-height: 32px; border: 0; }
+.pied-lateral .role { font: 400 11px var(--mono); color: #8a9099; text-transform: uppercase; letter-spacing: 0.06em; }
+.pied-lateral button.lien { color: #c3c8ce; padding: 6px 0; text-decoration: underline; text-decoration-color: #5f656d; }
+
+.travail { min-width: 0; display: flex; flex-direction: column; }
+.entete { display: flex; align-items: center; gap: 16px; padding: 18px 28px; background: var(--tuile);
+          border-bottom: 1px solid var(--filet); }
+.entete .fil { font: 400 12px var(--mono); color: var(--doux); }
+.entete .droite { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+main { padding: 24px 28px 48px; max-width: 1400px; width: 100%; }
+main > h1:first-child { margin-bottom: 18px; }
+
+/* --- tuiles ----------------------------------------------------------------------------------- */
+.tuile { background: var(--tuile); border: 1px solid var(--filet); padding: 18px 20px; margin: 0 0 16px; min-width: 0; }
+.tuile > h2:first-child, .tuile > h3:first-child { margin-top: 0; }
+.tuile h3 { font-size: 13px; font-weight: 600; margin: 0 0 12px; }
+.grille { display: grid; gap: 16px; }
+
+/* --- tableaux --------------------------------------------------------------------------------- */
+table { width: 100%; border-collapse: collapse; background: var(--tuile); border: 1px solid var(--filet); font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--filet); vertical-align: top; }
+thead th { font-weight: 600; font-size: 12px; color: var(--doux); background: #f7f8f9; border-bottom: 1px solid var(--filet-fort); }
+tbody tr:hover td { background: #f8f9fa; }
+tr.cassee td, tr.alerte td { background: var(--rouge-pale); }
+
+/* --- états : pastille à point de couleur, libellé lisible sans la couleur -------------------- */
+.etat { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 7px; font-size: 12px; font-weight: 600;
+        border: 1px solid currentColor; border-radius: 2px; white-space: nowrap; line-height: 1.6; }
+.etat::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.etat-publiee, .etat-approuvee { color: var(--vert); background: var(--vert-pale); }
+.etat-en_attente, .etat-nouvelle, .etat-en_analyse { color: var(--bleu); background: var(--bleu-pale); }
+.etat-a_revoir { color: var(--orange); background: var(--orange-pale); }
+.etat-bloquee, .etat-revoquee { color: var(--rouge); background: var(--rouge-pale); }
+.niveau { font-weight: 600; }
+.niveau-bloquant { color: var(--rouge); } .niveau-fort { color: var(--orange); }
+.niveau-moyen { color: var(--encre); } .niveau-info { color: var(--gris); }
+
+/* --- compteurs (tuiles KPI) ------------------------------------------------------------------- */
+.compteurs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 0 0 20px; }
+.compteur { background: var(--tuile); border: 1px solid var(--filet); border-top: 3px solid var(--encre);
+            padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.compteur strong { font-size: 30px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* --- textes ----------------------------------------------------------------------------------- */
+.note { color: var(--doux); font-size: 13px; }
+.vide { color: var(--doux); padding: 18px 0; }
+.erreur { color: var(--rouge); }
+.raison { background: var(--tuile); border: 1px solid var(--filet); border-left: 4px solid var(--encre); padding: 10px 14px; margin: 12px 0; }
+.raison.ok { border-left-color: var(--vert); }
+.raison.ko { border-left-color: var(--rouge); color: var(--rouge); }
+
+/* --- formulaires et boutons (Fluent : 2 px d'arrondi, filet d'un pixel) ----------------------- */
+form.carte { max-width: 420px; display: flex; flex-direction: column; gap: 14px; background: var(--tuile);
+             border: 1px solid var(--filet); padding: 20px; }
+form.carte label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+form.ligne { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+input, select, textarea { font: inherit; font-weight: 400; min-height: 36px; padding: 6px 10px; border: 1px solid #8a9099;
+                          border-radius: 2px; background: #fff; color: var(--encre); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; border-color: var(--encre);
+                          box-shadow: 0 0 0 1px var(--encre); }
+button, .bouton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px;
+                  padding: 0 16px; border-radius: 2px; font: 600 14px var(--texte); cursor: pointer; text-decoration: none;
+                  color: #fff; background: var(--ambre-texte); border: 1px solid var(--ambre-texte);
+                  transition: background-color 120ms ease, border-color 120ms ease; }
+button:hover, .bouton:hover { background: #6e470d; border-color: #6e470d; }
+button:active, .bouton:active { background: #5a3a0a; }
+.bouton.second, button.second { color: var(--encre); background: #fff; border-color: #8a9099; }
+.bouton.second:hover, button.second:hover { background: #f3f4f6; border-color: #5f656d; }
+button.lien { background: none; border: 0; color: var(--doux); padding: 0; min-height: 0; font-weight: 400; }
+button:focus-visible, .bouton:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--encre); }
+
+/* --- page de connexion ------------------------------------------------------------------------ */
+.seul { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.seul main { max-width: 420px; padding: 0; }
+.seul .marque { color: var(--encre); padding: 0 0 18px; }
+.seul .marque svg { fill: var(--encre); }
+
+/* --- mobile : la barre latérale passe en haut, en bandeau défilant ---------------------------- */
+@media (max-width: 860px) {
+  .cadre { grid-template-columns: 1fr; }
+  .laterale { position: static; height: auto; flex-direction: row; align-items: center; padding: 0; overflow-x: auto; }
+  .laterale h3, .laterale .pied-lateral { display: none; }
+  .laterale ul { display: flex; }
+  .laterale a { white-space: nowrap; border-left: 0; border-bottom: 3px solid transparent; padding: 0 14px; min-height: 48px; }
+  .laterale a[aria-current="page"] { border-bottom-color: var(--ambre); }
+  .marque { padding: 0 14px; }
+  .marque small { display: none; }
+  .entete, main { padding-left: 16px; padding-right: 16px; }
+  table { display: block; overflow-x: auto; }
+}

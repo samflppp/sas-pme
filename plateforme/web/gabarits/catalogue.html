@@ -11,7 +11,7 @@
       <td>{{ v.ecosysteme.value }}</td>
       <td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a></td>
       <td>{{ v.version }}</td>
-      <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value }}</span></td>
+      <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value|libelle }}</span></td>
       <td>{{ v.publiee_le.strftime("%d/%m/%Y %H:%M") }}</td>
     </tr>
   {% endfor %}

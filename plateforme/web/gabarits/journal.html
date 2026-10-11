@@ -31,7 +31,7 @@ précédente : une entrée modifiée casse la chaîne.</p>
       <td>{{ e.acteur }}</td>
       <td>{{ e.action }}</td>
       <td>{% if fiches[e.seq] %}<a href="{{ fiches[e.seq] }}">{{ e.sujet }}</a>{% else %}{{ e.sujet }}{% endif %}</td>
-      <td>{% if e.charge.etat %}<span class="etat etat-{{ e.charge.etat }}">{{ e.charge.etat }}</span> {% endif %}
+      <td>{% if e.charge.etat %}<span class="etat etat-{{ e.charge.etat }}">{{ e.charge.etat|libelle }}</span> {% endif %}
           {% for k, val in e.charge.items() if k != "etat" %}<code>{{ k }}</code> {{ val }} {% endfor %}</td>
       <td><code title="{{ e.hash }}">{{ e.hash[:8] }}…</code></td>
     </tr>

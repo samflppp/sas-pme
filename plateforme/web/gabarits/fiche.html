@@ -2,7 +2,7 @@
 {% set v = fiche.version %}
 {% block titre %}{{ v.nom }} {{ v.version }}{% endblock %}
 {% block contenu %}
-<h1>{{ v.nom }} <small>{{ v.version }}</small> <span class="etat etat-{{ v.etat.value }}">{{ v.etat.value }}</span></h1>
+<h1>{{ v.nom }} <small>{{ v.version }}</small> <span class="etat etat-{{ v.etat.value }}">{{ v.etat.value|libelle }}</span></h1>
 <p>{{ v.ecosysteme.value }} · publiée sur Internet le {{ v.publiee_le.strftime("%d/%m/%Y %H:%M") }}
  · détectée le {{ v.detectee_le.strftime("%d/%m/%Y %H:%M") }}</p>
 
@@ -105,7 +105,7 @@ approuver ni bloquer seul.</p>
   <tbody>
   {% for e in historique %}
     <tr><td>{{ e.a.strftime("%d/%m/%Y %H:%M:%S") }}</td><td>{{ e.acteur }}</td><td>{{ e.action }}</td>
-        <td>{% if e.charge.etat %}<span class="etat etat-{{ e.charge.etat }}">{{ e.charge.etat }}</span> {% endif %}{{ e.charge.raison or "" }}</td></tr>
+        <td>{% if e.charge.etat %}<span class="etat etat-{{ e.charge.etat }}">{{ e.charge.etat|libelle }}</span> {% endif %}{{ e.charge.raison or "" }}</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -116,7 +116,7 @@ approuver ni bloquer seul.</p>
 <table>
   {% for a in autres %}
   <tr><td><a href="/versions/{{ a.ecosysteme.value }}/{{ a.nom }}/{{ a.version }}">{{ a.version }}</a></td>
-      <td><span class="etat etat-{{ a.etat.value }}">{{ a.etat.value }}</span></td>
+      <td><span class="etat etat-{{ a.etat.value }}">{{ a.etat.value|libelle }}</span></td>
       <td>publiée le {{ a.publiee_le.strftime("%d/%m/%Y") }}</td></tr>
   {% endfor %}
 </table>

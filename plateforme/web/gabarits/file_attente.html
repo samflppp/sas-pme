@@ -26,7 +26,7 @@
 <h2>En analyse</h2>
 <table>
   {% for v, raison in en_analyse %}
-  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-en_analyse">en_analyse</span></td><td>{{ raison }}</td></tr>
+  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-en_analyse">{{ "en_analyse"|libelle }}</span></td><td>{{ raison }}</td></tr>
   {% endfor %}
 </table>
 {% endif %}
@@ -35,7 +35,7 @@
 <h2>À revoir</h2>
 <table>
   {% for v, raison in a_revoir %}
-  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-a_revoir">a_revoir</span></td><td>{{ raison }}</td></tr>
+  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-a_revoir">{{ "a_revoir"|libelle }}</span></td><td>{{ raison }}</td></tr>
   {% endfor %}
 </table>
 {% endif %}
@@ -44,7 +44,7 @@
 <h2>Bloquées</h2>
 <table>
   {% for v, raison in bloquees %}
-  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-bloquee">bloquee</span></td><td>{{ raison }}</td></tr>
+  <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a> {{ v.version }}</td><td><span class="etat etat-bloquee">{{ "bloquee"|libelle }}</span></td><td>{{ raison }}</td></tr>
   {% endfor %}
 </table>
 {% endif %}
