@@ -13,6 +13,11 @@ Environment=SAS_NONCES=/var/lib/sas-recepteur/nonces.txt
 Environment=SAS_JOURNAL_ACCES=/var/lib/sas/pypiserver-acces.log
 Environment=SAS_REGISTRE=/var/lib/sas-recepteur/registre.txt
 Environment=SAS_INSTALLATIONS=/var/lib/sas-recepteur/installations.jsonl
+# npm (installer_npm.sh) : Verdaccio local, jeton de publication du seul récepteur, journal JSON.
+# Sans le fichier du jeton, une publication npm est refusée (503) et pip continue normalement.
+Environment=SAS_VERDACCIO_URL=http://127.0.0.1:4873
+Environment=SAS_VERDACCIO_JETON=/var/lib/sas-recepteur/verdaccio.jeton
+Environment=SAS_JOURNAL_NPM=/var/lib/sas/verdaccio.log
 # --ssl-cert-reqs 2 : certificat client exigé, signé par l'autorité du lien (la plateforme seule).
 ExecStart=/usr/bin/python3 -m uvicorn passerelle.recepteur:app --host 10.42.2.10 --port 8443 \
   --ssl-keyfile /etc/sas/passerelle.key --ssl-certfile /etc/sas/passerelle.pem \

@@ -1,0 +1,24 @@
+# Verdaccio de la passerelle (npm) : versions approuvées et signées seulement.
+# - Aucun uplink : un paquet absent répond 404, jamais un repli vers registry.npmjs.org.
+# - Seul le compte « recepteur » publie et dépublie (publications signées vérifiées par le récepteur).
+# - max_users vaut 1 le temps de créer ce compte (installer_npm.sh), puis -1 : plus d'inscription.
+# - Journal JSON lu par /v1/inventory (passerelle/inventaire_npm.py).
+storage: /var/lib/verdaccio/storage
+auth:
+  htpasswd:
+    file: /var/lib/verdaccio/htpasswd
+    max_users: -1
+uplinks: {}
+packages:
+  '@*/*':
+    access: $all
+    publish: recepteur
+    unpublish: recepteur
+  '**':
+    access: $all
+    publish: recepteur
+    unpublish: recepteur
+listen: 0.0.0.0:4873
+web:
+  enable: false
+log: {type: file, path: /var/lib/sas/verdaccio.log, format: json, level: http}

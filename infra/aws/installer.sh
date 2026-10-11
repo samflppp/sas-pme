@@ -20,7 +20,7 @@ printf '[Resolve]\nDNS=1.1.1.1 9.9.9.9\nDomains=~.\n' | sudo tee /etc/systemd/re
 sudo systemctl restart systemd-resolved
 rm -rf ~/wheels && mkdir -p ~/wheels
 pip3 download -q --only-binary=:all: -d ~/wheels pip pypiserver \
-  fastapi uvicorn python-multipart cryptography pydantic packaging
+  fastapi uvicorn python-multipart cryptography pydantic packaging httpx
 [[ -f ~/.ssh/sas_passerelle ]] || ssh-keygen -q -t ed25519 -N "" -C plateforme-publier -f ~/.ssh/sas_passerelle
 EOF
 PUB=$($SSH sas-plateforme cat .ssh/sas_passerelle.pub)
@@ -94,7 +94,7 @@ done
 tar xzf /tmp/sas-code.tar.gz -C /opt/recepteur/code
 PIP=$(ls /tmp/wheels/pip-*.whl)
 python3 "$PIP/pip" install -q --no-index --find-links /tmp/wheels --target /opt/recepteur/lib \
-  fastapi uvicorn python-multipart cryptography pydantic packaging
+  fastapi uvicorn python-multipart cryptography pydantic packaging httpx   # httpx : Verdaccio (npm)
 install -m 644 /tmp/ca.pem /tmp/passerelle.pem /tmp/plateforme_signature.pub /etc/sas/
 install -m 640 -g recepteur /tmp/passerelle.key /etc/sas/
 rm -f /tmp/passerelle.key
