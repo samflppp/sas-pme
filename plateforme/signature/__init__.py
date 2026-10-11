@@ -62,6 +62,7 @@ def _envoyer(chemin: str, m: Manifeste, fichiers: list[Path] = ()) -> None:
         raise PublicationRefusee(f"passerelle {r.status_code} : {r.text[:200]}")
 
 _NOM_SUR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_NOM_NPM = re.compile(r"^(@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]{0,213}$")
 
 
 def _config() -> tuple[str, str, list[str]]:
@@ -85,8 +86,15 @@ def _verifier_pypi(ecosysteme) -> None:
         raise NotImplementedError("M0 : pip seulement")
 
 
-def publier(ecosysteme, nom: str, version: str, archives: list[Path], verdict_id: int) -> None:
+def _verifier_ecosysteme(ecosysteme) -> None:
+    """pip par tous les chemins ; npm seulement par la publication signée (vers Verdaccio)."""
+    if str(ecosysteme) == "npm" and _signe():
+        return
     _verifier_pypi(ecosysteme)
+
+
+def publier(ecosysteme, nom: str, version: str, archives: list[Path], verdict_id: int) -> None:
+    _verifier_ecosysteme(ecosysteme)
     if not archives:
         raise ValueError("aucune archive à publier")
     for a in archives:
@@ -104,8 +112,9 @@ def publier(ecosysteme, nom: str, version: str, archives: list[Path], verdict_id
 
 
 def revoquer(ecosysteme, nom: str, version: str, raison: str) -> None:
-    _verifier_pypi(ecosysteme)
-    if not (_NOM_SUR.match(nom) and _NOM_SUR.match(version)) or ".." in nom + version:
+    _verifier_ecosysteme(ecosysteme)
+    regle = _NOM_NPM if str(ecosysteme) == "npm" else _NOM_SUR
+    if not (regle.match(nom) and _NOM_SUR.match(version)) or ".." in nom + version:
         raise ValueError(f"nom ou version refusé : {nom!r} {version!r}")
     if _signe():
         _envoyer("/v1/revoke", Manifeste(

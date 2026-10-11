@@ -121,6 +121,12 @@ class Verdaccio:
             raise ErreurDepot(f"verdaccio {r.status_code} : {r.text[:200]}")
         return [fichier]
 
+    def disponible(self) -> bool:
+        try:
+            return self.client.get(f"{self.url}/-/ping", timeout=5).status_code == 200
+        except httpx.HTTPError:
+            return False
+
     def versions(self, nom: str) -> list[str]:
         doc = self._lire(nom)
         return sorted((doc or {}).get("versions") or {}, key=_cle)

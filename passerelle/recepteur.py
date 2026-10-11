@@ -1,7 +1,7 @@
 """Récepteur de la passerelle, sur :8443 (docs/contrats.md § 4).
 
-N'écrit dans le dépôt de pypiserver qu'une publication signée par la plateforme, dont chaque hash
-correspond. Le TLS mutuel (certificat client de la plateforme exigé) est posé par uvicorn :
+N'écrit dans le dépôt de pypiserver (pip) ou dans Verdaccio (npm, sans source amont) qu'une
+publication signée par la plateforme, dont chaque hash correspond. Le TLS mutuel (certificat client de la plateforme exigé) est posé par uvicorn :
   uvicorn passerelle.recepteur:app --host 0.0.0.0 --port 8443 \
     --ssl-keyfile … --ssl-certfile … --ssl-ca-certs ca.pem --ssl-cert-reqs 2
 
@@ -11,6 +11,10 @@ Configuration de `app` (variables d'environnement) :
   SAS_NONCES         fichier des nonces déjà vus (défaut /var/lib/sas/nonces.txt)
   SAS_JOURNAL_ACCES  journal d'accès de pypiserver, lu par /v1/inventory et /v1/access (défaut
                      /var/lib/sas/pypiserver-acces.log ; inventaire vide si absent)
+  SAS_VERDACCIO_URL  Verdaccio de la passerelle (défaut http://127.0.0.1:4873)
+  SAS_VERDACCIO_JETON fichier du jeton de publication de Verdaccio (défaut
+                     /var/lib/sas-recepteur/verdaccio.jeton) ; absent : npm refusé (503)
+  SAS_JOURNAL_NPM    journal JSON de Verdaccio, lu par /v1/inventory (défaut /var/lib/sas/verdaccio.log)
   SAS_INSTALLATIONS  demandes d'installation signées reçues par /v1/install, une par ligne
                      (défaut /var/lib/sas/installations.jsonl), servies aux serveurs par le guichet
                      (`passerelle.guichet`, :8444)
@@ -31,19 +35,31 @@ from passerelle import installation
 from passerelle.acces import requetes
 from passerelle.inventaire import inventaire as _inventaire
 from passerelle.inventaire import meme_version
+from passerelle.inventaire_npm import PREFIXE as _NPM
+from passerelle.inventaire_npm import inventaire as _inventaire_npm
 from passerelle.verification import Refus, verifier
 
 _NOM_SUR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_NOM_NPM = re.compile(r"^(@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]{0,213}$")
+
+
+def _nom_sur(ecosysteme: str, nom: str, version: str) -> bool:
+    if ".." in nom or not _NOM_SUR.match(version):
+        return False
+    return bool((_NOM_NPM if ecosysteme == "npm" else _NOM_SUR).match(nom))
 
 
 def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
               horloge: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
               journal_acces: Path | None = None, registre: Path | None = None,
-              installations: Path | None = None) -> FastAPI:
+              installations: Path | None = None, depot_npm=None,
+              journal_npm: Path | None = None) -> FastAPI:
+    """`depot_npm` : le Verdaccio de la passerelle (`passerelle.verdaccio.Verdaccio`), ou None."""
     depot, fichier_nonces = Path(depot), Path(fichier_nonces)
     installations = Path(installations) if installations is not None else None
     journal_acces = Path(journal_acces) if journal_acces is not None else None
     registre = Path(registre) if registre is not None else None
+    journal_npm = Path(journal_npm) if journal_npm is not None else None
 
     def _noter(action: str, archives: list[str]) -> None:
         """Registre des archives écrites ou retirées, lu par l'inventaire (PR #38)."""
@@ -75,7 +91,7 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
 
     @app.get("/v1/health")
     def sante():
-        return {"pypi": depot.is_dir(), "npm": False}
+        return {"pypi": depot.is_dir(), "npm": depot_npm is not None and depot_npm.disponible()}
 
     @app.get("/v1/inventory")
     def inventaire():
@@ -83,15 +99,30 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
         # déjà téléchargées. `machines` (les IP des serveurs) est hors `EntreeInventaire`, joint au
         # JSON brut (option b) ; la plateforme l'ignore (lire_inventaire).
         fichiers = [p.name for p in depot.iterdir() if p.is_file() and not p.name.startswith(".")]
-        return [{**e.model_dump(mode="json"), "machines": m}
-                for e, m in _inventaire(_lire(journal_acces), fichiers, _lire(registre))]
+        entrees = [*_inventaire(_lire(journal_acces), fichiers, _lire(registre)),
+                   *_inventaire_npm(_lire(journal_npm), _lire(registre))]
+        entrees.sort(key=lambda em: (em[0].ecosysteme.value, em[0].nom, em[0].version))
+        return [{**e.model_dump(mode="json"), "machines": m} for e, m in entrees]
 
     @app.post("/v1/publish", status_code=201)
     def publier(manifeste: str = Form(), signature: str = Form(),
                 archives: list[UploadFile] = []):
         recues = {a.filename or "": a.file.read() for a in archives}
+        if _ecosysteme(manifeste) == "npm" and depot_npm is None:
+            # Avant toute vérification : le nonce n'est pas consommé, la publication pourra revenir.
+            raise HTTPException(503, "aucun dépôt npm (Verdaccio) configuré sur cette passerelle")
         with verrou:
             m = _verifier(manifeste, signature, recues, "publication")
+            if m.ecosysteme.value == "npm":
+                if not _nom_sur("npm", m.nom, m.version):
+                    raise HTTPException(400, "nom ou version interdit")
+                try:
+                    for nom, contenu in recues.items():
+                        depot_npm.publier(m.nom, m.version, nom, contenu)
+                except Exception as e:  # noqa: BLE001 — refus de Verdaccio : rien n'est noté
+                    raise HTTPException(502, f"dépôt npm : {e}") from e
+                _noter("publie", [f"{_NPM}{m.nom}@{m.version}"])
+                return {"publie": [f.nom for f in m.fichiers]}
             for nom, contenu in recues.items():
                 provisoire = depot / f".{nom}.part"
                 provisoire.write_bytes(contenu)
@@ -127,8 +158,15 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
     def revoquer(manifeste: str = Form(), signature: str = Form()):
         with verrou:
             m = _verifier(manifeste, signature, {}, "revocation")
-            if not (_NOM_SUR.match(m.nom) and _NOM_SUR.match(m.version)):
+            if not _nom_sur(m.ecosysteme.value, m.nom, m.version):
                 raise HTTPException(400, "nom ou version interdit")
+            if m.ecosysteme.value == "npm":
+                if depot_npm is None:
+                    raise HTTPException(503, "aucun dépôt npm (Verdaccio) configuré")
+                retires = depot_npm.retirer(m.nom, m.version)
+                if retires:
+                    _noter("retire", [f"{_NPM}{m.nom}@{m.version}"])
+                return JSONResponse({"retire": retires})
             # Même règle de noms que l'inventaire (PEP 503 / PEP 440). Rien à retirer → 200 quand
             # même : la version est absente, c'est l'état voulu (sinon l'admin ne peut plus la
             # marquer révoquée) ; `retire: []` le dit.
@@ -142,6 +180,23 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
     return app
 
 
+def _ecosysteme(manifeste: str) -> str:
+    """L'écosystème annoncé, pour router avant la vérification (qui le confirme ensuite)."""
+    try:
+        return str(json.loads(manifeste).get("ecosysteme", ""))
+    except (ValueError, AttributeError):
+        return ""
+
+
+def _verdaccio_depuis_env():
+    jeton = Path(os.environ.get("SAS_VERDACCIO_JETON", "/var/lib/sas-recepteur/verdaccio.jeton"))
+    if not jeton.is_file():
+        return None
+    from passerelle.verdaccio import Verdaccio
+    return Verdaccio(os.environ.get("SAS_VERDACCIO_URL", "http://127.0.0.1:4873"),
+                     jeton.read_text().strip())
+
+
 def _depuis_env() -> FastAPI:
     return creer_app(Path(os.environ.get("SAS_DEPOT", "/srv/pypi/packages")),
                      Path(os.environ["SAS_CLE_PUBLIQUE"]).read_bytes(),
@@ -150,7 +205,10 @@ def _depuis_env() -> FastAPI:
                          "SAS_JOURNAL_ACCES", "/var/lib/sas/pypiserver-acces.log")),
                      registre=Path(os.environ.get("SAS_REGISTRE", "/var/lib/sas/registre.txt")),
                      installations=Path(os.environ.get(
-                         "SAS_INSTALLATIONS", "/var/lib/sas/installations.jsonl")))
+                         "SAS_INSTALLATIONS", "/var/lib/sas/installations.jsonl")),
+                     depot_npm=_verdaccio_depuis_env(),
+                     journal_npm=Path(os.environ.get("SAS_JOURNAL_NPM",
+                                                     "/var/lib/sas/verdaccio.log")))
 
 
 def __getattr__(nom: str):                # `uvicorn passerelle.recepteur:app`, sans effet à l'import

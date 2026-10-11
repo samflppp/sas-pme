@@ -213,3 +213,116 @@ def test_revocation_suit_la_regle_des_noms_de_l_inventaire(env):
     assert sorted(p.name for p in depot.iterdir()) == [
         "zope.interface-6.0.1.tar.gz", "zope.interface.ext-6.0.tar.gz",
         "zope_interface-6.0.1-py3-none-any.whl"]
+
+
+# --- npm : publication et révocation dans Verdaccio (sans source amont) ----------------------
+TGZ = "outil-1.0.0.tgz"
+CONTENU_NPM = b"une archive npm"
+
+
+class FauxVerdaccio:
+    def __init__(self, disponible=True):
+        self.publies, self.retires, self.ok = [], [], disponible
+
+    def publier(self, nom, version, fichier, tgz):
+        self.publies.append((nom, version, fichier, tgz))
+
+    def retirer(self, nom, version):
+        self.retires.append((nom, version))
+        return [TGZ]
+
+    def disponible(self):
+        return self.ok
+
+
+@pytest.fixture
+def env_npm(tmp_path):
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    cle = ed25519.generer_cle(tmp_path / "plateforme.pem")
+    vd = FauxVerdaccio()
+    app = creer_app(depot, ed25519.cle_publique_pem(cle), tmp_path / "nonces.txt",
+                    horloge=lambda: MAINTENANT, registre=tmp_path / "registre.txt", depot_npm=vd)
+    return TestClient(app), depot, cle, tmp_path, vd
+
+
+def _publication_npm(nonce="c" * 32, nom="@org/outil") -> Manifeste:
+    return Manifeste(type="publication", ecosysteme=Ecosysteme.NPM, nom=nom, version="1.0.0",
+                     verdict_id=7, emis_le=MAINTENANT - timedelta(seconds=5), nonce=nonce,
+                     fichiers=[FichierManifeste(nom=TGZ,
+                                                sha256=hashlib.sha256(CONTENU_NPM).hexdigest())])
+
+
+def _publier_npm(client, m, cle):
+    return client.post("/v1/publish", data={"manifeste": canonique(m).decode(),
+                                            "signature": ed25519.signer(m, cle)},
+                       files=[("archives", (TGZ, CONTENU_NPM, "application/octet-stream"))])
+
+
+def test_npm_une_publication_signee_va_dans_verdaccio_pas_dans_pypiserver(env_npm):
+    client, depot, cle, tmp_path, vd = env_npm
+    r = _publier_npm(client, _publication_npm(), cle)
+    assert r.status_code == 201
+    assert vd.publies == [("@org/outil", "1.0.0", TGZ, CONTENU_NPM)]
+    assert list(depot.iterdir()) == []
+    assert "publie npm:@org/outil@1.0.0" in (tmp_path / "registre.txt").read_text()
+
+
+def test_npm_une_publication_forgee_n_arrive_pas_dans_verdaccio(env_npm):
+    client, _, _, tmp_path, vd = env_npm
+    usurpateur = ed25519.generer_cle(tmp_path / "usurpateur.pem")
+    assert _publier_npm(client, _publication_npm(), usurpateur).status_code == 401
+    assert vd.publies == []
+
+
+def test_npm_sans_verdaccio_configure_503_et_le_nonce_reste_libre(tmp_path):
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    cle = ed25519.generer_cle(tmp_path / "plateforme.pem")
+    client = TestClient(creer_app(depot, ed25519.cle_publique_pem(cle), tmp_path / "nonces.txt",
+                                  horloge=lambda: MAINTENANT))
+    assert _publier_npm(client, _publication_npm(), cle).status_code == 503
+    assert not (tmp_path / "nonces.txt").exists()
+    assert client.get("/v1/health").json() == {"pypi": True, "npm": False}
+
+
+def test_npm_revocation_signee_retire_de_verdaccio(env_npm):
+    client, _, cle, tmp_path, vd = env_npm
+    m = Manifeste(type="revocation", ecosysteme=Ecosysteme.NPM, nom="@org/outil", version="1.0.0",
+                  emis_le=MAINTENANT, nonce="d" * 32, raison="signal tardif")
+    r = client.post("/v1/revoke", data={"manifeste": canonique(m).decode(),
+                                        "signature": ed25519.signer(m, cle)})
+    assert r.status_code == 200 and r.json() == {"retire": [TGZ]}
+    assert vd.retires == [("@org/outil", "1.0.0")]
+    assert "retire npm:@org/outil@1.0.0" in (tmp_path / "registre.txt").read_text()
+
+
+@pytest.mark.parametrize("nom", ["../outil", "@org/../x", "Outil Majuscule", "@/x"])
+def test_npm_un_nom_interdit_est_refuse_a_la_revocation(env_npm, nom):
+    client, _, cle, _, vd = env_npm
+    m = Manifeste(type="revocation", ecosysteme=Ecosysteme.NPM, nom=nom, version="1.0.0",
+                  emis_le=MAINTENANT, nonce="e" * 32, raison="x")
+    r = client.post("/v1/revoke", data={"manifeste": canonique(m).decode(),
+                                        "signature": ed25519.signer(m, cle)})
+    assert r.status_code == 400 and vd.retires == []
+
+
+def test_npm_sante_et_inventaire_melent_pip_et_npm_dans_l_ordre_du_contrat(tmp_path):
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    (depot / ROUE).write_bytes(CONTENU)
+    journal_npm = tmp_path / "verdaccio.log"
+    journal_npm.write_text(
+        '{"time":1791716700000,"request":{"method":"GET","url":"/@org/outil/-/outil-1.0.0.tgz"},'
+        '"remoteIP":"10.42.2.20","status":200,"msg":"200"}\n', encoding="utf-8")
+    registre = tmp_path / "registre.txt"
+    registre.write_text("2026-10-11T09:00:00+00:00 publie npm:@org/outil@1.0.0\n")
+    cle = ed25519.generer_cle(tmp_path / "plateforme.pem")
+    client = TestClient(creer_app(depot, ed25519.cle_publique_pem(cle), tmp_path / "nonces.txt",
+                                  horloge=lambda: MAINTENANT, registre=registre,
+                                  depot_npm=FauxVerdaccio(), journal_npm=journal_npm))
+    assert client.get("/v1/health").json() == {"pypi": True, "npm": True}
+    inv = client.get("/v1/inventory").json()
+    assert [(e["ecosysteme"], e["nom"], e["version"], e["telechargements"]) for e in inv] == [
+        ("npm", "@org/outil", "1.0.0", 1), ("pypi", "requests", "2.32.4", 0)]
+    assert inv[0]["machines"] == ["10.42.2.20"]

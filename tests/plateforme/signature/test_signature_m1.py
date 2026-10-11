@@ -98,3 +98,48 @@ def test_lire_inventaire_accepte_la_vraie_route_meme_avec_des_champs_hors_contra
     assert brut[0]["machines"] == ["10.42.2.20"]            # la route garde le champ en plus
     [entree] = signature.lire_inventaire()
     assert (entree.nom, entree.version, entree.telechargements) == ("requests", "2.32.4", 1)
+
+
+# --- npm : la même publication signée, vers le Verdaccio de la passerelle ----------------------
+class FauxVerdaccio:
+    def __init__(self):
+        self.publies, self.retires = [], []
+
+    def publier(self, nom, version, fichier, tgz):
+        self.publies.append((nom, version, fichier, tgz))
+
+    def retirer(self, nom, version):
+        self.retires.append((nom, version))
+        return [f"{nom.split('/')[-1]}-{version}.tgz"]
+
+    def disponible(self):
+        return True
+
+
+@pytest.fixture
+def passerelle_npm(tmp_path, monkeypatch):
+    depot = tmp_path / "packages"
+    depot.mkdir()
+    cle = tmp_path / "signature.pem"
+    publique = ed25519.cle_publique_pem(ed25519.generer_cle(cle))
+    vd = FauxVerdaccio()
+    app = creer_app(depot, publique, tmp_path / "nonces.txt", depot_npm=vd)
+    monkeypatch.setenv("SAS_PASSERELLE_URL", "https://10.42.2.10:8443")
+    monkeypatch.setenv("SAS_CLE_SIGNATURE", str(cle))
+    monkeypatch.setattr(signature, "_client", lambda: TestClient(app, base_url="https://passerelle"))
+    return vd
+
+
+def test_npm_publier_et_revoquer_signes_passent_par_verdaccio(tmp_path, passerelle_npm):
+    tgz = tmp_path / "outil-1.0.0.tgz"
+    tgz.write_bytes(b"archive npm")
+    signature.publier(Ecosysteme.NPM, "@org/outil", "1.0.0", [tgz], 7)
+    assert passerelle_npm.publies == [("@org/outil", "1.0.0", "outil-1.0.0.tgz", b"archive npm")]
+    signature.revoquer(Ecosysteme.NPM, "@org/outil", "1.0.0", "signal tardif")
+    assert passerelle_npm.retires == [("@org/outil", "1.0.0")]
+
+
+def test_npm_un_nom_dangereux_est_refuse_avant_tout_envoi(passerelle_npm):
+    with pytest.raises(ValueError):
+        signature.revoquer(Ecosysteme.NPM, "@org/../x", "1.0.0", "x")
+    assert passerelle_npm.retires == []
