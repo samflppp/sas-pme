@@ -156,19 +156,23 @@ def _avec_signal(base, extrait, constats=(CONSTAT,), rapport=RAPPORT, passages=(
 PROPRE = RapportSandbox(requetes_dns=[], connexions=[], fichiers_sensibles=[], leurres_lus=[],
                         processus=["pip install --no-deps certifi-2026.7.22-py3-none-any.whl"],
                         code_sortie=0, duree_s=11.0, delai_depasse=False)
+# Un constat sans rapport avec la preuve du LLM : la règle d'ancrage est seule en jeu.
+AUTRE = Signal(ecosysteme=P, nom="demo", version="1.0", source=Source.STATIQUE, niveau=Niveau.MOYEN,
+               sorte="projet_recent", preuve={"extrait": "projet publié il y a 12 jours"})
 RAG_PTH = ("MAL-2024-0099", "PTH file executes on startup; payload stored in chunks in DNS records")
 
 
 def test_un_passage_du_rag_recopie_comme_preuve_redescend_a_moyen(base):
     """certifi 2026.7.22 : la « preuve » du LLM était un passage du RAG, rien dans le paquet."""
-    s = _avec_signal(base, "PTH file… payload stored in chunks in DNS records", constats=(),
+    s = _avec_signal(base, "PTH file… payload stored in chunks in DNS records", constats=(AUTRE,),
                      rapport=PROPRE, passages=[RAG_PTH])
     assert s.niveau is Niveau.MOYEN and s.preuve["non_ancre"] is True
 
 
 def test_une_preuve_vague_redescend_a_moyen(base):
     """idna 3.20 : « non reconnu dans la base de sécurité »."""
-    s = _avec_signal(base, "non reconnu dans la base de sécurité", constats=(), rapport=PROPRE)
+    s = _avec_signal(base, "non reconnu dans la base de sécurité", constats=(AUTRE,),
+                     rapport=PROPRE)
     assert s.niveau is Niveau.MOYEN
 
 
@@ -184,7 +188,7 @@ def test_une_preuve_tiree_du_paquet_observe_reste_forte(base, extrait):
 
 def test_citer_le_nom_ou_la_version_du_paquet_ne_suffit_pas(base):
     """Le nom et la version sont toujours dans le rapport (pip install …) : ce n'est pas une preuve."""
-    s = _avec_signal(base, "demo-1.0 inconnu de la base de sécurité", constats=(),
+    s = _avec_signal(base, "demo-1.0 inconnu de la base de sécurité", constats=(AUTRE,),
                      rapport=PROPRE.model_copy(update={
                          "processus": ["pip install --no-deps demo-1.0-py3-none-any.whl"]}))
     assert s.niveau is Niveau.MOYEN
@@ -208,14 +212,40 @@ def _avec_signaux(base, signaux_llm, constats=(), rapport=PROPRE):
                                 modele="m").signaux
 
 
-def test_un_fort_du_llm_sans_constat_statique_ni_sandbox_redescend_a_moyen(base):
-    """Même ancré (« requests.get » est bien dans le code), le LLM seul ne met pas « à revoir »."""
+def test_un_fort_du_llm_sans_constat_statique_ni_sandbox_redescend_a_info(base):
+    """Même ancré (« requests.get » est bien dans le code), le LLM seul ne met pas « à revoir », ni
+    ne crie au loup : sans constat du code, son alerte n'est qu'un point d'attention."""
     info = CONSTAT.model_copy(update={"niveau": Niveau.INFO, "sorte": "domaine",
                                       "preuve": {"extrait": "r = requests.get(url)"}})
     (s,) = _avec_signaux(base, [{"niveau": "fort", "sorte": "exfiltration_donnees",
                                  "extrait": "requests.get(url)"}], constats=[info])
-    assert s.niveau is Niveau.MOYEN and s.preuve["sans_constat"] is True
+    assert s.niveau is Niveau.INFO and s.preuve["sans_constat"] is True
     assert "non_ancre" not in s.preuve
+
+
+def test_un_moyen_du_llm_sans_aucun_constat_devient_un_point_d_attention(base):
+    """Demande de Mouabd19 : un paquet propre (ni statique ni sandbox) n'est pas « suspect » parce
+    que le LLM y voit une faille possible ; elle reste listée, au niveau info."""
+    (s,) = _avec_signaux(base, [{"niveau": "moyen", "sorte": "code_inject",
+                                 "extrait": "importlib.import_module(nom)"}])
+    assert s.niveau is Niveau.INFO and s.preuve["sans_constat"] is True
+
+
+def test_un_moyen_du_llm_appuye_par_un_constat_reste_moyen(base):
+    moyen = CONSTAT.model_copy(update={"niveau": Niveau.MOYEN, "sorte": "mainteneur_change",
+                                       "preuve": {"extrait": "mainteneur changé : x@y.invalid"}})
+    (s,) = _avec_signaux(base, [{"niveau": "moyen", "sorte": "compte_repris",
+                                 "extrait": "mainteneur changé"}], constats=[moyen])
+    assert s.niveau is Niveau.MOYEN
+
+
+def test_le_prompt_demande_d_etre_pragmatique():
+    """Lister les failles possibles, sans présumer la malveillance : un appel réseau ou une
+    lecture de fichier qui collent au rôle du paquet sont normaux."""
+    systeme = llm.messages(V, [], PROPRE)[0]["content"].lower()
+    for attendu in ("pragmatique", "la plupart des paquets sont sains", "points d'attention",
+                    "rôle du paquet"):
+        assert attendu in systeme, attendu
 
 
 def test_un_fort_ancre_et_appuye_par_un_constat_moyen_reste_fort(base):
