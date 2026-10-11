@@ -96,3 +96,13 @@ def test_la_commande_pip_vise_la_passerelle_seulement(env, monkeypatch):
     assert "--extra-index-url" not in cmd and k.get("timeout")
     # index en HTTP sur le réseau privé : pip l'ignore s'il n'est pas déclaré de confiance
     assert cmd[cmd.index("--trusted-host") + 1] == "10.42.2.10"
+
+
+def test_l_agent_n_installe_que_des_roues(env, monkeypatch):
+    """Une archive source exécute son setup.py à l'installation : une demande signée par une
+    plateforme prise deviendrait une exécution de code sur le serveur. Roues seulement."""
+    agent, *_ = env
+    vus = []
+    monkeypatch.setattr(agent.subprocess, "run", lambda cmd, **k: vus.append(cmd))
+    agent.installer("demo-horodatage", "http://10.42.2.10:8080/simple/")
+    assert "--only-binary=:all:" in vus[0]
