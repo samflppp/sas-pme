@@ -67,11 +67,13 @@ def verifier(entree: dict, publique_pem: bytes, maintenant: datetime, nonces: se
 
 def installer(nom: str, index: str, python: str | None = None) -> None:
     """pip vers la passerelle seulement : pas d'index supplémentaire, pas de cache. L'index est en
-    HTTP sur le réseau privé (comme /etc/pip.conf) : son hôte est déclaré de confiance."""
+    HTTP sur le réseau privé (comme /etc/pip.conf) : son hôte est déclaré de confiance.
+    Roues seulement : une archive source exécute son setup.py à l'installation, et une demande
+    signée par une plateforme prise deviendrait une exécution de code sur le serveur (C)."""
     hote = urllib.parse.urlsplit(index).hostname or ""
     subprocess.run([python or sys.executable, "-m", "pip", "install", "--upgrade", "--no-cache-dir",
-                    "--disable-pip-version-check", "--index-url", index, "--trusted-host", hote,
-                    nom], check=False, timeout=600)
+                    "--disable-pip-version-check", "--only-binary=:all:", "--index-url", index,
+                    "--trusted-host", hote, nom], check=False, timeout=600)
 
 
 def tour(lire, publique_pem: bytes, etat: Path, executer, maintenant: datetime | None = None) -> None:

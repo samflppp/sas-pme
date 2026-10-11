@@ -183,7 +183,9 @@ Réponse détaillée de C : `demo/reseau.md` § 3, schéma `demo/schema-reseau.s
 - Une plateforme **usurpée** ne publie rien : il lui faut le certificat du lien **et** la clé de
   signature (étape 5 de la démo).
 - Une plateforme **réellement prise** (root) peut signer une version piégée avec la vraie clé,
-  élargir la liste du relais d'API et réécrire sa propre base.
+  élargir la liste du relais d'API et réécrire sa propre base. Dans la démo, elle peut aussi faire
+  installer cette version par l'agent du serveur (roues seulement, aucun `setup.py` exécuté) ; en
+  production, cet agent n'existe pas.
 - Elle ne peut pas joindre le serveur ni la passerelle en SSH, ni donner Internet aux serveurs, ni
   lire leurs données : **prouvé sur AWS par 8 contrôles** (`infra/aws/verifier_compromission.sh`).
   La passerelle garde son propre registre de ce qui a été publié et quand.
