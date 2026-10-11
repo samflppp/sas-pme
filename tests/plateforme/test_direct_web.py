@@ -178,3 +178,57 @@ def test_une_version_deja_connue_reste_en_tete_de_sa_demande(base):
     n = demander(c)
     assert [v["nom"] for v in c.get(f"/direct/instantane?demande={n}").json()["versions"]] == [
         "requests", "idna"]
+
+
+# --- panneau Serveur : la demande part au serveur, ses requêtes se lisent à la passerelle -------
+class FaussePasserelle:
+    """Comme signature.demander_installation et signature.lire_acces."""
+
+    def __init__(self):
+        self.lignes, self.demandes = ["démarrage de pypiserver"], []
+
+    def installer(self, eco, nom, demande):
+        self.demandes.append((eco, nom, demande))
+        return len(self.demandes)
+
+    def requete(self, chemin, ip="10.42.2.20"):
+        self.lignes.append(chemin)
+
+    def lire(self, apres=0):
+        lignes = [{"n": i, "a": f"2026-10-11 12:00:{i:02d}", "ip": "10.42.2.20", "methode": "GET",
+                   "chemin": c, "code": None}
+                  for i, c in enumerate(self.lignes, start=1) if i > apres and c.startswith("/")]
+        return {"total": len(self.lignes), "lignes": lignes}
+
+
+def test_une_demande_part_au_serveur_et_ses_requetes_s_affichent(base):
+    p = FaussePasserelle()
+    p.requete("/simple/vieux/")                      # avant la demande : pas affichée
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    n = demander(c)
+    assert p.demandes == [(PY, "requests", n)]
+    p.requete("/simple/requests/")
+    p.requete("/packages/requests-2.32.3-py3-none-any.whl")
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["configure"] and s["commande"] == "pip install requests"
+    assert [x["texte"] for x in s["lignes"]] == [
+        "GET /simple/requests/", "GET /packages/requests-2.32.3-py3-none-any.whl"]
+    assert s["installee"] == "2.32.3"
+    # la version demandée, 2.32.4, n'est pas encore publiée : le serveur a reçu la précédente
+    assert s["amont"]["version"] == "2.32.4" and s["amont"]["libelle"] == "en attente"
+
+
+def test_une_installation_refusee_par_la_passerelle_se_dit(base):
+    def refuse(eco, nom, demande):
+        raise RuntimeError("passerelle 401 : signature invalide")
+    c = client(base, installer=refuse, lire_acces=FaussePasserelle().lire)
+    n = demander(c)                                   # la demande, elle, aboutit
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert "signature invalide" in s["erreur"]
+    assert [e.action for e in base.journal()][-1] == "installation_echouee"
+
+
+def test_sans_passerelle_le_panneau_serveur_le_dit(base):
+    c = client(base)
+    s = c.get(f"/direct/instantane?demande={demander(c)}").json()["serveur"]
+    assert s == {"configure": False}

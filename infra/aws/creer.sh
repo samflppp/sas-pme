@@ -71,13 +71,13 @@ entree "$SG_PLAT" 3129 "$SG_PASS"          # relais d'API (M2) : depuis la passe
 # Passerelle : SSH (stub scp M0) et récepteur 8443 depuis la plateforme ; dépôts depuis le serveur.
 entree "$SG_PASS" 22   "$SG_PLAT"
 entree "$SG_PASS" 8443 "$SG_PLAT"
-for p in 8080 4873 3128; do entree "$SG_PASS" "$p" "$SG_SERV"; done
+for p in 8080 4873 3128 8444; do entree "$SG_PASS" "$p" "$SG_SERV"; done   # 8444 : guichet (démo)
 fermer_sortie "$SG_PASS"
 sortie "$SG_PASS" 3129 "$SG_PLAT"          # relais d'API (M2) : passerelle → plateforme seulement
 # Serveur : SSH par le bastion seulement ; ne sort que vers la passerelle.
 entree "$SG_SERV" 22 "$SG_PLAT"
 fermer_sortie "$SG_SERV"
-for p in 8080 4873 3128; do sortie "$SG_SERV" "$p" "$SG_PASS"; done
+for p in 8080 4873 3128 8444; do sortie "$SG_SERV" "$p" "$SG_PASS"; done
 
 # --- Clé SSH (stockée hors Git) ---
 aws ec2 create-key-pair --key-name "$NOM_CLE" --key-type ed25519 \

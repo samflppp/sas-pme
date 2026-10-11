@@ -11,6 +11,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from packaging.utils import (InvalidSdistFilename, InvalidWheelFilename, canonicalize_name,
+                             parse_sdist_filename, parse_wheel_filename)
+from packaging.version import InvalidVersion, Version as VersionPep440
+
 from commun.modeles import Ecosysteme, Etat, Version
 from plateforme.db.acces import Base, EntreeJournal
 
@@ -135,7 +139,7 @@ def suivi_version(base: Base, diffusion: Diffusion, v: Version, demande_: Demand
         etat, detail, temps, texte = "a_venir", "", "", ""
         if cle == "demande":
             etat = "fait"
-            detail = f"par {demande_.acteur}, le {demande_.a.strftime('%d/%m à %H:%M')}"
+            detail = f"par {demande_.acteur}, le {demande_.a.astimezone().strftime('%d/%m à %H:%M')}"
         elif cle == "attente":
             fin = v.publiee_le + delai if delai is not None else None
             if v.etat not in (Etat.NOUVELLE, Etat.EN_ATTENTE) or (fin and fin <= maintenant):
@@ -174,3 +178,84 @@ def instantane(base: Base, diffusion: Diffusion, d: Demande, maintenant: datetim
             versions.append(suivi_version(base, diffusion, v, d, maintenant, delai, libelle, duree))
     return {"demande": d.seq, "paquet": f"{d.ecosysteme.value}:{d.nom}", "nom": d.nom,
             "par": d.acteur, "a": d.a.isoformat(), "versions": versions}
+
+
+# --- panneau Serveur ---------------------------------------------------------------------------
+MAX_LIGNES_SERVEUR = 60
+
+
+def _archive(chemin: str) -> tuple[str, str] | None:
+    """(nom normalisé, version) d'un téléchargement d'archive, sinon None."""
+    if not chemin.startswith("/packages/"):
+        return None
+    fichier = chemin.rsplit("/", 1)[-1]
+    try:
+        if fichier.endswith(".whl"):
+            nom, version, *_ = parse_wheel_filename(fichier)
+        else:
+            nom, version = parse_sdist_filename(fichier)
+    except (InvalidWheelFilename, InvalidSdistFilename, InvalidVersion):
+        return None
+    return canonicalize_name(nom), str(version)
+
+
+def _pep(v: str):
+    try:
+        return VersionPep440(v)
+    except InvalidVersion:
+        return None
+
+
+def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
+            suivante: EntreeJournal | None, lire_acces, maintenant: datetime,
+            delai: timedelta | None, libelle: Callable[[Etat], str],
+            duree: Callable[[timedelta], str], index: str) -> dict:
+    """Heures à l'heure locale de la plateforme, comme le journal de pypiserver (asctime) sur la
+    passerelle : les deux machines sont réglées pareil (UTC sur AWS).
+    Ce que le serveur a demandé à la passerelle depuis l'envoi de cette demande (lignes du
+    journal d'accès entre cette installation et la suivante), la version qu'il a reçue, et la
+    version amont qui n'est pas (encore) servie. Rien n'est inventé : une ligne absente du
+    journal n'est pas montrée."""
+    if lire_acces is None:
+        return {"configure": False}
+    sortie = {"configure": True, "index": index, "commande": f"pip install {d.nom}",
+              "demandee_a": None, "erreur": None, "lignes": [], "installee": None, "amont": None}
+    if installation is None:
+        return sortie
+    sortie["demandee_a"] = installation.a.astimezone().strftime("%H:%M:%S")
+    if installation.action == "installation_echouee":
+        sortie["erreur"] = installation.charge.get("erreur", "refusée")
+        return sortie
+    depuis = int(installation.charge.get("acces_depuis", 0))
+    jusqua = int(suivante.charge.get("acces_depuis", 0)) if suivante else None
+    try:
+        lignes = lire_acces(depuis)["lignes"]
+    except Exception as e:  # noqa: BLE001 — passerelle injoignable : on le dit, sans rien inventer
+        sortie["erreur"] = f"journal d'accès illisible : {type(e).__name__} {e}"[:300]
+        return sortie
+    canon = canonicalize_name(d.nom)
+    for x in lignes:
+        if jusqua is not None and x["n"] > jusqua:
+            break
+        heure = str(x.get("a", ""))[-8:]
+        sortie["lignes"].append({"a": heure, "ip": x.get("ip", ""),
+                                 "texte": f"{x.get('methode', '')} {x.get('chemin', '')}"})
+        if (a := _archive(str(x.get("chemin", "")))) and a[0] == canon:
+            sortie["installee"] = a[1]
+    sortie["lignes"] = sortie["lignes"][-MAX_LIGNES_SERVEUR:]
+    # La plus récente connue de la plateforme, si elle n'est pas ce que le serveur a reçu.
+    versions = [v for v in base.versions_du_paquet(d.ecosysteme, d.nom) if _pep(v.version)]
+    if versions:
+        recente = max(versions, key=lambda v: _pep(v.version))
+        recue = _pep(sortie["installee"]) if sortie["installee"] else None
+        if recente.etat is not Etat.PUBLIEE and (recue is None or _pep(recente.version) > recue):
+            detail = {Etat.EN_ANALYSE: "en cours d'analyse", Etat.A_REVOIR: "attend la décision d'un humain",
+                      Etat.BLOQUEE: "jamais servie", Etat.REVOQUEE: "retirée de la passerelle",
+                      Etat.APPROUVEE: "approuvée, publication en cours"}.get(recente.etat, "")
+            if recente.etat in (Etat.NOUVELLE, Etat.EN_ATTENTE) and delai is not None:
+                fin = recente.publiee_le + delai
+                detail = f"encore {duree(fin - maintenant)} avant l'analyse" if fin > maintenant \
+                    else "analyse au prochain tour"
+            sortie["amont"] = {"version": recente.version, "etat": recente.etat.value,
+                               "libelle": libelle(recente.etat), "detail": detail}
+    return sortie

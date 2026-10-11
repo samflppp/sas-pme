@@ -47,7 +47,42 @@
     return s;
   }
 
+  var ecran = document.getElementById("ecran-serveur");
+
+  function ligne(classe, morceaux) {
+    var p = el("p", classe);
+    morceaux.forEach(function (m) {
+      if (typeof m === "string") p.appendChild(document.createTextNode(m));
+      else p.appendChild(el("span", m[0], m[1]));
+    });
+    return p;
+  }
+
+  function terminal(s, nom) {
+    var f = document.createDocumentFragment();
+    if (!s || !s.configure) {
+      f.appendChild(ligne("t-note", ["Passerelle non configurée : aucun serveur n'est relié à cette plateforme."]));
+      return f;
+    }
+    var cmd = [["t-invite", "serveur:~$"], " " + s.commande];
+    if (s.demandee_a) cmd.push(" ", ["t-heure", s.demandee_a]);
+    f.appendChild(ligne("t-cmd", cmd));
+    f.appendChild(ligne("t-note", ["# index : " + s.index + " : seule source de paquets, pas de repli vers pypi.org"]));
+    if (s.erreur) f.appendChild(ligne("t-erreur", ["✗ " + s.erreur]));
+    s.lignes.forEach(function (x) {
+      f.appendChild(ligne("t-ligne", [["t-heure", x.a], " ", ["t-ip", x.ip], " " + x.texte]));
+    });
+    if (s.installee) f.appendChild(ligne("t-ok", ["✓ " + nom + " " + s.installee + " installée : la dernière version vérifiée et signée"]));
+    else if (!s.erreur) f.appendChild(ligne("t-attente", ["en attente des requêtes du serveur…"]));
+    if (s.amont) {
+      f.appendChild(ligne("t-amont", ["↳ " + s.amont.version + " sur PyPI : " + s.amont.libelle +
+        (s.amont.detail ? ", " + s.amont.detail : "") + ". Pas servie aux serveurs."]));
+    }
+    return f;
+  }
+
   function afficher(i) {
+    if (ecran) ecran.replaceChildren(terminal(i.serveur, i.nom));
     var neuf = document.createDocumentFragment();
     i.versions.forEach(function (v) { neuf.appendChild(version(v)); });
     if (!i.versions.length) neuf.appendChild(el("p", "vide", "Aucune nouvelle version : tout était déjà connu."));

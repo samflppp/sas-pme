@@ -16,12 +16,25 @@
   </ol>
 </section>
 {%- endmacro %}
+{% macro terminal(s, nom) -%}
+{% if not s.configure %}
+<p class="t-note">Passerelle non configurée : aucun serveur n'est relié à cette plateforme.</p>
+{% else %}
+<p class="t-cmd"><span class="t-invite">serveur:~$</span> {{ s.commande }}{% if s.demandee_a %} <span class="t-heure">{{ s.demandee_a }}</span>{% endif %}</p>
+<p class="t-note"># index : {{ s.index }} : seule source de paquets, pas de repli vers pypi.org</p>
+{% if s.erreur %}<p class="t-erreur">✗ {{ s.erreur }}</p>{% endif %}
+{% for x in s.lignes %}<p class="t-ligne"><span class="t-heure">{{ x.a }}</span> <span class="t-ip">{{ x.ip }}</span> {{ x.texte }}</p>{% endfor %}
+{% if s.installee %}<p class="t-ok">✓ {{ nom }} {{ s.installee }} installée : la dernière version vérifiée et signée</p>
+{% elif not s.erreur %}<p class="t-attente">en attente des requêtes du serveur…</p>{% endif %}
+{% if s.amont %}<p class="t-amont">↳ {{ s.amont.version }} sur PyPI : {{ s.amont.libelle }}{% if s.amont.detail %}, {{ s.amont.detail }}{% endif %}. Pas servie aux serveurs.</p>{% endif %}
+{% endif %}
+{%- endmacro %}
 {% block actions %}
 {% if demandes %}
 <form method="get" action="/direct" class="choix-demande">
   <label class="visuellement-cache" for="demande">Demande suivie</label>
   <select id="demande" name="demande">
-    {% for x in demandes %}<option value="{{ x.d.seq }}"{% if i and x.d.seq == i.demande %} selected{% endif %}>{{ x.d.nom }} · {{ x.d.a.strftime("%d/%m %H:%M") }}</option>{% endfor %}
+    {% for x in demandes %}<option value="{{ x.d.seq }}"{% if i and x.d.seq == i.demande %} selected{% endif %}>{{ x.d.nom }} · {{ x.d.a.astimezone().strftime("%d/%m %H:%M") }}</option>{% endfor %}
   </select>
   <button class="second" type="submit">Suivre</button>
 </form>
@@ -43,10 +56,8 @@
 </div>
 <div class="direct" data-demande="{{ i.demande }}">
   <section class="panneau terminal" id="panneau-serveur" aria-labelledby="t-serveur">
-    <h2 id="t-serveur"><span class="pastille-serveur" aria-hidden="true"></span>Serveur <span>10.42.2.20 · sans Internet</span></h2>
-    <div class="ecran" id="ecran-serveur">
-      <p class="invite">Les requêtes du serveur à la passerelle s'affichent ici, lues dans son journal d'accès.</p>
-    </div>
+    <h2 id="t-serveur"><span class="pastille-serveur" aria-hidden="true"></span>Serveur <span>sans accès à Internet</span></h2>
+    <div class="ecran" id="ecran-serveur" aria-live="polite">{{ terminal(i.serveur, i.nom) }}</div>
   </section>
   <section class="panneau" id="panneau-pipeline" aria-labelledby="t-pipeline">
     <h2 id="t-pipeline">Pipeline <span>plateforme agréée</span></h2>

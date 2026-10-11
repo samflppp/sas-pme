@@ -49,6 +49,8 @@ export SAS_MODELE=qwen2.5-coder:7b SAS_OLLAMA_URL=http://127.0.0.1:11434
 # tout autre nom vers pypi.org (lecture seule). Sans SAS_PYPI_URL : le vrai PyPI.
 .venv/bin/python demo/paquets/faux_pypi.py > ~/faux_pypi.log 2>&1 &   # 127.0.0.1:8081
 export SAS_PYPI_URL=http://127.0.0.1:8081
+# Panneau Serveur de la page Direct : l'index que le serveur utilise, affiché tel quel.
+export SAS_INDEX_SERVEUR=http://10.42.2.10:8080/simple/
 .venv/bin/uvicorn plateforme.web.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -368,3 +370,61 @@ jamais appelée à l'import : la sandbox ne voit rien.
    (étape 1), le tableau de bord (étapes 0 et 6).
 3. Chacun note ce qui casse et le temps de chaque étape, puis écrit son point H16. Ensuite, on gèle
    les fonctions.
+
+## Démo dans la plateforme : Demandes, Direct, Catalogue (sans quitter le navigateur)
+
+Conception : `docs/conception-demo.md`. Pendant la démo, on ne quitte jamais la plateforme : pas de
+terminal serveur, pas de `curl`. Tout ce que montre le panneau Serveur est lu dans le journal
+d'accès de la passerelle ; rien n'y est inventé.
+
+### Ce qui doit être prêt avant
+- PR #90 à #95 sur `main`, redéployées par C : `creer.sh` (port 8444 du serveur vers la passerelle),
+  puis `installer.sh` (guichet sur la passerelle, agent d'installation sur le serveur, étape 11 bis).
+- Le web lancé comme au § 3, avec `SAS_INDEX_SERVEUR` ; faux PyPI démarré.
+- `demo-horodatage` 1.0 déjà `publiee` (comme au H10).
+
+### Avant de commencer (2 minutes avant)
+Sortir la 1.1 sur le faux PyPI : elle restera « en attente » pendant la démo.
+
+```bash
+curl -X POST localhost:8081/demo/publier/demo-horodatage/1.1
+```
+
+Navigateur sur <http://localhost:8000> en `admin`, onglet **Demandes**.
+
+### Déroulé (2 minutes)
+
+**1. La demande (15 s)** — **Demandes** : écosystème `pypi`, nom `demo-horodatage`, « Demander et
+suivre en direct ». La page **Direct** s'ouvre.
+
+> « Un développeur a besoin d'un paquet. Il le demande ici, comme il taperait pip install. »
+
+**2. Le serveur installe, sans rien voir (30 s)** — panneau **Serveur**, à gauche : `pip install
+demo-horodatage`, puis les vraies requêtes du serveur à la passerelle (`/simple/…`, l'archive), et
+« ✓ demo-horodatage 1.0 installée ». En dessous : « 1.1 sur PyPI : en attente… Pas servie aux
+serveurs. »
+
+> « Pour le serveur, c'est une installation normale. Mais il ne parle qu'à la passerelle : il reçoit
+> la dernière version vérifiée, la 1.0. La 1.1, sortie il y a deux minutes sur Internet, attend. »
+
+**3. La pipeline, en direct (45 s)** — panneau **Pipeline**, à droite : chaque étape s'allume
+(téléchargement, sandbox, contrôles, IA, politique, signature). L'IA écrit son explication mot à
+mot ; la dernière ligne rappelle que le code décide.
+
+> « Pendant ce temps, chaque version passe le sas : sandbox sans réseau réel avec des leurres, IA
+> locale qui explique, et c'est le code qui tranche, pas l'IA. »
+
+**4. Le catalogue (30 s)** — **Catalogue** → `pypi/` → `demo-horodatage` : la version servie
+marquée, la 1.1 qui attend et son temps restant ; une version → ses archives (sha256) et son
+`verdict.json`. `images/` : les images Docker tenues à la main, dites « non analysées ».
+
+> « Tout ce que la passerelle peut servir est ici, comme un dépôt : quoi, quelle version, pourquoi. »
+
+### Si quelque chose casse
+| Symptôme | Cause probable | Que faire |
+|---|---|---|
+| Panneau Serveur : « Passerelle non configurée » | `SAS_PASSERELLE_URL` absente au lancement | relancer le web avec le § 3 |
+| « installation refusée : signature invalide » | clé publique du serveur différente de celle de la plateforme | C : recopier `plateforme_signature.pub` (étape 11 bis) |
+| « en attente des requêtes du serveur… » qui dure | agent arrêté, ou port 8444 fermé | C : `systemctl status agent-installation` sur le serveur, ufw et groupe de sécurité |
+| Pipeline figée sur « IA locale » | Ollama lent sur CPU (jusqu'à 47 s, point C-h10-aws) | attendre ; la suite arrive seule |
+
