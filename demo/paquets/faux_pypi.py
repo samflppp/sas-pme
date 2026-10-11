@@ -8,7 +8,14 @@
     curl -X POST localhost:8081/demo/publier/demo-horodatage/1.3   # « à revoir » : décision humaine
 
 Il sert l'API JSON de PyPI (`/pypi/<nom>/json`, `/pypi/<nom>/<version>/json`) pour le paquet
-`demo-horodatage` et relaie tout autre nom vers https://pypi.org (lecture seule).
+`demo-horodatage` et le trio ci-dessous, et relaie tout autre nom vers https://pypi.org (lecture
+seule).
+
+**Trio de l'enregistrement vidéo** : trois paquets à part, en 1.0 publiée il y a 400 jours, donc
+mûrs tout de suite (aucun délai). On les demande l'un après l'autre dans « Demandes » :
+- `demo-sain` : passe (vert) ;
+- `demo-a-revoir` : le code de la 1.3 ci-dessous (tunnel ngrok jamais appelé) : à revoir (orange) ;
+- `demo-piege` : le code de la 1.2 ci-dessous (leurre lu, envoi vers `.invalid`) : bloqué (rouge).
 
 - 1.0 : publiée il y a 400 jours ; c'est celle qu'on demande au départ (au catalogue).
 - 1.1 : mise à jour saine.
@@ -80,21 +87,25 @@ def envoyer_rapport(texte: str) -> None:
     import urllib.request
     urllib.request.urlopen(RAPPORT_URL, data=texte.encode(), timeout=2)
 '''
+TRIO = {"demo-sain": _SAIN, "demo-a-revoir": _SAIN + _FORMAT + _DOUTEUX,
+        "demo-piege": _SAIN + _FORMAT + _PIEGE}
 CODE = {"1.0": _SAIN, "1.1": _SAIN + _FORMAT, "1.2": _SAIN + _FORMAT + _PIEGE,
         "1.3": _SAIN + _FORMAT + _DOUTEUX}
 AUTEUR = {"1.0": "equipe@horodatage-demo.invalid", "1.1": "equipe@horodatage-demo.invalid",
           "1.2": "maintenance@horodatage-demo.invalid", "1.3": "equipe@horodatage-demo.invalid"}
 
 
-def _metadata(version: str) -> str:
-    return (f"Metadata-Version: 2.1\nName: {NOM}\nVersion: {version}\n"
+def _metadata(version: str, nom: str = NOM, auteur: str | None = None) -> str:
+    return (f"Metadata-Version: 2.1\nName: {nom}\nVersion: {version}\n"
             f"Summary: Horodatage lisible (paquet de démo sas-pme)\n"
-            f"Author-email: {AUTEUR[version]}\nRequires-Python: >=3.9\n")
+            f"Author-email: {auteur or AUTEUR[version]}\nRequires-Python: >=3.9\n")
 
 
-def _roue(version: str) -> bytes:
-    info = f"{MODULE}-{version}.dist-info"
-    fichiers = {f"{MODULE}/__init__.py": CODE[version], f"{info}/METADATA": _metadata(version),
+def _roue(version: str, nom: str = NOM, code: str | None = None) -> bytes:
+    module = nom.replace("-", "_")
+    info = f"{module}-{version}.dist-info"
+    fichiers = {f"{module}/__init__.py": code or CODE[version],
+                f"{info}/METADATA": _metadata(version, nom, None if nom == NOM else "equipe@horodatage-demo.invalid"),
                 f"{info}/WHEEL": "Wheel-Version: 1.0\nGenerator: sas-pme-demo\n"
                                  "Root-Is-Purelib: true\nTag: py3-none-any\n"}
     record = []
@@ -110,13 +121,14 @@ def _roue(version: str) -> bytes:
     return tampon.getvalue()
 
 
-def _source(version: str) -> bytes:
-    racine = f"{MODULE}-{version}"
-    fichiers = {f"{racine}/PKG-INFO": _metadata(version),
+def _source(version: str, nom: str = NOM, code: str | None = None) -> bytes:
+    module = nom.replace("-", "_")
+    racine = f"{module}-{version}"
+    fichiers = {f"{racine}/PKG-INFO": _metadata(version, nom, None if nom == NOM else "equipe@horodatage-demo.invalid"),
                 f"{racine}/pyproject.toml": "[build-system]\nrequires = [\"setuptools\"]\n"
-                f"build-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"{NOM}\"\n"
+                f"build-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"{nom}\"\n"
                 f"version = \"{version}\"\n",
-                f"{racine}/{MODULE}/__init__.py": CODE[version]}
+                f"{racine}/{module}/__init__.py": code or CODE[version]}
     tampon = io.BytesIO()
     with tarfile.open(fileobj=tampon, mode="w:gz") as t:
         for nom, texte in fichiers.items():
@@ -133,13 +145,21 @@ def construire() -> dict[str, dict[str, bytes]]:
             for v in CODE}
 
 
+def construire_trio() -> dict[str, dict[str, bytes]]:
+    """{nom: {nom de fichier: octets}} : la 1.0 de chaque paquet du trio."""
+    return {n: {f"{n.replace('-', '_')}-1.0-py3-none-any.whl": _roue("1.0", n, code),
+                f"{n.replace('-', '_')}-1.0.tar.gz": _source("1.0", n, code)}
+            for n, code in TRIO.items()}
+
+
 def _iso(d: datetime) -> str:
     return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 def creer_app(amont: httpx.Client | None = None) -> FastAPI:
-    archives = construire()
-    octets = {f: b for fichiers in archives.values() for f, b in fichiers.items()}
+    archives, trio = construire(), construire_trio()
+    octets = {f: b for fichiers in [*archives.values(), *trio.values()] for f, b in fichiers.items()}
+    il_y_a_400_jours = datetime.now(timezone.utc) - timedelta(days=400)
     etat = {v: {"publiee_le": None, "retiree": False} for v in CODE}
     etat["1.0"]["publiee_le"] = datetime.now(timezone.utc) - timedelta(days=400)
     amont = amont or httpx.Client(timeout=30, follow_redirects=True)
@@ -160,11 +180,28 @@ def creer_app(amont: httpx.Client | None = None) -> FastAPI:
         r = amont.get(f"{AMONT}{chemin}")
         return Response(r.content, status_code=r.status_code, media_type="application/json")
 
+    def canon(nom: str) -> str:
+        return nom.lower().replace("_", "-").replace(".", "-")
+
     def est_demo(nom: str) -> bool:
-        return nom.lower().replace("_", "-").replace(".", "-") == NOM
+        return canon(nom) == NOM
+
+    def fichiers_trio(request: Request, nom: str) -> list[dict]:
+        return [{"filename": f, "url": f"{str(request.base_url).rstrip('/')}/fichiers/{f}",
+                 "digests": {"sha256": hashlib.sha256(b).hexdigest()},
+                 "packagetype": "bdist_wheel" if f.endswith(".whl") else "sdist",
+                 "upload_time_iso_8601": _iso(il_y_a_400_jours), "yanked": False}
+                for f, b in trio[nom].items()]
+
+    def info_trio(nom: str) -> dict:
+        return {"name": nom, "version": "1.0", "requires_dist": [],
+                "author_email": "equipe@horodatage-demo.invalid"}
 
     @app.get("/pypi/{nom}/json")
     def projet(nom: str, request: Request):
+        if canon(nom) in trio:
+            return {"info": info_trio(canon(nom)),
+                    "releases": {"1.0": fichiers_trio(request, canon(nom))}}
         if not est_demo(nom):
             return relayer(f"/pypi/{nom}/json")
         vues = publiees()
@@ -173,6 +210,10 @@ def creer_app(amont: httpx.Client | None = None) -> FastAPI:
 
     @app.get("/pypi/{nom}/{version}/json")
     def version(nom: str, version: str, request: Request):
+        if canon(nom) in trio:
+            if version != "1.0":
+                raise HTTPException(404)
+            return {"info": info_trio(canon(nom)), "urls": fichiers_trio(request, canon(nom))}
         if not est_demo(nom):
             return relayer(f"/pypi/{nom}/{version}/json")
         if version not in publiees():
