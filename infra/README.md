@@ -64,3 +64,24 @@ pypi.org. L'envoi (upload) est fermé : seule la plateforme publie, par copie da
   clés privées (signature, TLS, SSH) ni la clé HMAC du journal : une sauvegarde volée ne permet ni
   de publier ni de réécrire le journal ;
 - `verifier` contrôle la chaîne du journal (il faut la même `SAS_CLE_JOURNAL`).
+
+## Plateforme hors site : WireGuard (extension M2)
+
+`infra/aws/installer_wireguard.sh`, après `installer.sh`, fait passer le lien plateforme ↔ passerelle
+par un tunnel WireGuard, comme si la plateforme était chez un hébergeur. Le TLS mutuel et la
+signature restent : le tunnel s'ajoute, il ne remplace rien.
+
+| | plateforme | passerelle |
+|---|---|---|
+| wg0 | `10.99.0.1`, écoute UDP 51820 | `10.99.0.2`, appelle la plateforme (keepalive 25 s) |
+| pair accepté (AllowedIPs) | `10.99.0.2/32` seulement | `10.99.0.1/32` seulement : aucune route vers Internet |
+| services | relais d'API sur `10.99.0.1:3129` ; `passerelle` = `10.99.0.2` dans `/etc/hosts` | récepteur sur `10.99.0.2:8443` seulement ; ufw : 8443 par `wg0` depuis `10.99.0.1` |
+
+- Les clés privées sont tirées sur chaque hôte (`openssl genpkey -algorithm X25519`, 0600) et n'en
+  sortent jamais. Le tunnel est porté par systemd-networkd : rien à installer sur la passerelle.
+- La configuration est rendue par `infra/wireguard/rendre.py` (clé publique du pair vérifiée).
+- Groupes de sécurité : UDP 51820 de la passerelle vers la plateforme, seulement.
+- Le script vérifie : tunnel monté, récepteur joint par `https://passerelle:8443`, chemin direct
+  `10.42.2.10:8443` refusé, passerelle toujours sans Internet, relais d'API par le tunnel.
+- Sur la plateforme : `SAS_PASSERELLE_URL=https://passerelle:8443` (le certificat porte
+  `DNS:passerelle`). `installer_wireguard.sh local` revient au réseau local, la démo garantie.

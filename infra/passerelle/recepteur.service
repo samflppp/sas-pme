@@ -18,8 +18,10 @@ Environment=SAS_INSTALLATIONS=/var/lib/sas-recepteur/installations.jsonl
 Environment=SAS_VERDACCIO_URL=http://127.0.0.1:4873
 Environment=SAS_VERDACCIO_JETON=/var/lib/sas-recepteur/verdaccio.jeton
 Environment=SAS_JOURNAL_NPM=/var/lib/sas/verdaccio.log
+# Adresse d'écoute : le réseau local ; 10.99.0.2 (tunnel seul) avec installer_wireguard.sh.
+Environment=SAS_RECEPTEUR_HOTE=10.42.2.10
 # --ssl-cert-reqs 2 : certificat client exigé, signé par l'autorité du lien (la plateforme seule).
-ExecStart=/usr/bin/python3 -m uvicorn passerelle.recepteur:app --host 10.42.2.10 --port 8443 \
+ExecStart=/usr/bin/python3 -m uvicorn passerelle.recepteur:app --host ${SAS_RECEPTEUR_HOTE} --port 8443 \
   --ssl-keyfile /etc/sas/passerelle.key --ssl-certfile /etc/sas/passerelle.pem \
   --ssl-ca-certs /etc/sas/ca.pem --ssl-cert-reqs 2
 # Nonces et registre dans /var/lib/sas-recepteur, réservé au seul compte recepteur (0700, B : C6) :
