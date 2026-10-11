@@ -73,6 +73,7 @@
       f.appendChild(ligne("t-ligne", [["t-heure", x.a], " ", ["t-ip", x.ip], " " + x.texte]));
     });
     if (s.installee) f.appendChild(ligne("t-ok", ["✓ " + nom + " " + s.installee + " installée : la dernière version vérifiée et signée"]));
+    else if (s.aucune_servie) f.appendChild(ligne("t-erreur", ["✗ " + "aucune version de " + nom + " n'est servie par la passerelle : pip n'installe rien"]));
     else if (!s.erreur) f.appendChild(ligne("t-attente", ["en attente des requêtes du serveur…"]));
     if (s.amont) {
       f.appendChild(ligne("t-amont", ["↳ " + s.amont.version + " sur PyPI : " + s.amont.libelle +
