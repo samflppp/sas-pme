@@ -11,11 +11,10 @@ effacé :
   Verdaccio et les nonces sont gardés.
 - **Serveur :** `pip freeze` est vide et l'agent n'a aucune attente.
 - **Comptes :** `admin` et `dev` ont leur mot de passe habituel. **`jury` est recréé en rôle admin,
-  comme avant, avec un nouveau mot de passe** : l'ancien n'était connu que de celui qui l'a créé.
-  C le transmet hors du dépôt.
+  comme avant, avec le mot de passe déjà envoyé au jury** (connexion testée).
 - **Ne plus rien demander sur le site avant le jury.**
 
 ## Demandes
 | À | Demande | Bloquant pour | Réponse attendue |
 |---|---|---|---|
-| A, B | Le compte `jury` a un nouveau mot de passe : le demander à C, en privé | démo devant le jury | — |
+| — | Aucune | — | — |
