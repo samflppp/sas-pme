@@ -75,10 +75,11 @@
       f.appendChild(ligne("t-ligne", [["t-heure", x.a], " ", ["t-ip", x.ip], " " + x.texte]));
     });
     if (s.installee) f.appendChild(ligne("t-ok", ["✓ " + nom + " " + s.installee + " installée : la dernière version vérifiée et signée"]));
+    else if (s.verdict) f.appendChild(ligne(s.verdict.ok ? "t-ok" : "t-erreur", [s.verdict.texte]));
     else if (s.reessaie) f.appendChild(ligne("t-attente", ["pas encore servie : le serveur réessaie dès que la version est publiée…"]));
     else if (s.aucune_servie) f.appendChild(ligne("t-erreur", ["✗ " + "aucune version de " + nom + " n'est servie par la passerelle : pip n'installe rien"]));
     else if (!s.erreur && !s.manuel) f.appendChild(ligne("t-attente", ["en attente des requêtes du serveur…"]));
-    if (s.amont) {
+    if (s.amont && !(s.verdict && !s.verdict.ok)) {
       f.appendChild(ligne("t-amont", ["↳ " + s.amont.version + " sur PyPI : " + s.amont.libelle +
         (s.amont.detail ? ", " + s.amont.detail : "") + ". Pas servie aux serveurs."]));
     }
