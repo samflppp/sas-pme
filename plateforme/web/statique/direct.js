@@ -69,7 +69,7 @@
     f.appendChild(ligne("t-cmd", cmd));
     f.appendChild(ligne("t-note", ["# " + (s.manuel ? "registre" : "index") + " : " + s.index +
       " : seule source de paquets, pas de repli vers " + s.repli]));
-    if (s.manuel) f.appendChild(ligne("t-note", ["# à taper sur le serveur : l'agent de la démo n'installe que les paquets pip"]));
+    if (s.manuel) f.appendChild(ligne("t-note", ["# à lancer sur le serveur : l'installation automatique couvre les paquets pip"]));
     if (s.erreur) f.appendChild(ligne("t-erreur", ["✗ " + s.erreur]));
     s.lignes.forEach(function (x) {
       f.appendChild(ligne("t-ligne", [["t-heure", x.a], " ", ["t-ip", x.ip], " " + x.texte]));

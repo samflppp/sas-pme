@@ -138,3 +138,17 @@ def test_la_fiche_d_une_version_npm_a_portee(client, base):
     connecter(client)
     r = client.get("/versions/npm/@org/outil/1.0.0")
     assert r.status_code == 200 and "Vol de ~/.npmrc." in r.text and "@org/outil" in r.text
+
+
+# --- version finale (production) : aucune trace de développement sur le site ------------------
+@pytest.mark.parametrize("chemin", ["/docs", "/redoc", "/openapi.json"])
+def test_les_pages_de_developpeur_de_fastapi_sont_fermees(client, chemin):
+    assert client.get(chemin).status_code == 404
+
+
+def test_aucune_mention_de_demo_ni_de_jalon_dans_l_interface(client, base):
+    connecter(client)
+    for chemin in ("/", "/demander", "/direct", "/tableau-de-bord", "/file-attente", "/inventaire"):
+        texte = client.get(chemin).text
+        for mot in ("Démo", "démo", "M0", "stub", "hackathon", "MVP"):
+            assert mot not in texte, (chemin, mot)

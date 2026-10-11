@@ -287,7 +287,9 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         finally:
             tache.arreter()
 
-    app = FastAPI(title="sas-pme — plateforme agréée", lifespan=cycle)
+    # Production : pas de pages de développeur (/docs, /redoc, /openapi.json).
+    app = FastAPI(title="Pipelad — plateforme agréée", lifespan=cycle, docs_url=None,
+                  redoc_url=None, openapi_url=None)
     # Styles, polices et scripts de l'interface : servis ici, sans aucune ressource extérieure.
     app.mount("/statique", StaticFiles(directory=Path(__file__).with_name("statique")), name="statique")
     app.add_middleware(SessionMiddleware, secret_key=secret, same_site="strict",

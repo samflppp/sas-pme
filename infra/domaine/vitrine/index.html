@@ -20,7 +20,7 @@
     PIPELAD
   </a>
   <span class="fil" aria-hidden="true">Rapport <span class="sep">/</span> Sécurité de la chaîne d'approvisionnement <span class="sep">/</span> Octobre 2026</span>
-  <a class="bouton-barre" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+  <a class="bouton-barre" href="https://demo.pipelad.tech/">Accéder à la plateforme</a>
 </header>
 
 <nav class="onglets" aria-label="Pages du rapport">
@@ -48,7 +48,7 @@
         comportement, IA locale), puis signée. Vos serveurs ne voient jamais la dernière version
         publiée sur Internet : seulement la dernière version vérifiée.</p>
       <div class="actions">
-        <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+        <a class="bouton plein" href="https://demo.pipelad.tech/">Accéder à la plateforme</a>
         <a class="bouton" href="#sas">Lire le fonctionnement</a>
       </div>
     </div>
@@ -168,7 +168,7 @@
         <text class="i-lib" x="490" y="231">aucune route : le serveur ne joint jamais Internet</text>
       </svg>
     </div>
-    <figcaption class="source">Vérifié sur l'infrastructure de démo (AWS) : <code>verifier_h3.sh</code>, <code>verifier_compromission.sh</code>.</figcaption>
+    <figcaption class="source">Vérifié sur l'infrastructure de référence (AWS) : <code>verifier_h3.sh</code>, <code>verifier_compromission.sh</code>.</figcaption>
   </figure>
 
   <div class="tuile">
@@ -190,18 +190,18 @@
   <h2 id="t-preuves" class="titre-page"><span class="num">4</span> Preuves <span>mesuré, pas promis</span></h2>
   <div class="grille g-kpi">
     <article class="tuile kpi jauge">
-      <h3>Versions malveillantes arrêtées, analyse statique seule</h3>
-      <svg viewBox="0 0 120 120" role="img" aria-label="73 %, soit 93 versions malveillantes arrêtées sur 128">
+      <h3>Versions malveillantes arrêtées, pipeline complet</h3>
+      <svg viewBox="0 0 120 120" role="img" aria-label="80 %, soit 103 versions malveillantes arrêtées sur 128">
         <circle class="fond-jauge" cx="60" cy="60" r="44"/>
-        <circle class="arc-jauge" cx="60" cy="60" r="44" stroke-dasharray="201.8 276.5" transform="rotate(-90 60 60)"/>
-        <text x="60" y="68">73 %</text>
+        <circle class="arc-jauge" cx="60" cy="60" r="44" stroke-dasharray="222.5 276.5" transform="rotate(-90 60 60)"/>
+        <text x="60" y="68">80 %</text>
       </svg>
-      <p class="delta">93 sur 128, corpus Datadog</p>
+      <p class="delta">103 sur 128, corpus Datadog</p>
     </article>
     <article class="tuile kpi">
       <h3>Fausses alertes sur des paquets sains</h3>
       <p class="valeur">0 <small>/ 98</small></p>
-      <p class="delta baisse">analyse statique seule</p>
+      <p class="delta baisse">pipeline complet : statique, sandbox et IA</p>
     </article>
     <article class="tuile kpi">
       <h3>Publication signée avec une autre clé</h3>
@@ -220,13 +220,13 @@
     <h3>Ce que chaque couche arrête <span class="unite">détection, en % des versions malveillantes</span></h3>
     <div class="defile"><svg class="barres court" viewBox="0 0 850 132" role="img" aria-labelledby="g3-titre g3-desc">
       <title id="g3-titre">Détection par couche de contrôle</title>
-      <desc id="g3-desc">Le nom seul, contrôle du typosquat, arrête 3 % des versions malveillantes du corpus OpenSSF. L'analyse statique, nom et code, en arrête 73 % du corpus Datadog, sans fausse alerte. La mesure avec la sandbox et l'IA est en cours.</desc>
+      <desc id="g3-desc">Le nom seul, contrôle du typosquat, arrête 3 % des versions malveillantes du corpus OpenSSF. L'analyse statique, nom et code, en arrête 73 % du corpus Datadog, sans fausse alerte. Avec la sandbox et l'IA, 80 %, toujours sans fausse alerte.</desc>
       <g class="axe"><line x1="210" y1="10" x2="210" y2="104"/><line x1="510" y1="10" x2="510" y2="104"/><line x1="810" y1="10" x2="810" y2="104"/><text x="210" y="124">0 %</text><text x="510" y="124">50 %</text><text x="810" y="124">100 %</text></g>
       <text class="lib" x="200" y="30">Nom seul (typosquat)</text><rect class="passe" x="210" y="19" width="18" height="16"/><text class="v" x="234" y="32">3 %, 1 sur 30</text>
       <text class="lib" x="200" y="62">Statique : nom et code</text><rect class="arretee" x="210" y="51" width="438" height="16"/><text class="v" x="654" y="64">73 %, 93 sur 128</text>
-      <text class="lib" x="200" y="94">+ sandbox et IA</text><rect class="attente" x="210" y="83" width="600" height="16"/><text class="v" x="216" y="96">mesure finale en cours</text>
+      <text class="lib" x="200" y="94">+ sandbox et IA</text><rect class="arretee" x="210" y="83" width="483" height="16"/><text class="v" x="699" y="96">80 %, 103 sur 128</text>
     </svg></div>
-    <figcaption class="source">Mesure du 2026-10-10 (<code>mesure/resultats.md</code>), corpus publics OpenSSF et Datadog. Une version est arrêtée si un contrôle lève un signal fort ou bloquant.</figcaption>
+    <figcaption class="source">Mesure du 2026-10-11 (<code>mesure/resultats.md</code>), corpus publics OpenSSF et Datadog, 98 versions saines de PyPI. Une version est arrêtée si un contrôle lève un signal fort ou bloquant.</figcaption>
   </figure>
 </section>
 
@@ -248,7 +248,7 @@
           <tr><th scope="row">Rien n'est envoyé à un éditeur</th><td><b class="o">oui</b></td><td><b class="p">en partie</b></td><td><b class="n">non</b></td><td><b class="p">en partie</b></td><td class="nous"><b class="o">oui</b></td></tr>
           <tr><th scope="row">Révocation et inventaire des serveurs</th><td><b class="n">non</b></td><td><b class="n">non</b></td><td><b class="p">en partie</b></td><td><b class="p">en partie</b></td><td class="nous"><b class="o">oui</b></td></tr>
           <tr><th scope="row">Base de menaces mondiale, mise à jour en continu</th><td><b class="n">non</b></td><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td class="nous"><b class="p">en partie</b></td></tr>
-          <tr><th scope="row">Écosystèmes couverts</th><td><b class="o">tous</b></td><td><b class="o">npm, pip</b></td><td><b class="o">nombreux</b></td><td><b class="o">tous</b></td><td class="nous"><b class="p">pip</b></td></tr>
+          <tr><th scope="row">Écosystèmes couverts</th><td><b class="o">tous</b></td><td><b class="o">npm, pip</b></td><td><b class="o">nombreux</b></td><td><b class="o">tous</b></td><td class="nous"><b class="o">pip, npm</b></td></tr>
           <tr><th scope="row">À la taille d'une PME de 20 à 80 personnes</th><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td><b class="n">non</b></td><td class="nous"><b class="o">oui</b></td></tr>
         </tbody>
       </table>
@@ -305,7 +305,7 @@
   <div class="tuile fin">
     <p class="fin-phrase">Vos serveurs n'installent que ce qu'on a vérifié.</p>
     <div class="actions">
-      <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+      <a class="bouton plein" href="https://demo.pipelad.tech/">Accéder à la plateforme</a>
       <a class="bouton lien" href="#preuves">Revoir les preuves</a>
     </div>
   </div>
@@ -313,12 +313,12 @@
 </main>
 
 <footer class="pied">
-  <p><strong>Pipelad</strong> · projet de hackathon, IA × cybersécurité défensive · octobre 2026.
-    Démo sur invitation : <a href="https://demo.pipelad.tech/">demo.pipelad.tech</a>.</p>
+  <p><strong>Pipelad</strong> · la chaîne d'approvisionnement logicielle sous contrôle, pour les PME qui
+    développent · octobre 2026. Accès sur invitation : <a href="https://demo.pipelad.tech/">demo.pipelad.tech</a>.</p>
   <p class="sources">Sources : Sonatype, State of the Software Supply Chain 2026 · Verizon, DBIR 2025 ·
     IBM, Cost of a Data Breach 2025 · W. Woodruff, « We should all be using dependency cooldowns », 2025 ·
     ReversingLabs (ultralytics) · CISA, alerte du 23 septembre 2025 · post-mortem TanStack, mai 2026.
-    Mesures Pipelad du 2026-10-10.</p>
+    Mesures Pipelad du 2026-10-11.</p>
   <p class="sources">Polices Selawik (Microsoft) et JetBrains Mono, licence SIL Open Font License 1.1
     (<a href="polices/OFL-Selawik.txt">Selawik</a>, <a href="polices/OFL-JetBrainsMono.txt">JetBrains Mono</a>).
     Photographies générées pour ce site.</p>
