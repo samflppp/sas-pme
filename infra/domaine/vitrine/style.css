@@ -53,7 +53,7 @@ strong, b { font-weight: 600; }
 .marque-signe rect:last-child { fill: var(--ambre); }
 .fil { font-size: 13px; color: #a9afb7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fil .sep { margin: 0 6px; color: #6b7179; }
-.bouton-barre { margin-left: auto; flex: none; color: #1b1d20; background: #fff; text-decoration: none;
+.bouton-barre { margin-left: auto; flex: none; border-radius: 2px; color: #1b1d20; background: #fff; text-decoration: none;
                 font-weight: 600; font-size: 14px; padding: 8px 14px; min-height: 36px; display: inline-flex; align-items: center; }
 .bouton-barre:hover { background: var(--ambre-pale); }
 
@@ -101,18 +101,30 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 h1 { font-size: clamp(34px, 5.2vw, 58px); line-height: 1.04; letter-spacing: -0.025em; font-weight: 600; max-width: 14ch; }
 .chapo { font-size: 18px; line-height: 1.6; color: #34383e; max-width: 58ch; margin: 22px 0 0; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
-.bouton { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; font-weight: 600; font-size: 15px;
-          text-decoration: none; color: var(--encre); border: 1px solid var(--encre); background: transparent;
-          transition: background-color 150ms ease, color 150ms ease; }
-.bouton:hover { background: var(--canevas); }
-.bouton.plein { background: var(--encre); color: #fff; }
-.bouton.plein:hover { background: #33373c; }
+/* Boutons dans l'esprit Fluent / Power BI : rectangle à 2 px d'arrondi, filet d'un pixel, aucun dégradé.
+   Trois états visibles (survol, appui, focus clavier) ; le focus est un double anneau, lisible sur tout fond. */
+.bouton { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 2px;
+          font-weight: 600; font-size: 15px; text-decoration: none; color: var(--encre); background: #fff;
+          border: 1px solid #8a9099; box-shadow: 0 1px 0 rgba(27, 29, 32, 0.06);
+          transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease; }
+.bouton:hover { background: #f3f4f6; border-color: #5f656d; }
+.bouton:active { background: #e6e8eb; border-color: #5f656d; box-shadow: none; }
+.bouton.plein { color: #fff; background: var(--ambre-texte); border-color: var(--ambre-texte); }
+.bouton.plein:hover { background: #6e470d; border-color: #6e470d; }
+.bouton.plein:active { background: #5a3a0a; border-color: #5a3a0a; }
+.bouton.lien { padding: 0 4px; border-color: transparent; background: transparent; box-shadow: none; }
+.bouton.lien::after { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 1.5px 1.5px 0 0;
+                      transform: rotate(45deg); transition: transform 120ms ease; }
+.bouton.lien:hover { color: var(--ambre-texte); background: transparent; border-color: transparent; }
+.bouton.lien:hover::after { transform: translateX(3px) rotate(45deg); }
+.bouton:focus-visible, .bouton-barre:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--encre); }
 
-.photo { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
-.photo img { width: 100%; height: auto; flex: 1; object-fit: cover; filter: contrast(1.02); }
-.photo figcaption { font-size: 13px; color: var(--doux); padding: 10px 14px; border-top: 1px solid var(--filet); }
+/* Textures en boucle (Higgsfield, animées en local) : décor muet, sans son ni contrôle ; l'image fixe
+   (poster) reste seule sans JavaScript ou quand le système demande moins d'animation. */
+.tuile.boucle { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.boucle .texture { width: 100%; height: auto; flex: 1; min-height: 0; object-fit: cover; background: #dcdfe3; }
+.boucle figcaption { font-size: 13px; color: var(--doux); padding: 10px 14px; border-top: 1px solid var(--filet); }
 .fig { font: 400 12px var(--mono); color: var(--ambre-texte); margin-right: 8px; }
-.photo.claire img { background: #dcdfe3; }
 
 /* --- indicateurs --------------------------------------------------------------------------- */
 .g-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -229,6 +241,7 @@ tbody th { font-weight: 400; }
 .fin { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
        border-left: 4px solid var(--ambre); }
 .fin-phrase { font-size: clamp(20px, 2.6vw, 28px); font-weight: 600; margin: 0; letter-spacing: -0.015em; }
+.fin .actions { margin-top: 0; }
 .pied { background: var(--barre); color: #c3c8ce; font-size: 13px; padding: 28px 20px 36px; }
 .pied p { max-width: var(--largeur); margin: 0 auto 8px; }
 .pied a { color: #fff; }

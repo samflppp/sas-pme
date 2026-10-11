@@ -52,11 +52,12 @@
         <a class="bouton" href="#sas">Lire le fonctionnement</a>
       </div>
     </div>
-    <figure class="tuile photo">
-      <img src="images/sas-1344.webp" srcset="images/sas-720.webp 720w, images/sas-1344.webp 1344w"
-           sizes="(min-width: 1100px) 560px, 100vw" width="1344" height="752"
-           alt="Couloir de salle serveurs, une porte de sas en acier fermée, une bande ambre sur son cadre.">
-      <figcaption><span class="fig">Fig. 1</span> Le sas : rien n'entre sans passer la porte.</figcaption>
+    <figure class="tuile boucle">
+      <video class="texture" muted loop playsinline poster="boucles/chemin.webp" width="1280" height="720" aria-hidden="true">
+        <source src="boucles/chemin.webm" type="video/webm">
+        <source src="boucles/chemin.mp4" type="video/mp4">
+      </video>
+      <figcaption><span class="fig">Fig. 1</span> Un seul chemin mène à vos serveurs : celui qui a été vérifié.</figcaption>
     </figure>
   </div>
 
@@ -184,16 +185,18 @@
   </div>
 
   <div class="grille g-deux">
-    <figure class="tuile photo claire">
-      <img src="images/passerelle-1168.webp" srcset="images/passerelle-640.webp 640w, images/passerelle-1168.webp 1168w"
-           sizes="(min-width: 1100px) 520px, 100vw" width="1168" height="880" loading="lazy"
-           alt="Boîtier réseau gris d'une unité de baie, deux ports Ethernet et un voyant ambre.">
+    <figure class="tuile boucle">
+      <video class="texture" muted loop playsinline preload="none" poster="boucles/metal.webp" width="960" height="720" aria-hidden="true">
+        <source src="boucles/metal.webm" type="video/webm">
+        <source src="boucles/metal.mp4" type="video/mp4">
+      </video>
       <figcaption><span class="fig">Fig. 2</span> La passerelle : un boîtier sur site, sans accès à Internet. Elle ne reçoit que ce qui est signé.</figcaption>
     </figure>
-    <figure class="tuile photo">
-      <img src="images/installation-1168.webp" srcset="images/installation-640.webp 640w, images/installation-1168.webp 1168w"
-           sizes="(min-width: 1100px) 520px, 100vw" width="1168" height="880" loading="lazy"
-           alt="Une main branche un câble réseau dans un petit boîtier, dans une baie de serveurs.">
+    <figure class="tuile boucle">
+      <video class="texture" muted loop playsinline preload="none" poster="boucles/verre.webp" width="960" height="720" aria-hidden="true">
+        <source src="boucles/verre.webm" type="video/webm">
+        <source src="boucles/verre.mp4" type="video/mp4">
+      </video>
       <figcaption><span class="fig">Fig. 3</span> Rien à configurer sur les postes : <code>pip install</code> marche comme avant, avec trois jours de recul.</figcaption>
     </figure>
   </div>
@@ -318,7 +321,10 @@
 
   <div class="tuile fin">
     <p class="fin-phrase">Vos serveurs n'installent que ce qu'on a vérifié.</p>
-    <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+    <div class="actions">
+      <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+      <a class="bouton lien" href="#preuves">Revoir les preuves</a>
+    </div>
   </div>
 </section>
 </main>

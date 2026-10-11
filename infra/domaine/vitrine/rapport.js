@@ -38,3 +38,32 @@
   window.addEventListener("resize", suivre);
   suivre();
 })();
+
+// Textures en boucle : elles ne jouent que visibles à l'écran, et jamais si le système demande moins
+// d'animation. Sans ce script, l'image fixe (poster) reste affichée.
+(function () {
+  "use strict";
+  var videos = Array.prototype.slice.call(document.querySelectorAll("video.texture"));
+  if (!videos.length || !("IntersectionObserver" in window)) return;
+  var calme = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function jouer(v) {
+    if (calme.matches) return;
+    if (v.preload === "none") v.preload = "auto";
+    var essai = v.play();
+    if (essai && essai.catch) essai.catch(function () {});   // lecture refusée : le poster reste
+  }
+
+  var visibles = new Set();
+  var guet = new IntersectionObserver(function (entrees) {
+    entrees.forEach(function (e) {
+      if (e.isIntersecting) { visibles.add(e.target); jouer(e.target); }
+      else { visibles.delete(e.target); e.target.pause(); }
+    });
+  }, { rootMargin: "120px 0px" });
+  videos.forEach(function (v) { guet.observe(v); });
+
+  calme.addEventListener("change", function () {
+    videos.forEach(function (v) { if (calme.matches) v.pause(); else if (visibles.has(v)) jouer(v); });
+  });
+})();
