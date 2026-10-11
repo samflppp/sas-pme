@@ -1,0 +1,5 @@
+# Image de la sandbox npm : Node 20 (comme les serveurs) + strace (fichiers lus, commandes,
+# connexions). Le piège réseau tourne, lui, dans l'image Python (Dockerfile).
+FROM node:20-trixie-slim
+RUN apt-get update -q && apt-get install -yq --no-install-recommends strace \
+  && rm -rf /var/lib/apt/lists/*

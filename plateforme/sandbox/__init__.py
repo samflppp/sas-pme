@@ -8,7 +8,11 @@ La cible installe l'archive sans réseau, importe le module, attend un battement
 rassemble le traceur (dans la cible) et le journal du piège (hors de portée du paquet).
 
 Réglages : SAS_SANDBOX=stub (rapport vide, pour les tests), SAS_SANDBOX_IMAGE (défaut sas-sandbox:2,
-construite au besoin depuis le Dockerfile voisin), SAS_SANDBOX_ATTENTE (secondes après la fin de l'import, défaut 60 : un battement).
+construite au besoin depuis le Dockerfile voisin), SAS_SANDBOX_IMAGE_NPM (défaut sas-sandbox-node:2,
+depuis Dockerfile.node), SAS_SANDBOX_ATTENTE (secondes après la fin de l'import, défaut 60 : un battement).
+
+npm : même conteneur verrouillé, même piège, mêmes leurres ; le scénario `lancer_npm.sh` dépose le
+paquet dans node_modules, lance ses scripts d'installation (`npm rebuild`) puis l'importe.
 """
 
 import json
@@ -46,7 +50,7 @@ def _docker(*args: str, timeout: float = 60, verifier: bool = True) -> subproces
 
 
 def commande_cible(nom: str, reseau: str, image: str, dossier: str, archive: str, module: str,
-                   attente_s: int, leurres: dict[str, str]) -> list[str]:
+                   attente_s: int, leurres: dict[str, str], script: str = "lancer.sh") -> list[str]:
     cmd = ["docker", "run", "-i", "--name", nom, "--network", reseau, "--hostname", "srv-prod",
            "--read-only", "--tmpfs", "/tmp:rw,exec,mode=1777,size=512m",
            "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -57,13 +61,19 @@ def commande_cible(nom: str, reseau: str, image: str, dossier: str, archive: str
            "-e", f"SAS_ATTENTE={attente_s}"]
     for cle, valeur in leurres.items():
         cmd += ["-e", f"{cle}={valeur}"]
-    return cmd + [image, "sh", "/outils/lancer.sh"]
+    return cmd + [image, "sh", f"/outils/{script}"]
 
 
-def _image() -> str:
-    image = os.environ.get("SAS_SANDBOX_IMAGE", "sas-sandbox:2")
+_IMAGES = {"pypi": ("SAS_SANDBOX_IMAGE", "sas-sandbox:2", "Dockerfile"),
+           "npm": ("SAS_SANDBOX_IMAGE_NPM", "sas-sandbox-node:2", "Dockerfile.node")}
+_SCRIPTS = {"pypi": "lancer.sh", "npm": "lancer_npm.sh"}
+
+
+def _image(ecosysteme: str = "pypi") -> str:
+    variable, defaut, dockerfile = _IMAGES[ecosysteme]
+    image = os.environ.get(variable, defaut)
     if _docker("image", "inspect", image, verifier=False).returncode != 0:
-        _docker("build", "-q", "-t", image, str(ICI), timeout=600)
+        _docker("build", "-q", "-t", image, "-f", str(ICI / dockerfile), str(ICI), timeout=600)
     return image
 
 
@@ -112,8 +122,10 @@ def _attendre_piege(journal: Path, delai_s: float = 20) -> str:
     raise RuntimeError("le piège réseau de la sandbox n'a pas démarré")
 
 
-def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
-    image = _image()
+def _analyser(archive: Path, module: str, duree_max_s: int,
+              ecosysteme: str = "pypi") -> RapportSandbox:
+    image = _image()                      # le piège (Python), et la cible pour pip
+    image_cible = _image(ecosysteme)
     ident = secrets.token_hex(4)
     reseau, piege, cible = f"sas-sb-{ident}", f"sas-piege-{ident}", f"sas-cible-{ident}"
     attente = int(os.environ.get("SAS_SANDBOX_ATTENTE", str(ATTENTE_PAR_DEFAUT_S)))
@@ -151,8 +163,9 @@ def _analyser(archive: Path, module: str, duree_max_s: int) -> RapportSandbox:
             (d / "resolv.conf").chmod(0o644)
             debut = time.monotonic()
             try:
-                subprocess.run(commande_cible(cible, reseau, image, str(d), archive.name, module,
-                                              attente, env_cible),
+                subprocess.run(commande_cible(cible, reseau, image_cible, str(d), archive.name,
+                                              module, attente, env_cible,
+                                              script=_SCRIPTS[ecosysteme]),
                                input=(jeton + "\n").encode(), capture_output=True, timeout=duree_max_s)
             except subprocess.TimeoutExpired:
                 depasse = True
@@ -178,6 +191,6 @@ def executer(ecosysteme: Ecosysteme, archive: Path, module: str,
         raise FileNotFoundError(archive)
     if os.environ.get("SAS_SANDBOX") == "stub":
         return _vide()
-    if str(ecosysteme) != "pypi":
-        raise NotImplementedError("sandbox v1 : pip seulement")
-    return _analyser(archive.resolve(), module, duree_max_s)
+    if str(ecosysteme) not in _SCRIPTS:
+        raise NotImplementedError(f"sandbox : pip et npm seulement, pas {ecosysteme}")
+    return _analyser(archive.resolve(), module, duree_max_s, str(ecosysteme))

