@@ -31,7 +31,8 @@ ETAPES = [
 _ANALYSE = [cle for cle, _ in ETAPES[2:]]
 # Une étape jamais vue d'une version dans ces états ne viendra plus : elle a été sautée.
 _SANS_SUITE = {Etat.BLOQUEE, Etat.PUBLIEE, Etat.REVOQUEE, Etat.A_REVOIR}
-_ISSUE = {Etat.A_REVOIR: "revoir", Etat.BLOQUEE: "bloque"}   # couleur de la dernière étape franchie
+_ISSUE = {Etat.A_REVOIR: "revoir", Etat.BLOQUEE: "bloque"}
+_REFUS = ("ia", "politique", "publication")              # en croix rouges quand l'analyse bloque   # couleur de la dernière étape franchie
 
 
 class Diffusion:
@@ -163,8 +164,16 @@ def suivi_version(base: Base, diffusion: Diffusion, v: Version, demande_: Demand
                 etat = "saute"                      # décidée sans cette étape (veille, humain)
         sortie.append({"cle": cle, "titre": titre, "etat": etat, "detail": detail,
                        "duree": temps, "texte": texte})
-    # La dernière étape franchie porte le verdict : orange si à revoir, rouge si bloquée.
-    if (issue := _ISSUE.get(v.etat)) is not None:
+    # Bloquée après analyse : de l'IA à la publication, des croix rouges (la publication n'a pas
+    # eu lieu, et n'aura jamais lieu).
+    par_cle = {e["cle"]: e for e in sortie}
+    if v.etat is Etat.BLOQUEE and any(par_cle[k]["etat"] == "fait" for k in _REFUS):
+        for k in _REFUS:
+            par_cle[k]["etat"] = "bloque"
+        if not par_cle["publication"]["detail"]:
+            par_cle["publication"]["detail"] = "jamais publiée : la version est bloquée"
+    # Sinon, la dernière étape franchie porte le verdict : orange si à revoir, rouge si bloquée.
+    elif (issue := _ISSUE.get(v.etat)) is not None:
         franchies = [e for e in sortie if e["etat"] in ("fait", "erreur")]
         if franchies:
             franchies[-1]["etat"] = issue
