@@ -23,7 +23,7 @@ dépôt ou sur les serveurs sans être publiées par la plateforme.
     <tr{% if l.alerte %} class="alerte"{% endif %}>
       <td>{% if l.version %}<a href="/versions/{{ l.version.ecosysteme.value }}/{{ l.version.nom }}/{{ l.version.version }}">{{ l.entree.nom }}</a>{% else %}{{ l.entree.nom }}{% endif %}</td>
       <td>{{ l.entree.version }}</td>
-      <td>{% if l.version %}<span class="etat etat-{{ l.version.etat.value }}">{{ l.version.etat.value }}</span>{% else %}inconnue{% endif %}</td>
+      <td>{% if l.version %}<span class="etat etat-{{ l.version.etat.value }}">{{ l.version.etat.value|libelle }}</span>{% else %}inconnue{% endif %}</td>
       <td>{{ l.entree.telechargements }}</td>
       <td>{{ l.entree.dernier.strftime('%Y-%m-%d %H:%M UTC') if l.entree.dernier else "jamais" }}</td>
       <td>{{ l.alerte or "" }}</td>

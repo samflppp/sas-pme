@@ -5,7 +5,7 @@
 
 <div class="compteurs">
   {% for etat, n in compteurs.items() %}
-  <div class="compteur"><span class="etat etat-{{ etat.value }}">{{ etat.value }}</span>
+  <div class="compteur"><span class="etat etat-{{ etat.value }}">{{ etat.value|libelle }}</span>
     <strong data-etat="{{ etat.value }}">{{ n }}</strong></div>
   {% endfor %}
   <div class="compteur"><span>total</span><strong data-total>{{ total }}</strong></div>
@@ -42,7 +42,7 @@ n° {{ journal.casse }}. <a href="/journal?verifier=1">Voir le journal</a></p>
   {% for v, raison in derniers %}
     <tr><td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a></td>
         <td>{{ v.version }}</td>
-        <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value }}</span></td>
+        <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value|libelle }}</span></td>
         <td>{{ raison }}</td></tr>
   {% endfor %}
   </tbody>

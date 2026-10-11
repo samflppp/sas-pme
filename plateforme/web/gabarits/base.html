@@ -3,58 +3,62 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block titre %}sas-pme{% endblock %} — plateforme agréée</title>
-<style>
-  :root { --encre:#1b1f24; --doux:#5b6470; --trait:#d9dee4; --fond:#f5f7f9; --accent:#2563eb;
-          --vert:#0f8a5f; --bleu:#2563eb; --orange:#d97706; --rouge:#c0262d; --gris:#6b7280; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; color: var(--encre); background: #fff; }
-  header { display:flex; align-items:center; gap:24px; padding: 12px 24px; border-bottom: 1px solid var(--trait); }
-  header .marque { font-weight: 700; }
-  header nav a { color: var(--encre); text-decoration: none; margin-right: 16px; }
-  header .droite { margin-left: auto; color: var(--doux); display:flex; gap:12px; align-items:center; }
-  main { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-  h1 { font-size: 22px; margin: 0 0 16px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--trait); }
-  th { background: var(--fond); font-weight: 600; }
-  .etat { display:inline-block; padding: 2px 8px; border-radius: 10px; color:#fff; font-size: 13px; }
-  .etat-publiee, .etat-approuvee { background: var(--vert); }
-  .etat-en_attente, .etat-nouvelle, .etat-en_analyse { background: var(--bleu); }
-  .etat-a_revoir { background: var(--orange); }
-  .etat-bloquee, .etat-revoquee { background: var(--rouge); }
-  .niveau { font-weight: 600; }
-  .niveau-bloquant { color: var(--rouge); } .niveau-fort { color: var(--orange); }
-  .niveau-moyen { color: var(--encre); } .niveau-info { color: var(--gris); }
-  .note { color: var(--doux); font-size: 14px; }
-  .vide { color: var(--doux); padding: 24px 0; }
-  form.carte { max-width: 380px; display:flex; flex-direction:column; gap:10px; }
-  input, select, button { font: inherit; padding: 8px 10px; border: 1px solid var(--trait); border-radius: 4px; }
-  button { background: var(--accent); color: #fff; border: none; cursor: pointer; }
-  button.lien { background: none; color: var(--doux); padding: 0; }
-  .erreur { color: var(--rouge); }
-  .raison { background: var(--fond); border-left: 4px solid var(--encre); padding: 10px 14px; margin: 12px 0; }
-  code { background: var(--fond); padding: 1px 4px; }
-  form.ligne { display:flex; gap:10px; align-items:center; margin: 12px 0; }
-  .raison.ok { border-left-color: var(--vert); } .raison.ko { border-left-color: var(--rouge); color: var(--rouge); }
-  tr.cassee td { background: #fde8e8; }
-  tr.alerte td { background: #fde8e8; }
-  .compteurs { display:flex; flex-wrap:wrap; gap:12px; margin: 0 0 16px; }
-  .compteur { border: 1px solid var(--trait); border-radius: 6px; padding: 10px 14px; min-width: 120px;
-              display:flex; flex-direction:column; gap:6px; }
-  .compteur strong { font-size: 26px; }
-</style>
+<title>{% block titre %}Plateforme{% endblock %} — Pipelad</title>
+<link rel="stylesheet" href="/statique/plateforme.css">
+{% block tete %}{% endblock %}
 </head>
+{% set chemin = request.url.path %}
+{% macro lien(href, texte, icone, actif=False) -%}
+<li><a href="{{ href }}"{% if actif %} aria-current="page"{% endif %}><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="{{ icone }}"/></svg>{{ texte }}</a></li>
+{%- endmacro %}
+{% macro signe() -%}
+<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="6" height="18"/><rect x="16" y="3" width="6" height="18"/><rect x="9.5" y="10" width="5" height="4"/></svg>
+{%- endmacro %}
+{% if utilisateur %}
 <body>
-<header>
-  <span class="marque">sas-pme</span>
-  {% if utilisateur %}
-  <nav><a href="/tableau-de-bord">Tableau de bord</a><a href="/">Catalogue</a><a href="/file-attente">File d'attente</a><a href="/inventaire">Inventaire</a><a href="/demander">Demander un paquet</a>{% if role == "admin" %}<a href="/journal">Journal</a><a href="/comptes">Comptes</a>{% endif %}</nav>
-  <div class="droite"><a href="/mot-de-passe">{{ utilisateur }}</a> <span>{{ role }}</span>
-    <form method="post" action="/deconnexion"><button class="lien">Se déconnecter</button></form>
+<a class="evitement" href="#contenu">Aller au contenu</a>
+<div class="cadre">
+  <nav class="laterale" aria-label="Navigation de la plateforme">
+    <a class="marque" href="/tableau-de-bord">{{ signe() }}<span>PIPELAD<small>Plateforme agréée</small></span></a>
+    <h3>Démo</h3>
+    <ul>
+      {{ lien("/demander", "Demandes", "M3 2.5h10v11H3zM5.5 5.5h5M5.5 8h5M5.5 10.5h3", chemin == "/demander") }}
+      {{ lien("/", "Catalogue", "M1.5 4h5l1.5 1.5h6.5v8h-13zM1.5 4V2.5h5", chemin == "/" or chemin.startswith("/versions/")) }}
+    </ul>
+    <h3>Suivi</h3>
+    <ul>
+      {{ lien("/tableau-de-bord", "Tableau de bord", "M2 2h5v5H2zM9 2h5v3H9zM9 7h5v7H9zM2 9h5v5H2z", chemin == "/tableau-de-bord") }}
+      {{ lien("/file-attente", "File d'attente", "M8 2.5a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11zM8 5v3.2l2 1.3", chemin == "/file-attente") }}
+      {{ lien("/inventaire", "Inventaire", "M2 3h12v3H2zM2 7.5h12v3H2zM2 12h12v1.5H2zM4 4.5h1M4 9h1", chemin == "/inventaire") }}
+    </ul>
+    {% if role == "admin" %}
+    <h3>Administration</h3>
+    <ul>
+      {{ lien("/journal", "Journal", "M3.5 2h9v12h-9zM5.5 5h5M5.5 7.5h5M5.5 10h3", chemin == "/journal") }}
+      {{ lien("/comptes", "Comptes", "M8 2.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5zM3 13.5c.6-2.6 2.6-4 5-4s4.4 1.4 5 4", chemin == "/comptes") }}
+    </ul>
+    {% endif %}
+    <div class="pied-lateral">
+      <a href="/mot-de-passe">{{ utilisateur }}</a> <span class="role">{{ role }}</span>
+      <form method="post" action="/deconnexion"><button class="lien">Se déconnecter</button></form>
+    </div>
+  </nav>
+  <div class="travail" id="contenu">
+    <header class="entete">
+      <span class="fil">Pipelad <span aria-hidden="true">/</span> {{ self.titre() }}</span>
+      <div class="droite">{% block actions %}{% endblock %}</div>
+    </header>
+    <main>{% block contenu %}{% endblock %}</main>
   </div>
-  {% endif %}
-</header>
-<main>{% block contenu %}{% endblock %}</main>
+</div>
+{% block scripts %}{% endblock %}
 </body>
+{% else %}
+<body class="seul" id="contenu">
+<main>
+  <div class="marque">{{ signe() }}<span>PIPELAD<small>Plateforme agréée</small></span></div>
+  {{ self.contenu() }}
+</main>
+</body>
+{% endif %}
 </html>
