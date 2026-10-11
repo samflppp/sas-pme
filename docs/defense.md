@@ -334,7 +334,10 @@ Consultées le 2026-10-11.
 ## 10. Reproduire
 
 - **Tests :** `python -m pytest -q` à la racine du dépôt (551 verts au 2026-10-11).
-- **Mesure :** `python3 -I mesure/mesurer.py` (statique) ; `mesure/llm_paquet.py` (le vrai LLM sur une
-  version de PyPI, avec Ollama).
+- **Mesure :** `python3 -I mesure/mesurer.py` donne la ligne 1 (statique, les échantillons sont lus,
+  jamais exécutés). Les trois lignes : `mesurer.py --echantillons <Datadog> --cache <rapports> --llm`,
+  avec les rapports de sandbox de `mesure/rapports_sandbox/` et Ollama ; la commande exacte est dans
+  `docs/points/2026-10-11-B-mesure-finale.md`. `mesure/llm_paquet.py` : le vrai LLM sur une version
+  de PyPI.
 - **Démo complète :** `demo/script.md`, section H16, sur l'infra AWS (`infra/README.md`).
 - **Cloisonnement :** `infra/aws/verifier_h3.sh`, `verifier_m1.sh`, `verifier_compromission.sh`.
