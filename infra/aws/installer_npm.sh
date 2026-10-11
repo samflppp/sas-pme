@@ -23,7 +23,8 @@ curl -fsSO "https://nodejs.org/dist/$NODE/$F"
 curl -fsS "https://nodejs.org/dist/$NODE/SHASUMS256.txt" | grep " $F\$" | sha256sum -c -
 mkdir node && tar xJf "$F" --strip-components=1 -C node && rm "$F"
 # Verdaccio et ses dépendances, installés ici (scripts d'installation désactivés), copiés tels quels.
-mkdir verdaccio && ./node/bin/npm install --prefix verdaccio --omit=dev --ignore-scripts \
+export PATH="$PWD/node/bin:$PATH"        # npm est un script « #!/usr/bin/env node »
+mkdir verdaccio && npm install --prefix verdaccio --omit=dev --ignore-scripts \
   --no-audit --no-fund "verdaccio@$VERDACCIO" >/dev/null
 tar czf ../npm-hors-ligne.tar.gz node verdaccio
 echo "prêt : $(du -h ../npm-hors-ligne.tar.gz | cut -f1)"
@@ -34,6 +35,8 @@ $SSH sas-plateforme 'cat ~/npm-hors-ligne.tar.gz' | $SSH sas-passerelle 'cat > /
 $SSH sas-plateforme 'cat ~/npm-hors-ligne.tar.gz' | $SSH sas-serveur 'cat > /tmp/npm-hors-ligne.tar.gz'
 $SCP -q ../passerelle/verdaccio.yaml ../passerelle/verdaccio.service ../passerelle/recepteur.service \
   sas-passerelle:/tmp/
+# Le code du récepteur doit connaître npm : installer.sh a pu le poser avant (C).
+( cd ../.. && git archive --format=tar.gz HEAD commun passerelle ) | $SSH sas-passerelle 'cat > /tmp/sas-code.tar.gz'
 
 echo "== 3. Passerelle : Verdaccio hors ligne (:4873), compte de publication du seul récepteur"
 $SSH sas-passerelle sudo bash -s <<'EOF'
@@ -71,8 +74,10 @@ test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4873/left-pad)" 
 test "$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H 'content-type: application/json' \
   -d '{"name":"intrus","password":"un-mot-de-passe-long"}' \
   http://127.0.0.1:4873/-/user/org.couchdb.user:intrus)" != 201 && echo "inscriptions fermées"
+rm -rf /opt/recepteur/code && mkdir -p /opt/recepteur/code && tar xzf /tmp/sas-code.tar.gz -C /opt/recepteur/code
 install -m 644 /tmp/recepteur.service /etc/systemd/system/recepteur.service
 systemctl daemon-reload && systemctl restart recepteur
+systemctl is-enabled --quiet guichet 2>/dev/null && systemctl restart guichet
 sleep 3 && systemctl is-active --quiet recepteur && echo "récepteur actif (npm branché)"
 EOF
 
