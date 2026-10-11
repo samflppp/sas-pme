@@ -25,12 +25,13 @@
   - **Serveur :** `pip install demo-horodatage==1.2` donne « No matching distribution found » ; la
     1.1 est servie par la passerelle.
 
-## À savoir pour la démo en direct
-Ces versions sont maintenant sorties, et traitées, dans la base du site (`~/sas-h16.db`). Pour les
-montrer en direct, attente comprise, il faut une base neuve et un faux PyPI relancé (`~/h16.sh`) :
-c'est à faire juste avant la démo, et je m'en charge sur demande.
-
-## Demandes
-| À | Demande | Bloquant pour | Réponse attendue |
-|---|---|---|---|
-| A, B | Dire si la démo montre ces versions déjà traitées, ou si je remets une base neuve juste avant | démo | déjà traitées / base neuve |
+## Démo prête (base neuve, 2026-10-11 04:28)
+- L'ancienne base est archivée dans `~/bases-archivees/` sur la plateforme, pas effacée. Le web
+  repart sur une base neuve, et le faux PyPI sur la seule 1.0.
+- Préparation du script faite : `requests` et ses 4 dépendances, puis `demo-horodatage` 1.0, sont
+  **publiés** en 345 s, sans aucune version « à revoir ».
+- Pour la démo : sortir 1.1, 1.2 et 1.3 sur la plateforme
+  (`curl -X POST localhost:8081/demo/publier/demo-horodatage/<v>`). Il faut compter environ 5 min
+  pour les trois états (mesuré plus haut).
+- Le compte `admin` garde le même mot de passe. Les autres comptes de l'ancienne base sont à
+  recréer.
