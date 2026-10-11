@@ -16,6 +16,9 @@
   aggrave un doute réel, il n'en crée pas un en décrivant la fonction même du paquet
   (`requests.get` dans `requests`). Les signaux identiques du LLM ne comptent qu'une fois.
 - Une réponse hors schéma est ignorée et journalisée ; Ollama injoignable ne donne rien.
+- L'explication est nettoyée avant d'être gardée : un modèle qui boucle répète la même phrase
+  (« De plus, le code utilise… ») jusqu'à la limite du schéma, qui la coupe au milieu d'un mot.
+  Chaque phrase n'est gardée qu'une fois, et une fin coupée est marquée « … ».
 """
 import json
 import os
@@ -144,6 +147,32 @@ def _ancre(extrait: str, morceaux: list[str], v: Version) -> bool:
     return False
 
 
+_FIN_PHRASE = re.compile(r"(?<=[.!?…])\s+")
+_LIAISON = re.compile(r"^(de plus|en outre|par ailleurs|aussi|également|enfin)\s*,?\s*")
+
+
+def _cle_phrase(phrase: str) -> str:
+    return _LIAISON.sub("", _norm(phrase))
+
+
+def explication_propre(texte: str) -> str:
+    """Chaque phrase une fois (« De plus, » devant ne la rend pas nouvelle) ; une dernière phrase
+    coupée qui recommence une phrase déjà dite est retirée, une autre fin coupée finit par « … »."""
+    phrases = [p for p in _FIN_PHRASE.split(texte.strip()) if p]
+    gardees: list[str] = []
+    vues: list[str] = []
+    for i, phrase in enumerate(phrases):
+        cle = _cle_phrase(phrase)
+        coupee = i == len(phrases) - 1 and phrase[-1].isalnum()
+        if cle in vues or (coupee and any(v.startswith(cle) for v in vues)):
+            continue
+        vues.append(cle)
+        gardees.append(phrase)
+    if gardees and gardees[-1][-1].isalnum():
+        gardees[-1] += "…"
+    return " ".join(gardees)
+
+
 def analyser(base: Base, v: Version, signaux: list[Signal], rapport: RapportSandbox, *,
              client: httpx.Client, url: str, modele: str,
              passages: list[tuple[str, str]] | tuple = ()) -> ResultatLLM:
@@ -181,5 +210,5 @@ def analyser(base: Base, v: Version, signaux: list[Signal], rapport: RapportSand
     uniques = list({(s.niveau, s.sorte, _norm(s.extrait)): s for s in sortie.signaux}.values())
     return ResultatLLM(
         signaux=[signal(s) for s in uniques],
-        explication=sortie.explication.strip(),
+        explication=explication_propre(sortie.explication),
         refs_rag=[ref for ref in sortie.refs_rag if ref in connues])
