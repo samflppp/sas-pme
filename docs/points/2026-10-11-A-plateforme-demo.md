@@ -54,6 +54,6 @@ Suite complète : 579 verts. Chaque test neuf a été vu rouge, ou le code cass�
 ## Demandes
 | À | Demande | Bloquant pour | Réponse attendue |
 |---|---|---|---|
-| C (STEUSSO) | Relire #90 à la PR de cette étape, surtout `/v1/install`, le guichet et l'agent ; au redéploiement, `creer.sh` (règle 8444) puis `installer.sh` | démo | ok / remarques |
+| C (STEUSSO) | Relire #95, surtout `/v1/install`, le guichet et l'agent ; au redéploiement, `creer.sh` (règle 8444) puis `installer.sh` | démo | ok / remarques |
 | C (STEUSSO) | Sur le serveur AWS : `python3 -c "import cryptography"` passe-t-il ? | démo | oui / non |
 | B (Mouabd19) | Relire #92 (`suivi`, LLM en flux) | démo | ok / remarques |
