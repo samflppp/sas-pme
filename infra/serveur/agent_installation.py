@@ -16,6 +16,13 @@ Autonome : seule dépendance, `cryptography`. Réglages :
   SAS_AGENT_INTERVALLE  secondes entre deux lectures (défaut 2)
   SAS_AGENT_PYTHON    Python de l'environnement où installer (défaut : celui de l'agent) ; sur AWS,
                       le venv applicatif du serveur (~/app), l'agent tournant avec le Python du système
+  SAS_AGENT_REESSAI   secondes entre deux essais d'un pip qui a échoué (défaut 20)
+  SAS_AGENT_PATIENCE  minutes pendant lesquelles on réessaie (défaut 30)
+
+Une demande arrive avant que sa version soit servie : la plateforme doit encore l'attendre et
+l'analyser. Un pip qui échoue est donc retenu (`attente.json`) et relancé jusqu'à ce qu'il
+réussisse, au plus `SAS_AGENT_PATIENCE` minutes : une version bloquée n'arrive jamais, on lâche.
+Seul le nom déjà vérifié est relancé, jamais une nouvelle demande.
 """
 import base64
 import json
@@ -34,6 +41,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 PREFIXE = b"sas-pme/installation/v1\n"          # le même que passerelle/installation.py
 AGE_MAX = timedelta(minutes=10)
+REESSAI = timedelta(seconds=float(os.environ.get("SAS_AGENT_REESSAI", "20")))
+PATIENCE = timedelta(minutes=float(os.environ.get("SAS_AGENT_PATIENCE", "30")))
 NOM = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,213}$")
 NONCE = re.compile(r"^[0-9a-f]{32}$")
 
@@ -65,15 +74,52 @@ def verifier(entree: dict, publique_pem: bytes, maintenant: datetime, nonces: se
     return d["nom"]
 
 
-def installer(nom: str, index: str, python: str | None = None) -> None:
+def installer(nom: str, index: str, python: str | None = None) -> bool:
     """pip vers la passerelle seulement : pas d'index supplémentaire, pas de cache. L'index est en
     HTTP sur le réseau privé (comme /etc/pip.conf) : son hôte est déclaré de confiance.
     Roues seulement : une archive source exécute son setup.py à l'installation, et une demande
     signée par une plateforme prise deviendrait une exécution de code sur le serveur (C)."""
     hote = urllib.parse.urlsplit(index).hostname or ""
-    subprocess.run([python or sys.executable, "-m", "pip", "install", "--upgrade", "--no-cache-dir",
-                    "--disable-pip-version-check", "--only-binary=:all:", "--index-url", index,
-                    "--trusted-host", hote, nom], check=False, timeout=600)
+    r = subprocess.run([python or sys.executable, "-m", "pip", "install", "--upgrade",
+                        "--no-cache-dir", "--disable-pip-version-check", "--only-binary=:all:",
+                        "--index-url", index, "--trusted-host", hote, nom], check=False, timeout=600)
+    return getattr(r, "returncode", 1) == 0
+
+
+def _attente(etat: Path) -> dict:
+    f = etat / "attente.json"
+    try:
+        return json.loads(f.read_text()) if f.exists() else {}
+    except ValueError:
+        return {}
+
+
+def _retenir(etat: Path, attente: dict) -> None:
+    (etat / "attente.json").write_text(json.dumps(attente, sort_keys=True))
+
+
+def _attendre(etat: Path, nom: str, maintenant: datetime) -> None:
+    """Retient un nom dont le pip a échoué : il sera relancé par `reessayer`."""
+    attente = _attente(etat)
+    jusqua = attente.get(nom, {}).get("jusqua") or (maintenant + PATIENCE).isoformat()
+    attente[nom] = {"jusqua": jusqua, "prochain": (maintenant + REESSAI).isoformat()}
+    _retenir(etat, attente)
+
+
+def reessayer(etat: Path, executer, maintenant: datetime | None = None) -> None:
+    """Relance pip pour chaque nom en attente dont l'heure est venue ; lâche après la patience."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    attente = _attente(etat)
+    for nom, a in sorted(attente.items()):
+        if maintenant > datetime.fromisoformat(a["jusqua"]):
+            print(f"[sas-agent] {nom} : jamais servie après {PATIENCE}, abandon", file=sys.stderr)
+            del attente[nom]
+        elif maintenant >= datetime.fromisoformat(a["prochain"]):
+            if executer(nom) is False:
+                a["prochain"] = (maintenant + REESSAI).isoformat()
+            else:
+                del attente[nom]
+    _retenir(etat, attente)
 
 
 def tour(lire, publique_pem: bytes, etat: Path, executer, maintenant: datetime | None = None) -> None:
@@ -93,7 +139,8 @@ def tour(lire, publique_pem: bytes, etat: Path, executer, maintenant: datetime |
         if nom is not None:
             with f_nonces.open("a") as f:           # retenu avant de lancer : jamais deux fois
                 f.write(json.loads(entree["demande"])["nonce"] + "\n")
-            executer(nom)
+            if executer(nom) is False:               # pas encore servie : on réessaiera
+                _attendre(etat, nom, maintenant)
 
 
 def _lire_guichet(url: str):
@@ -115,6 +162,7 @@ def main() -> None:
     while True:
         try:
             tour(lire, pem, etat, lambda nom: installer(nom, index, python))
+            reessayer(etat, lambda nom: installer(nom, index, python))
         except Exception as e:  # noqa: BLE001 — guichet injoignable : on réessaie
             print(f"[sas-agent] {type(e).__name__} {e}", file=sys.stderr)
         time.sleep(intervalle)

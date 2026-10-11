@@ -106,3 +106,58 @@ def test_l_agent_n_installe_que_des_roues(env, monkeypatch):
     monkeypatch.setattr(agent.subprocess, "run", lambda cmd, **k: vus.append(cmd))
     agent.installer("demo-horodatage", "http://10.42.2.10:8080/simple/")
     assert "--only-binary=:all:" in vus[0]
+
+
+# --- l'agent réessaie : la version n'est servie qu'après l'analyse (minutes) -------------------
+def test_un_pip_qui_echoue_est_relance_jusqu_a_ce_que_la_version_soit_servie(env):
+    """À la demande, la version n'est pas encore publiée : pip échoue. L'agent la retient et relance
+    pip jusqu'à ce qu'il réussisse ; personne n'a rien à refaire à la main."""
+    agent, cle, pem, etat = env
+    servie = {"oui": False}
+    lances = []
+
+    def executer(nom):
+        lances.append(nom)
+        return servie["oui"]
+
+    agent.tour(lambda apres: [entree(cle)] if apres < 1 else [], pem, etat, executer,
+               maintenant=MAINTENANT)
+    assert lances == ["demo-horodatage"]
+    agent.reessayer(etat, executer, MAINTENANT + timedelta(seconds=5))     # trop tôt
+    assert lances == ["demo-horodatage"]
+    agent.reessayer(etat, executer, MAINTENANT + timedelta(seconds=30))    # toujours pas servie
+    assert lances == ["demo-horodatage"] * 2
+    servie["oui"] = True
+    agent.reessayer(etat, executer, MAINTENANT + timedelta(seconds=60))
+    assert lances == ["demo-horodatage"] * 3
+    agent.reessayer(etat, executer, MAINTENANT + timedelta(minutes=5))     # installée : fini
+    assert lances == ["demo-horodatage"] * 3
+
+
+def test_l_attente_survit_a_un_redemarrage_et_s_arrete_au_bout_de_la_patience(env):
+    agent, cle, pem, etat = env
+    lances = []
+    agent.tour(lambda apres: [entree(cle)] if apres < 1 else [], pem, etat,
+               lambda nom: lances.append(nom) or False, maintenant=MAINTENANT)
+    autre = charger()                                                      # redémarrage
+    autre.reessayer(etat, lambda nom: lances.append(nom) or False,
+                    MAINTENANT + timedelta(minutes=1))
+    assert len(lances) == 2
+    autre.reessayer(etat, lambda nom: lances.append(nom) or False,
+                    MAINTENANT + timedelta(hours=2))                      # bloquée : on lâche
+    autre.reessayer(etat, lambda nom: lances.append(nom) or False,
+                    MAINTENANT + timedelta(hours=3))
+    assert len(lances) == 2
+
+
+def test_installer_dit_si_pip_a_reussi(env, monkeypatch):
+    agent, *_ = env
+    for code, attendu in ((0, True), (1, False)):
+        monkeypatch.setattr(agent.subprocess, "run",
+                            lambda cmd, **k: subprocess_resultat(code))
+        assert agent.installer("demo-horodatage", "http://10.42.2.10:8080/simple/") is attendu
+
+
+def subprocess_resultat(code):
+    import subprocess
+    return subprocess.CompletedProcess([], code)

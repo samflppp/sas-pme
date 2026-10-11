@@ -253,11 +253,13 @@ def test_une_demande_npm_ne_lance_pas_pip_sur_le_serveur(base):
 
 
 def test_sans_version_servie_le_panneau_dit_que_pip_n_installe_rien(base):
-    """Le serveur a demandé l'index, mais aucune version du paquet n'est publiée : on ne laisse
-    pas croire qu'une installation va venir."""
+    """Le serveur a demandé l'index, aucune version n'est publiée et aucune n'est en route (ici à
+    revoir) : on ne laisse pas croire qu'une installation va venir."""
     p = FaussePasserelle()
     c = client(base, installer=p.installer, lire_acces=p.lire)
     n = demander(c)
+    base.changer_etat(PY, "requests", "2.32.4", Etat.EN_ANALYSE, "analyse", acteur="pipeline")
+    base.changer_etat(PY, "requests", "2.32.4", Etat.A_REVOIR, "à revoir", acteur="pipeline")
     p.requete("/simple/requests/")
     s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
     assert s["aucune_servie"] and s["installee"] is None
@@ -321,3 +323,18 @@ def test_une_version_bloquee_apres_analyse_a_des_croix_rouges_de_l_ia_a_la_publi
     assert [e[k]["etat"] for k in ("telechargement", "sandbox", "statique")] == ["fait"] * 3
     assert [e[k]["etat"] for k in ("ia", "politique", "publication")] == ["bloque"] * 3
     assert "jamais publiée" in e["publication"]["detail"]
+
+
+def test_pendant_l_analyse_le_panneau_dit_que_le_serveur_reessaie(base):
+    """L'agent relance pip tant que la version n'est pas publiée : pas de ✗ pendant l'analyse."""
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    n = demander(c)
+    base.changer_etat(PY, "requests", "2.32.4", Etat.EN_ANALYSE, "analyse", acteur="pipeline")
+    p.requete("/simple/requests/")                      # premier essai : rien à prendre
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["reessaie"] and not s["aucune_servie"]
+    assert "réessaie" in c.get(f"/direct?demande={n}").text
+    base.changer_etat(PY, "requests", "2.32.4", Etat.BLOQUEE, "Exfiltration.", acteur="pipeline")
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["aucune_servie"] and not s["reessaie"]     # bloquée : plus rien à attendre
