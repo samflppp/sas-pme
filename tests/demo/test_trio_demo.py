@@ -57,9 +57,14 @@ def analyser(tmp_path, eco: Ecosysteme, nom: str, version: str, telecharger) -> 
     return base.lire_version(eco, nom, version).etat
 
 
+# Un numéro de prise après le nom : des paquets jamais vus à chaque prise de la vidéo.
+PRISES = ["", "-2", "-17"]
+
+
+@pytest.mark.parametrize("prise", PRISES)
 @pytest.mark.parametrize("sorte", ATTENDU)
-def test_pypi_un_vert_un_orange_un_rouge(faux_pypi, tmp_path, sorte):
-    nom, url = f"demo-{sorte}", str(faux_pypi.base_url)
+def test_pypi_un_vert_un_orange_un_rouge(faux_pypi, tmp_path, sorte, prise):
+    nom, url = f"demo-{sorte}{prise}", str(faux_pypi.base_url)
     mure = pypi.derniere_version_mure(nom, MAINTENANT, client=faux_pypi, base=url)
     assert mure is not None and mure[0] == "1.0"                 # déjà mûre : rien à attendre
     etat = analyser(tmp_path, Ecosysteme.PYPI, nom, "1.0",
@@ -67,9 +72,10 @@ def test_pypi_un_vert_un_orange_un_rouge(faux_pypi, tmp_path, sorte):
     assert etat is ATTENDU[sorte]
 
 
+@pytest.mark.parametrize("prise", PRISES)
 @pytest.mark.parametrize("sorte", ATTENDU)
-def test_npm_un_vert_un_orange_un_rouge(faux_npm, tmp_path, sorte):
-    nom, url = f"demo-npm-{sorte}", str(faux_npm.base_url).rstrip("/")
+def test_npm_un_vert_un_orange_un_rouge(faux_npm, tmp_path, sorte, prise):
+    nom, url = f"demo-npm-{sorte}{prise}", str(faux_npm.base_url).rstrip("/")
     mure = npm.derniere_version_mure(nom, MAINTENANT, client=faux_npm, base=url)
     assert mure is not None and mure[0] == "1.0.0"
     assert npm.dependances(nom, "1.0.0", client=faux_npm, base=url) == {}
@@ -91,3 +97,10 @@ def test_les_charges_piegees_ne_visent_qu_un_domaine_qui_ne_resout_jamais():
                 for morceau in texte.split(hote)[1:]:
                     domaine = morceau.split("/")[0].split('"')[0].split("'")[0]
                     assert domaine.endswith((".invalid", ".ngrok-free.app")), domaine
+
+
+@pytest.mark.parametrize("nom", ["demo-sain-0", "demo-sain-x", "demo-sain-1000"])
+def test_un_numero_de_prise_invalide_n_est_pas_servi(faux_pypi, nom):
+    with respx.mock(assert_all_called=False) as amont:
+        amont.get(f"https://pypi.org/pypi/{nom}/json").respond(404)
+        assert faux_pypi.get(f"/pypi/{nom}/json").status_code == 404

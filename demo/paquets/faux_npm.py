@@ -5,7 +5,8 @@
 
 Il sert l'API du registre npm (`/<nom>` et les archives) pour le trio de l'enregistrement vidéo, en
 1.0.0 publiée il y a 400 jours (mûre tout de suite), et relaie tout autre nom vers
-https://registry.npmjs.org (lecture seule) :
+https://registry.npmjs.org (lecture seule). Un numéro de prise peut suivre le nom
+(`demo-npm-piege-2`, 1 à 999) : même contenu, paquet jamais vu :
 - `demo-npm-sain` : une fonction, rien d'autre : passe (vert) ;
 - `demo-npm-a-revoir` : une fonction d'envoi de rapport vers un tunnel ngrok, jamais appelée : un
   seul signal FORT (`domaine_suspect`) : à revoir (orange) ;
@@ -21,6 +22,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import tarfile
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -91,9 +93,27 @@ def _tgz(fichiers: dict[str, str]) -> bytes:
     return tampon.getvalue()
 
 
+# Un numéro de prise (1 à 999) peut suivre le nom : `demo-npm-piege-2` est un paquet jamais vu, au
+# même contenu que `demo-npm-piege`. Chaque prise de la vidéo rejoue ainsi toute l'analyse.
+_PRISE = re.compile(r"^(?P<base>" + "|".join(map(re.escape, FICHIERS)) + r")(-[1-9][0-9]{0,2})?$")
+
+
+def du_trio(nom: str) -> str | None:
+    m = _PRISE.match(nom)
+    return m["base"] if m else None
+
+
+def fichiers_de(nom: str) -> dict[str, str]:
+    """Les fichiers d'un paquet du trio (ou d'une prise), `package.json` au nom demandé."""
+    fichiers = dict(FICHIERS[du_trio(nom)])
+    pj = json.loads(fichiers["package.json"])
+    fichiers["package.json"] = json.dumps({**pj, "name": nom}, indent=2) + "\n"
+    return fichiers
+
+
 def construire() -> dict[str, bytes]:
-    """{nom du paquet: archive .tgz}."""
-    return {nom: _tgz(fichiers) for nom, fichiers in FICHIERS.items()}
+    """{nom du paquet: archive .tgz} pour le trio sans numéro de prise."""
+    return {nom: _tgz(fichiers_de(nom)) for nom in FICHIERS}
 
 
 def _iso(d: datetime) -> str:
@@ -106,10 +126,18 @@ def creer_app(amont: httpx.Client | None = None) -> FastAPI:
     amont = amont or httpx.Client(timeout=30, follow_redirects=True)
     app = FastAPI(title="Faux registre npm de démo")
 
+    def construite(nom: str) -> bool:
+        """Vrai si `nom` est du trio ; son archive est alors construite (une fois)."""
+        if du_trio(nom) is None:
+            return False
+        if nom not in archives:
+            archives[nom] = _tgz(fichiers_de(nom))
+        return True
+
     def document(request: Request, nom: str) -> dict:
         tgz = archives[nom]
         fichier = f"{nom}-{VERSION}.tgz"
-        pj = json.loads(FICHIERS[nom]["package.json"])
+        pj = json.loads(fichiers_de(nom)["package.json"])
         dist = {"tarball": f"{str(request.base_url).rstrip('/')}/{nom}/-/{fichier}",
                 "shasum": hashlib.sha1(tgz).hexdigest(),
                 "integrity": "sha512-" + base64.b64encode(hashlib.sha512(tgz).digest()).decode()}
@@ -120,13 +148,13 @@ def creer_app(amont: httpx.Client | None = None) -> FastAPI:
 
     @app.get("/{nom}/-/{fichier}")
     def archive(nom: str, fichier: str):
-        if nom not in archives or fichier != f"{nom}-{VERSION}.tgz":
+        if not construite(nom) or fichier != f"{nom}-{VERSION}.tgz":
             raise HTTPException(404)
         return Response(archives[nom], media_type="application/octet-stream")
 
     @app.get("/{chemin:path}")
     def paquet(chemin: str, request: Request):
-        if chemin in archives:
+        if construite(chemin):
             return document(request, chemin)
         r = amont.get(f"{AMONT}/{quote(chemin, safe='@/')}")
         return Response(r.content, status_code=r.status_code, media_type="application/json")

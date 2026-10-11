@@ -12,7 +12,8 @@ Il sert l'API JSON de PyPI (`/pypi/<nom>/json`, `/pypi/<nom>/<version>/json`) po
 seule).
 
 **Trio de l'enregistrement vidéo** : trois paquets à part, en 1.0 publiée il y a 400 jours, donc
-mûrs tout de suite (aucun délai). On les demande l'un après l'autre dans « Demandes » :
+mûrs tout de suite (aucun délai). On les demande l'un après l'autre dans « Demandes ». Un numéro
+de prise peut suivre le nom (`demo-piege-2`, 1 à 999) : même contenu, paquet jamais vu.
 - `demo-sain` : passe (vert) ;
 - `demo-a-revoir` : le code de la 1.3 ci-dessous (tunnel ngrok jamais appelé) : à revoir (orange) ;
 - `demo-piege` : le code de la 1.2 ci-dessous (leurre lu, envoi vers `.invalid`) : bloqué (rouge).
@@ -33,6 +34,7 @@ import base64
 import hashlib
 import io
 import os
+import re
 import tarfile
 import zipfile
 from datetime import datetime, timedelta, timezone
@@ -145,11 +147,22 @@ def construire() -> dict[str, dict[str, bytes]]:
             for v in CODE}
 
 
-def construire_trio() -> dict[str, dict[str, bytes]]:
-    """{nom: {nom de fichier: octets}} : la 1.0 de chaque paquet du trio."""
-    return {n: {f"{n.replace('-', '_')}-1.0-py3-none-any.whl": _roue("1.0", n, code),
-                f"{n.replace('-', '_')}-1.0.tar.gz": _source("1.0", n, code)}
-            for n, code in TRIO.items()}
+# Un numéro de prise (1 à 999) peut suivre le nom : `demo-piege-2` est un paquet jamais vu, au
+# même contenu que `demo-piege`. Chaque prise de la vidéo rejoue ainsi toute l'analyse.
+_PRISE = re.compile(r"^(?P<base>" + "|".join(map(re.escape, TRIO)) + r")(-[1-9][0-9]{0,2})?$")
+
+
+def du_trio(nom: str) -> str | None:
+    """Le paquet du trio dont `nom` (normalisé) est une prise, sinon None."""
+    m = _PRISE.match(nom)
+    return m["base"] if m else None
+
+
+def construire_trio(nom: str) -> dict[str, bytes]:
+    """{nom de fichier: octets} : la 1.0 d'un paquet du trio (ou d'une de ses prises)."""
+    code, module = TRIO[du_trio(nom)], nom.replace("-", "_")
+    return {f"{module}-1.0-py3-none-any.whl": _roue("1.0", nom, code),
+            f"{module}-1.0.tar.gz": _source("1.0", nom, code)}
 
 
 def _iso(d: datetime) -> str:
@@ -157,8 +170,17 @@ def _iso(d: datetime) -> str:
 
 
 def creer_app(amont: httpx.Client | None = None) -> FastAPI:
-    archives, trio = construire(), construire_trio()
-    octets = {f: b for fichiers in [*archives.values(), *trio.values()] for f, b in fichiers.items()}
+    archives, trio = construire(), {}
+    octets = {f: b for fichiers in archives.values() for f, b in fichiers.items()}
+
+    def du_trio_construit(nom: str) -> str | None:
+        """Le nom normalisé s'il est du trio ; ses archives sont alors construites (une fois)."""
+        if du_trio(nom) is None:
+            return None
+        if nom not in trio:
+            trio[nom] = construire_trio(nom)
+            octets.update(trio[nom])
+        return nom
     il_y_a_400_jours = datetime.now(timezone.utc) - timedelta(days=400)
     etat = {v: {"publiee_le": None, "retiree": False} for v in CODE}
     etat["1.0"]["publiee_le"] = datetime.now(timezone.utc) - timedelta(days=400)
@@ -199,9 +221,8 @@ def creer_app(amont: httpx.Client | None = None) -> FastAPI:
 
     @app.get("/pypi/{nom}/json")
     def projet(nom: str, request: Request):
-        if canon(nom) in trio:
-            return {"info": info_trio(canon(nom)),
-                    "releases": {"1.0": fichiers_trio(request, canon(nom))}}
+        if (n := du_trio_construit(canon(nom))) is not None:
+            return {"info": info_trio(n), "releases": {"1.0": fichiers_trio(request, n)}}
         if not est_demo(nom):
             return relayer(f"/pypi/{nom}/json")
         vues = publiees()
@@ -210,10 +231,10 @@ def creer_app(amont: httpx.Client | None = None) -> FastAPI:
 
     @app.get("/pypi/{nom}/{version}/json")
     def version(nom: str, version: str, request: Request):
-        if canon(nom) in trio:
+        if (n := du_trio_construit(canon(nom))) is not None:
             if version != "1.0":
                 raise HTTPException(404)
-            return {"info": info_trio(canon(nom)), "urls": fichiers_trio(request, canon(nom))}
+            return {"info": info_trio(n), "urls": fichiers_trio(request, n)}
         if not est_demo(nom):
             return relayer(f"/pypi/{nom}/{version}/json")
         if version not in publiees():
