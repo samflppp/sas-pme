@@ -223,10 +223,12 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
         # le registre de la passerelle (Verdaccio sans source amont). Rien n'est lu ni inventé.
         return {"configure": True, "index": registre, "repli": "registry.npmjs.org",
                 "commande": f"npm install {d.nom}", "manuel": True, "demandee_a": None,
-                "erreur": None, "lignes": [], "installee": None, "amont": None}
+                "erreur": None, "lignes": [], "installee": None, "amont": None,
+                "aucune_servie": False}
     sortie = {"configure": True, "index": index, "repli": "pypi.org", "manuel": False,
               "commande": f"pip install {d.nom}",
-              "demandee_a": None, "erreur": None, "lignes": [], "installee": None, "amont": None}
+              "demandee_a": None, "erreur": None, "lignes": [], "installee": None, "amont": None,
+              "aucune_servie": False}
     if installation is None:
         return sortie
     sortie["demandee_a"] = installation.a.astimezone().strftime("%H:%M:%S")
@@ -241,17 +243,23 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
         sortie["erreur"] = f"journal d'accès illisible : {type(e).__name__} {e}"[:300]
         return sortie
     canon = canonicalize_name(d.nom)
+    index_lu = False
     for x in lignes:
         if jusqua is not None and x["n"] > jusqua:
             break
         heure = str(x.get("a", ""))[-8:]
         sortie["lignes"].append({"a": heure, "ip": x.get("ip", ""),
                                  "texte": f"{x.get('methode', '')} {x.get('chemin', '')}"})
+        if str(x.get("chemin", "")).rstrip("/") == f"/simple/{canon}":
+            index_lu = True
         if (a := _archive(str(x.get("chemin", "")))) and a[0] == canon:
             sortie["installee"] = a[1]
     sortie["lignes"] = sortie["lignes"][-MAX_LIGNES_SERVEUR:]
     # La plus récente connue de la plateforme, si elle n'est pas ce que le serveur a reçu.
     versions = [v for v in base.versions_du_paquet(d.ecosysteme, d.nom) if _pep(v.version)]
+    # Le serveur a lu l'index, et la plateforme n'a publié aucune version : pip n'a rien à prendre.
+    sortie["aucune_servie"] = (index_lu and sortie["installee"] is None
+                               and not any(v.etat is Etat.PUBLIEE for v in versions))
     if versions:
         recente = max(versions, key=lambda v: _pep(v.version))
         recue = _pep(sortie["installee"]) if sortie["installee"] else None

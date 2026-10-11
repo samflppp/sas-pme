@@ -3,11 +3,12 @@
 Constat de Mouabd19, sur la démo AWS : on demande `requests` dans npm, et deux erreurs
 apparaissent sur la page Direct.
 
-## 1. Sandbox : « NotImplementedError: sandbox v1 : pip seulement » → à C (AWS)
-Ce message n'existe plus dans `main`. La plateforme AWS tourne avec un code situé **entre #97 et
-#99** : son pipeline connaît npm, mais pas encore sa sandbox. Il faut faire ce que demande le point
-`2026-10-11-B-demande-c-npm-aws.md` (code à jour, image `sas-sandbox-node:2`,
-`installer_npm.sh`).
+## 1. Sandbox : « NotImplementedError: sandbox v1 : pip seulement » → déjà réglé par C
+Ce message n'existe plus dans `main`. C a mis la plateforme AWS à jour entre-temps
+(`2026-10-11-C-npm-wireguard-aws.md` : `ms` va jusqu'à « publiée »). `requests` 0.3.0 avait été
+analysé à 03:21, **avant** cette mise à jour. La demande de 03:26 a retrouvé cette version déjà
+connue, avec son ancienne analyse. Elle reste « à revoir » : un humain l'approuve ou la bloque.
+La redemander ne la ré-analyse pas.
 
 ## 2. Panneau Serveur : « pip install requests » puis « ✗ M0 : pip seulement » → corrigé
 **J'ai touché au dossier de A** (`plateforme/web/`), c'est dit ici (règle 2).
@@ -36,5 +37,5 @@ Pour une démo npm, demander plutôt `ms`, `is-number`, `chalk` ou `axios`.
 ## Demandes
 | À | Demande | Bloquant pour | Réponse attendue |
 |---|---|---|---|
-| C (STEUSSO) | Mettre à jour le code de la plateforme AWS sur `main` (voir le point npm-aws) | npm sur la démo | fait |
+| C (STEUSSO) | Après la fusion, mettre à jour le code web de la plateforme AWS (panneau Serveur npm) | démo npm | fait |
 | A (Sam) | Relire le changement du panneau Serveur (`direct.py`, `direct.html`, `direct.js`, `app.py`) | rien | ok / remarques |
