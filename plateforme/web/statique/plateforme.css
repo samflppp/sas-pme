@@ -167,7 +167,11 @@ button:focus-visible, .bouton:focus-visible { outline: none; box-shadow: 0 0 0 2
 table.fichiers { border: 0; }
 table.fichiers td { padding: 8px 14px; vertical-align: middle; }
 table.fichiers tr:last-child td { border-bottom: 0; }
-table.fichiers td.nom { display: flex; align-items: center; gap: 10px; min-width: 220px; }
+/* Une cellule reste une cellule (jamais display: flex) : sinon elle ne prend pas la hauteur de sa
+   ligne et son filet du bas se décale de ceux des cellules voisines. */
+table.fichiers td.nom { min-width: 220px; }
+table.fichiers td.nom > .ico-fichier { vertical-align: -3px; margin-right: 10px; }
+table.fichiers td.nom > span { display: inline-block; vertical-align: top; }
 table.fichiers td.nom a { text-decoration: none; font-weight: 600; }
 table.fichiers td.nom a:hover { text-decoration: underline; color: var(--ambre-texte); }
 table.fichiers td.message { color: var(--doux); }
