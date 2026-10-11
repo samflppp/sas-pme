@@ -1,26 +1,55 @@
-# Pipelad
+<p align="center">
+  <img src="docs/images/banniere.png" alt="Pipelad : vos serveurs n'installent que ce qu'on a vérifié" width="100%">
+</p>
 
-**Vos serveurs n'installent que ce qu'on a vérifié.**
+<p align="center">
+  <b>Le sas de sécurité des paquets pip et npm, pour les PME qui développent.</b><br>
+  Délai de 3 jours · analyse statique · sandbox à leurres · IA locale · signature Ed25519 · passerelle sans Internet
+</p>
 
-Pipelad protège les serveurs sensibles d'une PME contre les paquets pip piégés. Une **plateforme
-agréée**, seule machine reliée à Internet, attend **3 jours** chaque nouvelle version, l'analyse
-**sur place** (code, sandbox, IA locale), puis la publie, **signée**, dans une **passerelle sans
-Internet**. C'est là que les serveurs prennent leurs paquets : ils ne voient jamais la dernière version
-publiée sur Internet, seulement la dernière version **vérifiée**.
+<p align="center">
+  <img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12%2B-1b1d20?logo=python&logoColor=white">
+  <img alt="pip et npm" src="https://img.shields.io/badge/%C3%A9cosyst%C3%A8mes-pip%20%C2%B7%20npm-b7791f">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-774-2f6b3a">
+  <img alt="IA 100 % locale" src="https://img.shields.io/badge/IA-100%25%20locale-1b1d20">
+  <img alt="Signature Ed25519" src="https://img.shields.io/badge/signature-Ed25519-1b1d20">
+  <img alt="Hackathon Track 3" src="https://img.shields.io/badge/hackathon-Track%203%20%C2%B7%20d%C3%A9fense-b7791f">
+</p>
 
-> Hackathon IA × cybersécurité, **Track 3 « Open Track »**, côté défense. Nos axes : la chaîne
-> d'approvisionnement logicielle et les PME sans équipe cyber. Dépôt `sas-pme` : un sas de sécurité,
-> pas un SaaS. Tout tourne chez le client.
-
-| | |
-|---|---|
-| **Démo en ligne** | <https://demo.pipelad.tech> : l'interface de la plateforme, avec connexion. Comptes de démo sur demande |
-| **Vitrine** | <https://pipelad.tech> |
-| **Fiche de défense** | [`docs/defense.md`](docs/defense.md) : chaque affirmation, avec sa preuve |
-| **Dossier business** | [`docs/business.md`](docs/business.md) : marché, concurrence, modèle, pitch, sources |
-| **Mesure** | [`mesure/resultats.md`](mesure/resultats.md) : détection et fausses alertes, couche par couche |
+<p align="center">
+  <a href="https://demo.pipelad.tech"><b>Démo en ligne</b></a> ·
+  <a href="https://pipelad.tech">Vitrine</a> ·
+  <a href="docs/defense.md">Fiche de défense</a> ·
+  <a href="docs/business.md">Dossier business</a> ·
+  <a href="mesure/resultats.md">Mesure</a>
+</p>
 
 ---
+
+## En 30 secondes
+
+Les PME qui développent installent chaque jour des paquets pip et npm que personne ne relit, sur
+des serveurs qui portent leurs données sensibles. Une seule version piégée suffit, et elles n'ont
+ni RSSI ni SOC.
+
+**Pipelad** place un sas entre Internet et ces serveurs :
+
+- une **plateforme agréée**, seule machine reliée à Internet, attend **3 jours** chaque nouvelle
+  version, puis l'analyse **sur place** : code, sandbox à leurres, IA locale ;
+- une **passerelle sans Internet** ne publie que les versions **signées** par la plateforme ;
+- les **serveurs sensibles**, sans route vers Internet, n'installent que depuis la passerelle.
+
+Ils ne voient jamais la dernière version publiée sur Internet, seulement la dernière version
+**vérifiée**. Tout tourne chez le client, IA comprise : c'est un sas de sécurité, pas un SaaS.
+
+> Hackathon IA × cybersécurité, **Track 3 « Open Track »**, côté défense. Nos axes : la chaîne
+> d'approvisionnement logicielle et les PME sans équipe cyber.
+
+<p align="center">
+  <img src="docs/images/direct.png" alt="Page Direct : une version piégée suivie étape par étape, bloquée avec ses preuves" width="90%"><br>
+  <sub>La page « Direct » : <code>demo-piege-2</code> suivie en direct. La sandbox voit le faux
+  <code>~/.aws/credentials</code> lu et l'appel vers l'attaquant ; la politique bloque ; l'IA explique.</sub>
+</p>
 
 ## Le problème
 
@@ -49,25 +78,44 @@ utilise ces jours pour vérifier. Les sources sont dans [`docs/defense.md` § 9]
    décide, signe et publie, et offre une interface web, sorte de « GitHub local » des versions
    approuvées.
 2. **La passerelle**, une boîte noire **sans Internet**. Elle vérifie chaque signature et chaque
-   hash, puis sert les seules versions approuvées (pypiserver). Elle remonte aussi l'inventaire de
-   ce que les serveurs ont installé.
-3. **Les serveurs sensibles**, **sans route vers Internet**. `pip` pointe sur la passerelle.
+   hash, puis sert les seules versions approuvées : pypiserver pour pip, Verdaccio sans source
+   amont pour npm. Elle remonte aussi l'inventaire de ce que les serveurs ont installé.
+3. **Les serveurs sensibles**, **sans route vers Internet**. `pip` et `npm` pointent sur la passerelle.
 
 **Le parcours d'une nouvelle version :**
 1. détection ;
-2. **3 jours d'attente** : la veille lit OSV, PyPI et des blogs de chercheurs ;
-3. analyse statique : typosquat, code exécuté à l'installation, `exec`/`base64`, secrets, domaines,
-   diff avec la version précédente ;
+2. **3 jours d'attente** : la veille lit OSV, PyPI, npm et des blogs de chercheurs ;
+3. analyse statique : typosquat, code exécuté à l'installation (`setup.py`, scripts `postinstall`),
+   `exec`/`eval` de code décodé, secrets, domaines, diff avec la version précédente ;
 4. **sandbox** : conteneur sans réseau réel, faux DNS, faux secrets en leurre, `strace`, 60 s
    d'observation ;
 5. **LLM local + RAG** : 16 473 avis et fiches (OSV, OpenSSF, CWE, CAPEC, ATT&CK). Il explique en
    français et cite ses sources ;
 6. **politique déterministe** : approuvée, à revoir par un humain, ou bloquée ;
-7. **signature Ed25519**, puis publication dans la passerelle en TLS mutuel.
+7. **signature Ed25519**, puis publication dans la passerelle en TLS mutuel, sur le réseau local
+   ou par un tunnel **WireGuard** si la plateforme est hors site.
 
 **La règle centrale : le code décide, l'IA alerte et explique.** Le LLM ne peut ni approuver, ni
 bloquer, ni abaisser un risque. Un signal fort du LLM ne compte que s'il s'appuie sur ce que le
-paquet a montré, **et** sur un constat de l'analyse ou de la sandbox.
+paquet a montré, **et** sur un constat de l'analyse ou de la sandbox. Sans constat du code, ses
+alertes restent des points d'attention : l'IA est pragmatique, elle ne crie pas au loup.
+
+## La démo en trois couleurs
+
+Sur <https://demo.pipelad.tech>, la page « Demandes » prend un nom de paquet et ouvre son suivi en
+direct. Les sources de démo servent, pour chaque écosystème, un paquet de chaque issue :
+
+| | 🟢 approuvé, publié | 🟠 à revoir par un humain | 🔴 bloqué |
+|---|---|---|---|
+| **pip** | `demo-sain` | `demo-a-revoir` | `demo-piege` |
+| **npm** | `demo-npm-sain` | `demo-npm-a-revoir` | `demo-npm-piege` |
+
+- **Orange** : une fonction qui enverrait un rapport vers un tunnel ngrok, jamais appelée. C'est
+  un doute, pas une preuve : un humain tranche.
+- **Rouge** : le paquet lit un faux secret (`~/.aws/credentials` ou `~/.npmrc`) et appelle un
+  domaine d'attaquant (en `.invalid`, il ne se résout jamais). La sandbox le voit, la politique
+  bloque, le serveur ne le verra jamais.
+- Un numéro de prise peut suivre le nom (`demo-piege-2`) : même contenu, paquet jamais vu.
 
 ## Ce que la démo prouve
 
@@ -76,7 +124,7 @@ contrôle sur AWS.
 
 | Affirmation | Preuve |
 |---|---|
-| Le serveur n'a pas Internet, mais installe ses paquets | `curl https://pypi.org` échoue ; `pip install requests` marche, depuis la passerelle |
+| Le serveur n'a pas Internet, mais installe ses paquets | `curl https://pypi.org` échoue ; `pip install requests` et `npm install ms` marchent, depuis la passerelle |
 | Une version saine passe, après son délai | `demo-horodatage` 1.1 : en attente, analysée, approuvée, signée, publiée ; `pip install -U` |
 | Une version piégée est bloquée, avec ses preuves | 1.2 : exfiltration dans le code, DNS vers l'attaquant et faux `~/.aws/credentials` lu en sandbox ; le LLM l'explique en citant CWE-522 et T1552.005 |
 | Le doute va à un humain | 1.3 : un seul signal fort, donc « à revoir » ; l'admin tranche avec une raison ; une seconde décision simultanée est refusée |
@@ -143,18 +191,23 @@ c'est une hypothèse à tester.
 
 ## Sous le capot
 
+<details>
+<summary><b>Composants et technologies</b></summary>
+
 | Composant | Dossier | Technologies |
 |---|---|---|
 | Contrats partagés (types, états, manifeste) | [`commun/`](commun/) | Python 3.12, pydantic |
 | Interface web et base de données | [`plateforme/web/`](plateforme/web/), [`plateforme/db/`](plateforme/db/) | FastAPI, Jinja2, SQLite, sessions, rôles admin et dev |
-| Pipeline : veille, délai, statique, LLM, RAG, politique | [`plateforme/pipeline/`](plateforme/pipeline/) | httpx, Ollama (`qwen2.5-coder:7b`, `nomic-embed-text`), Chroma |
-| Sandbox | [`plateforme/sandbox/`](plateforme/sandbox/) | Docker en réseau interne, faux DNS et HTTP qui enregistrent, leurres, `strace` |
+| Pipeline : veille, délai, statique, LLM, RAG, politique | [`plateforme/pipeline/`](plateforme/pipeline/) | httpx, semver npm, Ollama (`qwen2.5-coder:7b`, `nomic-embed-text`), Chroma |
+| Sandbox | [`plateforme/sandbox/`](plateforme/sandbox/) | Docker en réseau interne (Python et Node), faux DNS et HTTP qui enregistrent, leurres, `strace` |
 | Signature et publication | [`plateforme/signature/`](plateforme/signature/) | Ed25519 (`cryptography`), TLS mutuel |
-| Passerelle : récepteur, inventaire, relais d'API | [`passerelle/`](passerelle/) | FastAPI, pypiserver, relais CONNECT asyncio |
-| Infrastructure de démo | [`infra/`](infra/) | AWS (VPC, sous-réseau privé sans route), `ufw`, systemd, Caddy, `restic` |
+| Passerelle : récepteur, inventaire, relais d'API | [`passerelle/`](passerelle/) | FastAPI, pypiserver, Verdaccio sans source amont, relais CONNECT asyncio |
+| Infrastructure de démo | [`infra/`](infra/) | AWS (VPC, sous-réseau privé sans route), WireGuard, `ufw`, systemd, Caddy, `restic` |
 | Mesure | [`mesure/`](mesure/) | corpus Datadog, OpenSSF et PyPI ; rapports de sandbox gardés |
-| Démo | [`demo/`](demo/) | script, faux PyPI aux dates contrôlées, paquet piégé inoffensif, réseau |
+| Démo | [`demo/`](demo/) | script, faux PyPI et faux npm aux dates contrôlées, paquets piégés inoffensifs, réseau |
 | Tests | [`tests/`](tests/) | pytest, respx ; miroir des dossiers ci-dessus |
+
+</details>
 
 ## Essayer et reproduire
 
@@ -167,8 +220,7 @@ pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-Les tests passent : 551 au 2026-10-11, dont 539 tournent sans Docker, Ollama ni AWS, les autres
-étant alors sautés. Chaque test neuf a été vu rouge avant d'écrire le code, puis le code a été cassé
+774 tests au 2026-10-11 ; ceux qui demandent Docker, Ollama ou AWS sont sautés sans eux. Chaque test neuf a été vu rouge avant d'écrire le code, puis le code a été cassé
 exprès pour vérifier qu'un test tombe.
 
 **Regarder l'interface en local** (sans Docker ni passerelle : la sandbox renvoie un rapport vide,
@@ -176,14 +228,17 @@ et la publication échoue faute de passerelle, donc une version saine reste « a
 
 ```bash
 export SAS_CLE_JOURNAL=$(openssl rand -hex 32) SAS_ADMIN_MOTDEPASSE='un-mot-de-passe-long'
-export SAS_SANDBOX=stub SAS_DELAI=60 SAS_TRAITEMENT_INTERVALLE=10 SAS_PYPI_URL=http://127.0.0.1:8081
+export SAS_SANDBOX=stub SAS_DELAI=60 SAS_TRAITEMENT_INTERVALLE=10
+export SAS_PYPI_URL=http://127.0.0.1:8081 SAS_NPM_URL=http://127.0.0.1:8082
 python demo/paquets/faux_pypi.py &              # PyPI de démo, dates contrôlées
+python demo/paquets/faux_npm.py &               # registre npm de démo
 uvicorn plateforme.web.app:app --port 8000      # http://127.0.0.1:8000, compte « admin »
-# Demander « demo-horodatage », puis : curl -X POST localhost:8081/demo/publier/demo-horodatage/1.2
+# Demander « demo-sain », « demo-a-revoir » ou « demo-npm-piege » dans « Demandes »
 ```
 
 **La démo complète** (cloisonnement réel, sandbox, LLM) tourne sur AWS :
-- création de l'infrastructure : [`infra/README.md`](infra/README.md) ;
+- création de l'infrastructure : [`infra/README.md`](infra/README.md) ; npm :
+  `infra/aws/installer_npm.sh` ; plateforme hors site : `infra/aws/installer_wireguard.sh` ;
 - déroulé : [`demo/script.md`](demo/script.md), section H16 ;
 - contrôles du cloisonnement : `infra/aws/verifier_h3.sh`, `verifier_m1.sh`,
   `verifier_compromission.sh`.
@@ -200,8 +255,8 @@ l'installation, hors du dépôt.
 
 ## Les limites, dites d'avance
 
-- **pip seulement.** npm (Verdaccio sans source amont) est conçu, pas construit. Pas encore de
-  WireGuard pour une plateforme hors site.
+- **La mesure porte sur PyPI.** npm est pris en charge de bout en bout, mais il n'existe pas
+  encore de corpus npm mesuré.
 - **La sandbox installe sans les dépendances :** elle voit l'installation de tout, mais l'import de
   58 versions saines sur 98 seulement.
 - **Pas de voie d'urgence** pour lever le délai d'une seule version.
@@ -217,7 +272,7 @@ Le détail est dans [`docs/defense.md` § 6](docs/defense.md).
 
 1. **Installation en une commande** : appliance, et pip et npm configurés automatiquement sur les
    serveurs. C'est la priorité n° 1.
-2. npm, puis images Docker, Maven et NuGet.
+2. Images Docker, Maven et NuGet, et un corpus npm mesuré.
 3. La clé de signature hors de la plateforme (YubiKey ou HSM), et une double signature.
 4. Le journal ancré sur la passerelle, une voie d'urgence tracée, un export SBOM de l'inventaire,
    et la sandbox avec les dépendances déjà approuvées.
