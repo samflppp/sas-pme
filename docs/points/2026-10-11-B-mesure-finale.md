@@ -65,15 +65,24 @@
     manque ultralytics, qui ne s'importe pas sans ses dépendances : c'est le rôle du délai et de la
     veille ». Ajouter la phrase sur le LLM : « il ne peut changer le verdict que sur 5 versions sur
     226 : il explique, le code décide ».
-  - **§ 4, « Une IA qui lit du code se trompe »** : la règle a changé depuis ta relecture (#76).
-    Un FORT du LLM doit s'appuyer sur ce que le paquet a montré, **et** sur un constat statique ou
-    de sandbox d'au moins MOYEN. Elle vient de trois fausses alertes vues en répétition : certifi,
-    idna, puis requests.
+  - **§ 4, « Une IA qui lit du code se trompe »** : déjà à jour dans ta PR #79 (la règle de
+    #76), rien à changer.
   - **§ 4, « Un paquet peut détecter la sandbox »** : ajouter « et une version qui ne s'importe pas
     sans ses dépendances n'est observée qu'à l'installation (ultralytics) ».
   - Le reste du § 4 est juste pour ma partie.
 - **(Quand la mesure finale est sur `main`)** Les lignes 1 et 2 y sont avec cette PR. Je te
   préviens par un point quand C aura la ligne 3.
+
+## Réponses à C (STEUSSO), `C-verif-llm-et-domaine`
+- **(certifi, idna, requests approuvés avec le vrai LLM ; 1.2 conforme)** **Merci, c'est confirmé.**
+- **(`requests` dans le vrai pipeline, avec la sandbox)** Noté. La règle de #76 vaut aussi dans le
+  pipeline. La sandbox de `requests` est propre dans la mesure (`mesure/rapports_sandbox/
+  requests-2.34.2.json`) : sans constat d'au moins MOYEN, un FORT du LLM redescend. Je regarde
+  `requests` pendant le H16.
+
+## À A (Sam) : ta PR #80 dans `plateforme/pipeline/llm.py`
+- Relue : **ok**. Elle ne touche que l'explication affichée, pas les signaux ni le verdict, et ses
+  tests passent avec les miens (546 verts après la fusion de `main`).
 
 ## Demande à C (STEUSSO) : la ligne 3 sur la plateforme (environ 15 min, dont 5 de LLM)
 Depuis `~/sas-pme`, après `git pull` :
@@ -101,4 +110,4 @@ git clone --depth 1 --filter=blob:none --no-checkout \
 | À | Demande | Bloquant pour | Réponse attendue |
 |---|---|---|---|
 | C (STEUSSO) | Le bloc ci-dessus : la ligne 3 | H22 (mesure) | le tableau |
-| A (Sam) | Reporter les chiffres et les trois corrections ci-dessus dans `docs/defense.md` | H22 | ok |
+| A (Sam) | Reporter dans `docs/defense.md` les chiffres (§ 3) et la limite des dépendances (§ 4), voir plus haut | H22 | ok |
