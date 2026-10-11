@@ -56,3 +56,53 @@ def test_une_version_non_mesurable_sort_du_compte_et_est_listee():
     assert r.non_mesures == ["mal3 1.0", "sain4 2.0"]
     md = mesurer.rapport(CORPUS, {"Statique": r})
     assert "Non mesurées (2)" in md and "`sain4 2.0`" in md
+
+
+# --- M3 : trois colonnes (contrôles seuls ; + sandbox ; + LLM/RAG) --------------------------------
+from commun.modeles import RapportSandbox  # noqa: E402
+
+VIDE = RapportSandbox(requetes_dns=[], connexions=[], fichiers_sensibles=[], leurres_lus=[],
+                      processus=[], code_sortie=0, duree_s=1.0, delai_depasse=False)
+
+
+def test_la_colonne_sandbox_ajoute_les_signaux_du_rapport_et_note_les_analyses_impossibles():
+    rapports = {"mal3": VIDE.model_copy(update={"leurres_lus": ["~/.aws/credentials"]}),
+                "sain1": VIDE.model_copy(update={"requetes_dns": ["telemetrie.invalid"]})}
+
+    def rapport(eco, nom, version):
+        if nom == "sain2":
+            raise RuntimeError("docker absent")
+        return rapports.get(nom, VIDE)
+
+    d = mesurer.avec_sandbox(detecteur, rapport)
+    r = mesurer.mesurer(CORPUS, d)
+    assert (r.detectes, r.fausses_alertes) == (3, 3)      # + mal3 ; + sain1 (DNS) et sain2
+    assert d.impossibles == ["sain2 2.0"]                  # comme le pipeline : « à revoir »
+
+
+def test_la_colonne_llm_n_interroge_le_llm_que_la_ou_il_peut_changer_le_resultat():
+    appels = []
+
+    def llm(eco, nom, version, signaux):
+        appels.append(nom)
+        return [Signal(ecosysteme=eco, nom=nom, version=version, source=Source.LLM,
+                       niveau=Niveau.FORT, sorte="llm")]
+
+    def avec_info(eco, nom, version):          # mal3 : un constat INFO seul ne suffit pas
+        info = [Signal(ecosysteme=eco, nom=nom, version=version, source=Source.STATIQUE,
+                       niveau=Niveau.INFO, sorte="domaine")] if nom == "mal3" else []
+        return detecteur(eco, nom, version) + info
+
+    d = mesurer.avec_llm(avec_info, llm)
+    r = mesurer.mesurer(CORPUS, d)
+    # mal0, mal1, sain0 : déjà arrêtées. Sans constat MOYEN hors LLM (mal3 n'a qu'un INFO), un FORT
+    # du LLM redescend (plateforme.pipeline.llm) : inutile de l'interroger. Reste mal2 (MOYEN).
+    assert appels == ["mal2"] and d.appels == 1
+    assert (r.detectes, r.fausses_alertes) == (3, 1)
+
+
+def test_le_tableau_final_a_les_trois_lignes_dans_l_ordre():
+    r = mesurer.mesurer(CORPUS, detecteur)
+    t = mesurer.tableau({"Contrôles seuls": r, "+ sandbox": r, "+ LLM/RAG": r})
+    assert [l.split("|")[1].strip() for l in t.splitlines()[2:]] == [
+        "Contrôles seuls", "+ sandbox", "+ LLM/RAG"]
