@@ -16,6 +16,7 @@ from plateforme.db.acces import Base
 from plateforme.pipeline import (
     llm as llm_local, npm, politique, pypi, rag, semver, veille, veille_rss,
 )
+from plateforme.pipeline import suivi as suivi_direct
 from plateforme.pipeline.sandbox_signaux import signaux_sandbox
 from plateforme.pipeline.statique.code import controler_code
 from plateforme.pipeline.statique.meta import controler_metadonnees
@@ -60,9 +61,11 @@ def _llm_reseau(base: Base, v: Version, signaux: list[Signal],
     except Exception:  # noqa: BLE001 — index illisible : journalisé comme absent
         ix = None
     passages = rag.passages(base, v, signaux, rapport, ix)
+    # Analyse suivie (page « Direct ») : l'explication est lue en flux, mot à mot.
+    flux = {"morceau": m} if (m := suivi_direct.morceau_llm()) else {}
     with httpx.Client(timeout=300) as client:   # CPU : jusqu'à quelques dizaines de secondes
         return llm_local.analyser(base, v, signaux, rapport, client=client, url=llm_local.url(),
-                                  modele=llm_local.modele(), passages=passages)
+                                  modele=llm_local.modele(), passages=passages, **flux)
 
 
 def _pep(version: str) -> VersionPep440 | None:
@@ -108,6 +111,12 @@ def _de_c(module: str, fonction: str):
         raise RuntimeError(f"{module}.{fonction} (C) indisponible : rien n'est traité") from e
 
 
+def _resume(signaux: list[Signal]) -> list[dict]:
+    """Pour le suivi : niveau, source et sorte de chaque signal, le plus grave d'abord."""
+    return [{"niveau": s.niveau.value, "source": s.source.value, "sorte": s.sorte}
+            for s in sorted(signaux, key=lambda s: -s.niveau.rang)][:20]
+
+
 def _archive_a_executer(archives: list[Path]) -> Path:
     roues = [a for a in archives if a.suffix == ".whl"]
     return (roues or archives)[0]
@@ -132,14 +141,17 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
             dossier: Path = Path("archives"), telecharger: Telecharger | None = None,
             executer: Executer | None = None, publier: Publier | None = None,
             veiller: Veiller | None = None, controler_meta: ControlerMeta | None = None,
-            llm: Llm | None = None) -> list[tuple[Version, Etat]]:
+            llm: Llm | None = None,
+            suivi: suivi_direct.Rappel | None = None) -> list[tuple[Version, Etat]]:
     """Fait un tour de veille, republie les approuvées non publiées, puis traite chaque version en attente dont le délai est
-    écoulé ; renvoie (version, état final). Fait pour être appelée en boucle (tâche de fond de A)."""
+    écoulé ; renvoie (version, état final). Fait pour être appelée en boucle (tâche de fond de A).
+    Chaque étape de l'analyse est journalisée et passée à `suivi` (page « Direct », module suivi)."""
 
     def charger(v: Version, ici: Path) -> list[Path]:
         if telecharger is not None:            # injecté (tests, mesure)
             return telecharger(v.nom, v.version, ici)
         return _telecharger_reseau(v.ecosysteme, v.nom, v.version, ici)
+
     controler_meta = controler_meta or _meta_reseau
     llm = llm or _llm_reseau
     executer = executer or _de_c("sandbox", "executer")
@@ -173,35 +185,52 @@ def traiter(base: Base, maintenant: datetime | None = None, *, delai: timedelta 
     for v in base.versions_a_traiter(maintenant, delai):
         cle = (v.ecosysteme, v.nom, v.version)
         base.changer_etat(*cle, Etat.EN_ANALYSE, "analyse en cours")
-        try:
-            archives = charger(v, _ici(dossier, v, v.version))
-            rapport = executer(v.ecosysteme, _archive_a_executer(archives), _module(v))
-            base.enregistrer_rapport_sandbox(*cle, rapport)
-            precedente = _precedente(base, v)
-            ici = _ici(dossier, v, precedente) if precedente else None
-            # Les signaux de la veille écrits pendant l'attente (articles) : déjà en base.
-            deja = [s for s in base.fiche(*cle).signaux if s.source is Source.VEILLE]
-            signaux = [*controler_nom(v.ecosysteme, v.nom, v.version),
-                       *controler_code(v.ecosysteme, v.nom, v.version, archives,
-                                       precedentes=sorted(ici.iterdir())
-                                       if ici and ici.is_dir() else None),
-                       *controler_meta(v, precedente, maintenant),
-                       *signaux_sandbox(v.ecosysteme, v.nom, v.version, rapport)]
-            # Le LLM alerte et explique ; ses signaux (au plus FORT) passent par la politique.
-            avis = llm(base, v, [*deja, *signaux], rapport)
-            signaux += avis.signaux
-            for s in signaux:
-                base.ajouter_signal(s)
-            verdict = politique.decider([*deja, *signaux]).model_copy(
-                update={"explication_llm": avis.explication, "refs_rag": avis.refs_rag})
-        except Exception as e:  # noqa: BLE001 — une analyse ratée ne doit jamais approuver
-            base.changer_etat(*cle, Etat.A_REVOIR, f"analyse impossible : {e}")
-            resultats.append((v, Etat.A_REVOIR))
-            continue
-        verdict_id = base.enregistrer_verdict(*cle, verdict)
-        base.changer_etat(*cle, verdict.etat, verdict.raison)
-        etat = verdict.etat
-        if etat is Etat.APPROUVEE:
-            etat = _publier(base, v, archives, verdict_id, publier)
-        resultats.append((v, etat))
+        with suivi_direct.pour(base, v, suivi) as etapes:
+            try:
+                with etapes.etape("telechargement") as detail:
+                    archives = charger(v, _ici(dossier, v, v.version))
+                    detail["archives"] = [a.name for a in archives]
+                with etapes.etape("sandbox") as detail:
+                    rapport = executer(v.ecosysteme, _archive_a_executer(archives), _module(v))
+                    base.enregistrer_rapport_sandbox(*cle, rapport)
+                    detail.update(duree_sandbox_s=rapport.duree_s, dns=rapport.requetes_dns[:10],
+                                  connexions=rapport.connexions[:10],
+                                  leurres=rapport.leurres_lus[:10],
+                                  fichiers=rapport.fichiers_sensibles[:10])
+                with etapes.etape("statique") as detail:
+                    precedente = _precedente(base, v)
+                    ici = _ici(dossier, v, precedente) if precedente else None
+                    # Les signaux de la veille écrits pendant l'attente (articles) : déjà en base.
+                    deja = [s for s in base.fiche(*cle).signaux if s.source is Source.VEILLE]
+                    signaux = [*controler_nom(v.ecosysteme, v.nom, v.version),
+                               *controler_code(v.ecosysteme, v.nom, v.version, archives,
+                                               precedentes=sorted(ici.iterdir())
+                                               if ici and ici.is_dir() else None),
+                               *controler_meta(v, precedente, maintenant),
+                               *signaux_sandbox(v.ecosysteme, v.nom, v.version, rapport)]
+                    detail["signaux"] = _resume(signaux)
+                # Le LLM alerte et explique ; ses signaux (au plus FORT) passent par la politique.
+                with etapes.etape("ia") as detail:
+                    avis = llm(base, v, [*deja, *signaux], rapport)
+                    detail.update(signaux=_resume(avis.signaux), explication=avis.explication,
+                                  refs_rag=avis.refs_rag)
+                signaux += avis.signaux
+                for s in signaux:
+                    base.ajouter_signal(s)
+                with etapes.etape("politique") as detail:
+                    verdict = politique.decider([*deja, *signaux]).model_copy(
+                        update={"explication_llm": avis.explication, "refs_rag": avis.refs_rag})
+                    detail.update(verdict=verdict.etat.value, raison=verdict.raison)
+            except Exception as e:  # noqa: BLE001 — une analyse ratée ne doit jamais approuver
+                base.changer_etat(*cle, Etat.A_REVOIR, f"analyse impossible : {e}")
+                resultats.append((v, Etat.A_REVOIR))
+                continue
+            verdict_id = base.enregistrer_verdict(*cle, verdict)
+            base.changer_etat(*cle, verdict.etat, verdict.raison)
+            etat = verdict.etat
+            if etat is Etat.APPROUVEE:
+                with etapes.etape("publication") as detail:
+                    etat = _publier(base, v, archives, verdict_id, publier)
+                    detail["resultat"] = etat.value
+            resultats.append((v, etat))
     return resultats

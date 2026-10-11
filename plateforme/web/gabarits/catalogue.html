@@ -1,23 +1,156 @@
 {% extends "base.html" %}
 {% block titre %}Catalogue{% endblock %}
+{% set DOSSIER = "M1.5 4h5l1.5 1.5h6.5v8h-13z" %}
+{% set FICHIER = "M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3" %}
+{% set BOITE = "M2 4.5 8 1.5l6 3v7l-6 3-6-3zM2 4.5l6 3 6-3M8 7.5v7" %}
+{% macro ico(d, classe="") -%}<svg class="ico-fichier {{ classe }}" viewBox="0 0 16 16" aria-hidden="true"><path d="{{ d }}"/></svg>{%- endmacro %}
+{% macro date(d) -%}{{ d.strftime("%d/%m/%Y") }}{%- endmacro %}
 {% block contenu %}
-<h1>Catalogue des versions</h1>
-{% if versions %}
-<table>
-  <thead><tr><th>Écosystème</th><th>Paquet</th><th>Version</th><th>État</th><th>Publiée sur Internet le</th></tr></thead>
-  <tbody>
-  {% for v in versions %}
-    <tr>
-      <td>{{ v.ecosysteme.value }}</td>
-      <td><a href="/versions/{{ v.ecosysteme.value }}/{{ v.nom }}/{{ v.version }}">{{ v.nom }}</a></td>
-      <td>{{ v.version }}</td>
-      <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value|libelle }}</span></td>
-      <td>{{ v.publiee_le.strftime("%d/%m/%Y %H:%M") }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="vide">Aucune version pour l'instant. <a href="/demander">Demander un paquet</a>.</p>
+{# fil d'Ariane du dépôt : chaque segment mène à son dossier #}
+<nav class="depot-fil" aria-label="Emplacement dans le catalogue">
+  <a href="/">catalogue</a>
+  {%- if arbo|length >= 1 %} <span>/</span> {% if arbo|length == 1 %}<strong>{{ arbo[0] }}</strong>{% else %}<a href="/catalogue/{{ arbo[0] }}">{{ arbo[0] }}</a>{% endif %}{% endif %}
+  {%- if arbo|length >= 2 %} <span>/</span> {% if arbo|length == 2 %}<strong>{{ arbo[1] }}</strong>{% else %}<a href="/catalogue/{{ arbo[0] }}/{{ arbo[1] }}">{{ arbo[1] }}</a>{% endif %}{% endif %}
+  {%- if arbo|length >= 3 %} <span>/</span> {% if arbo|length == 3 %}<strong>{{ arbo[2] }}</strong>{% else %}<a href="/catalogue/{{ arbo[0] }}/{{ arbo[1] }}/-/{{ arbo[2] }}">{{ arbo[2] }}</a>{% endif %}{% endif %}
+  {%- if arbo|length >= 4 %} <span>/</span> <strong>{{ arbo[3] }}</strong>{% endif %}
+</nav>
+
+{% if niveau == "racine" %}
+<div class="compteurs">
+  <div class="compteur"><span class="etat etat-publiee">{{ "publiee"|libelle }}</span><strong>{{ compteurs["publiee"] }}</strong><span class="note">servies aux serveurs</span></div>
+  <div class="compteur"><span class="etat etat-en_attente">{{ "en_attente"|libelle }}</span><strong>{{ compteurs["en_attente"] }}</strong><span class="note">dans le délai de 3 jours</span></div>
+  <div class="compteur"><span class="etat etat-bloquee">{{ "bloquee"|libelle }}</span><strong>{{ compteurs["bloquee"] }}</strong><span class="note">jamais servies</span></div>
+</div>
+<div class="depot">
+  <div class="depot-tete">Dépôt agréé · ce que la passerelle peut servir</div>
+  <table class="fichiers">
+    <tbody>
+    {% for d in dossiers %}
+      <tr><td class="nom">{{ ico(DOSSIER, "dossier") }}<a href="/catalogue/{{ d.nom }}">{{ d.nom }}/</a></td>
+          <td class="message">{{ d.n }} {{ d.sorte }}{{ "s" if d.n > 1 }}{% if d.nom == "images" %} · ajoutées à la main{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="depot">
+  <div class="depot-tete">Dernières versions</div>
+  {% if recentes %}
+  <table class="fichiers">
+    <tbody>
+    {% for v in recentes %}
+      <tr><td class="nom">{{ ico(FICHIER) }}<a href="/catalogue/{{ v.ecosysteme.value }}/{{ v.nom }}/-/{{ v.version }}">{{ v.ecosysteme.value }}/{{ v.nom }} {{ v.version }}</a></td>
+          <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value|libelle }}</span></td>
+          <td class="date">{{ date(v.detectee_le) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vide depot-vide">Aucune version pour l'instant. <a href="/demander">Demander un paquet</a>.</p>{% endif %}
+</div>
+
+{% elif niveau == "ecosysteme" %}
+<div class="depot">
+  <div class="depot-tete">{{ paquets|length }} paquet{{ "s" if paquets|length > 1 }} · {{ eco.value }}</div>
+  {% if paquets %}
+  <table class="fichiers">
+    <thead><tr><th>Paquet</th><th>Servie aux serveurs</th><th>Dernière version vue</th><th>Activité</th></tr></thead>
+    <tbody>
+    {% for p in paquets %}
+      <tr><td class="nom">{{ ico(DOSSIER, "dossier") }}<a href="/catalogue/{{ eco.value }}/{{ p.nom }}">{{ p.nom }}</a></td>
+          <td>{% if p.servie %}<code>{{ p.servie.version }}</code>{% else %}<span class="note">aucune</span>{% endif %}</td>
+          <td><code>{{ p.versions[0].version }}</code> <span class="etat etat-{{ p.versions[0].etat.value }}">{{ p.versions[0].etat.value|libelle }}</span></td>
+          <td class="date">{{ date(p.derniere_activite) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vide depot-vide">Aucun paquet. <a href="/demander">Demander un paquet</a>.</p>{% endif %}
+</div>
+
+{% elif niveau == "paquet" %}
+<div class="depot-grille">
+  <div class="depot">
+    <div class="depot-tete">{{ p.versions|length }} version{{ "s" if p.versions|length > 1 }}</div>
+    <table class="fichiers">
+      <thead><tr><th>Version</th><th>État</th><th>Publiée sur Internet</th></tr></thead>
+      <tbody>
+      {% for v in p.versions %}
+        <tr{% if p.servie and v.version == p.servie.version %} class="servie"{% endif %}>
+          <td class="nom">{{ ico(DOSSIER, "dossier") }}<a href="/catalogue/{{ eco.value }}/{{ p.nom }}/-/{{ v.version }}">{{ v.version }}</a>{% if p.servie and v.version == p.servie.version %} <span class="marque-servie">servie</span>{% endif %}</td>
+          <td><span class="etat etat-{{ v.etat.value }}">{{ v.etat.value|libelle }}</span></td>
+          <td class="date">{{ date(v.publiee_le) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <aside class="lisez-moi" aria-label="Résumé du paquet">
+    <h2>{{ ico(BOITE) }} {{ p.nom }}</h2>
+    {% if p.servie %}
+    <p>Les serveurs reçoivent <strong>{{ p.servie.version }}</strong> : <code>pip install {{ p.nom }}</code> l'installe, sans rien changer sur le poste.</p>
+    {% else %}
+    <p>Aucune version publiée : <code>pip install {{ p.nom }}</code> échoue sur les serveurs, faute de version vérifiée.</p>
+    {% endif %}
+    {% if p.suivante %}
+    <p class="attente">La plus récente, <strong>{{ p.suivante.version }}</strong>, est <span class="etat etat-{{ p.suivante.etat.value }}">{{ p.suivante.etat.value|libelle }}</span>{% if attente %} : encore {{ attente }} avant l'analyse{% endif %}.</p>
+    {% endif %}
+    <dl>
+      <dt>Écosystème</dt><dd>{{ eco.value }}</dd>
+      <dt>Versions vues</dt><dd>{{ p.versions|length }}</dd>
+      <dt>Dernière activité</dt><dd>{{ date(p.derniere_activite) }}</dd>
+    </dl>
+  </aside>
+</div>
+
+{% elif niveau == "version" %}
+<div class="depot-grille">
+  <div class="depot">
+    <div class="depot-tete"><span class="etat etat-{{ fiche.version.etat.value }}">{{ fiche.version.etat.value|libelle }}</span> {{ fiche.raison }}</div>
+    {% if fichiers %}
+    <table class="fichiers">
+      <tbody>
+      {% for f in fichiers %}
+        <tr><td class="nom">{{ ico(FICHIER) }}{% if f.contenu is not none %}<a href="/catalogue/{{ eco.value }}/{{ p.nom }}/-/{{ fiche.version.version }}/{{ f.nom }}">{{ f.nom }}</a>{% else %}{{ f.nom }}{% endif %}</td>
+            <td class="message">{% if f.empreinte %}<code title="sha256 {{ f.empreinte }}">sha256 {{ f.empreinte[:12] }}…</code>{% else %}données de la plateforme{% endif %}</td>
+            <td class="date">{{ taille(f.taille) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vide depot-vide">Aucun fichier : la version n'a pas encore été téléchargée ni analysée.</p>{% endif %}
+  </div>
+  <aside class="lisez-moi" aria-label="Résumé de la version">
+    <h2>{{ ico(BOITE) }} {{ p.nom }} {{ fiche.version.version }}</h2>
+    <dl>
+      <dt>Publiée sur Internet</dt><dd>{{ fiche.version.publiee_le.strftime("%d/%m/%Y %H:%M") }}</dd>
+      <dt>Détectée</dt><dd>{{ fiche.version.detectee_le.strftime("%d/%m/%Y %H:%M") }}</dd>
+      <dt>Signaux</dt><dd>{{ fiche.signaux|length }}</dd>
+    </dl>
+    <a class="bouton second" href="/versions/{{ eco.value }}/{{ p.nom }}/{{ fiche.version.version }}">Fiche complète</a>
+  </aside>
+</div>
+
+{% elif niveau == "blob" %}
+<div class="depot">
+  <div class="depot-tete">{{ lignes|length }} lignes · {{ taille(blob.taille) }} · données de la plateforme, en lecture seule</div>
+  <pre class="blob"><code>{% for l in lignes %}<span class="ligne-blob"><span class="num" aria-hidden="true">{{ loop.index }}</span>{{ l }}</span>
+{% endfor %}</code></pre>
+</div>
+
+{% elif niveau == "images" %}
+<p class="raison">Images ajoutées à la main par un administrateur, non analysées par la pipeline : le digest fixe
+exactement ce qui est servi, mais rien n'en a été vérifié ici.</p>
+<div class="depot">
+  <div class="depot-tete">{{ images|length }} image{{ "s" if images|length > 1 }}</div>
+  {% if images %}
+  <table class="fichiers">
+    <thead><tr><th>Image</th><th>Digest</th><th>Usage</th><th>Agréée</th></tr></thead>
+    <tbody>
+    {% for i in images %}
+      <tr><td class="nom">{{ ico(BOITE) }}<span><strong>{{ i.nom }}</strong>:<code>{{ i.tag }}</code><br><span class="note">{{ i.source }}</span></span></td>
+          <td><code title="{{ i.digest }}">{{ i.digest[:19] }}…</code></td>
+          <td>{{ i.usage }}</td>
+          <td class="date">{{ i.agreee_le }} · {{ i.par }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vide depot-vide">Aucune image agréée.</p>{% endif %}
+</div>
 {% endif %}
 {% endblock %}

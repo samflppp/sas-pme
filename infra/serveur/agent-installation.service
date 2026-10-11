@@ -1,0 +1,24 @@
+[Unit]
+Description=agent d'installation sas-pme (pip install des demandes signées par la plateforme)
+After=network-online.target
+
+[Service]
+# Le compte de l'application (ubuntu), qui n'installe que dans son venv ~/app (étape 5 d'installer.sh),
+# jamais dans le Python du système, jamais en root. L'agent lui-même tourne avec le Python du système,
+# qui a cryptography (Ubuntu) : le venv applicatif, hors ligne, ne l'a pas.
+User=ubuntu
+Group=ubuntu
+Environment=SAS_GUICHET_URL=http://10.42.2.10:8444
+Environment=SAS_INDEX_URL=http://10.42.2.10:8080/simple/
+Environment=SAS_CLE_PUBLIQUE=/etc/sas/plateforme_signature.pub
+Environment=SAS_AGENT_ETAT=/var/lib/sas-agent
+Environment=SAS_AGENT_PYTHON=/home/ubuntu/app/bin/python
+ExecStart=/usr/bin/python3 /opt/sas-agent/agent_installation.py
+ReadWritePaths=/var/lib/sas-agent /home/ubuntu/app
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -9,10 +9,14 @@ Configuration de `app` (variables d'environnement) :
   SAS_DEPOT          dossier servi par pypiserver (défaut /srv/pypi/packages)
   SAS_CLE_PUBLIQUE   clé publique Ed25519 de la plateforme, en PEM (posée à l'installation)
   SAS_NONCES         fichier des nonces déjà vus (défaut /var/lib/sas/nonces.txt)
-  SAS_JOURNAL_ACCES  journal d'accès de pypiserver, lu par /v1/inventory (défaut
+  SAS_JOURNAL_ACCES  journal d'accès de pypiserver, lu par /v1/inventory et /v1/access (défaut
                      /var/lib/sas/pypiserver-acces.log ; inventaire vide si absent)
+  SAS_INSTALLATIONS  demandes d'installation signées reçues par /v1/install, une par ligne
+                     (défaut /var/lib/sas/installations.jsonl), servies aux serveurs par le guichet
+                     (`passerelle.guichet`, :8444)
 """
 
+import json
 import os
 import re
 import threading
@@ -23,6 +27,8 @@ from pathlib import Path
 from fastapi import FastAPI, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
+from passerelle import installation
+from passerelle.acces import requetes
 from passerelle.inventaire import inventaire as _inventaire
 from passerelle.inventaire import meme_version
 from passerelle.verification import Refus, verifier
@@ -32,8 +38,10 @@ _NOM_SUR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
               horloge: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
-              journal_acces: Path | None = None, registre: Path | None = None) -> FastAPI:
+              journal_acces: Path | None = None, registre: Path | None = None,
+              installations: Path | None = None) -> FastAPI:
     depot, fichier_nonces = Path(depot), Path(fichier_nonces)
+    installations = Path(installations) if installations is not None else None
     journal_acces = Path(journal_acces) if journal_acces is not None else None
     registre = Path(registre) if registre is not None else None
 
@@ -91,6 +99,30 @@ def creer_app(depot: Path, cle_publique_pem: bytes, fichier_nonces: Path,
             _noter("publie", list(recues))
         return {"publie": [f.nom for f in m.fichiers]}
 
+    @app.get("/v1/access")
+    def acces(apres: int = 0):
+        """Les requêtes des serveurs à pypiserver après la ligne `apres` (panneau « Serveur »)."""
+        lignes = _lire(journal_acces)
+        return {"total": len(lignes), "lignes": requetes(lignes, apres)}
+
+    @app.post("/v1/install", status_code=201)
+    def installer(demande: str = Form(), signature: str = Form()):
+        """Une demande d'installation signée par la plateforme, rangée pour le guichet ; le serveur
+        la vérifie à nouveau avant de lancer pip (passerelle.installation)."""
+        if installations is None:
+            raise HTTPException(503, "aucun fichier de demandes d'installation configuré")
+        with verrou:
+            try:
+                d = installation.verifier(demande, signature, cle_publique_pem, horloge(), nonces)
+            except Refus as e:
+                raise HTTPException(e.code, str(e)) from e
+            with fichier_nonces.open("a") as f:
+                f.write(d.nonce + "\n")
+            n = len(_lire(installations)) + 1
+            with installations.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"n": n, "demande": demande, "signature": signature}) + "\n")
+        return {"n": n, "nom": d.nom}
+
     @app.post("/v1/revoke")
     def revoquer(manifeste: str = Form(), signature: str = Form()):
         with verrou:
@@ -116,7 +148,9 @@ def _depuis_env() -> FastAPI:
                      Path(os.environ.get("SAS_NONCES", "/var/lib/sas/nonces.txt")),
                      journal_acces=Path(os.environ.get(
                          "SAS_JOURNAL_ACCES", "/var/lib/sas/pypiserver-acces.log")),
-                     registre=Path(os.environ.get("SAS_REGISTRE", "/var/lib/sas/registre.txt")))
+                     registre=Path(os.environ.get("SAS_REGISTRE", "/var/lib/sas/registre.txt")),
+                     installations=Path(os.environ.get(
+                         "SAS_INSTALLATIONS", "/var/lib/sas/installations.jsonl")))
 
 
 def __getattr__(nom: str):                # `uvicorn passerelle.recepteur:app`, sans effet à l'import

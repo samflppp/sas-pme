@@ -16,6 +16,8 @@
   aggrave un doute réel, il n'en crée pas un en décrivant la fonction même du paquet
   (`requests.get` dans `requests`). Les signaux identiques du LLM ne comptent qu'une fois.
 - Une réponse hors schéma est ignorée et journalisée ; Ollama injoignable ne donne rien.
+- Avec `morceau`, la réponse est lue en flux (`stream: true`) : l'explication déjà écrite est passée
+  à `morceau` à chaque morceau (page « Direct »). La réponse complète est validée comme avant.
 - L'explication est nettoyée avant d'être gardée : un modèle qui boucle répète la même phrase
   (« De plus, le code utilise… ») jusqu'à la limite du schéma, qui la coupe au milieu d'un mot.
   Chaque phrase n'est gardée qu'une fois, et une fin coupée est marquée « … ».
@@ -23,6 +25,8 @@
 import json
 import os
 import re
+import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -31,6 +35,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from commun.modeles import Niveau, RapportSandbox, Signal, Source, Version
 from plateforme.db.acces import Base
+from plateforme.pipeline.suivi import explication_partielle
 
 SYSTEME = (
     "Tu es l'analyste sécurité d'une PME. Tu examines une version d'un paquet (pip ou npm) avant "
@@ -173,17 +178,44 @@ def explication_propre(texte: str) -> str:
     return " ".join(gardees)
 
 
+def _lire_en_flux(client: httpx.Client, url: str, corps: dict,
+                  morceau: Callable[[str], None]) -> str:
+    """Les lignes NDJSON d'Ollama, mises bout à bout ; l'explication déjà écrite passe à `morceau`."""
+    contenu, dite = "", ""
+    with client.stream("POST", url, json=corps) as r:
+        r.raise_for_status()
+        for ligne in r.iter_lines():
+            if not ligne.strip():
+                continue
+            d = json.loads(ligne)
+            contenu += d["message"]["content"]
+            explication = explication_partielle(contenu)
+            if explication != dite:
+                dite = explication
+                try:
+                    morceau(explication)
+                except Exception as e:  # noqa: BLE001 — l'affichage n'arrête pas l'analyse
+                    print(f"[sas-pme] flux du LLM : {e!r}", file=sys.stderr)
+            if d.get("done"):
+                break
+    return contenu
+
+
 def analyser(base: Base, v: Version, signaux: list[Signal], rapport: RapportSandbox, *,
              client: httpx.Client, url: str, modele: str,
-             passages: list[tuple[str, str]] | tuple = ()) -> ResultatLLM:
+             passages: list[tuple[str, str]] | tuple = (),
+             morceau: Callable[[str], None] | None = None) -> ResultatLLM:
     sujet = f"{v.ecosysteme.value}/{v.nom}/{v.version}"
+    corps = {"model": modele, "messages": messages(v, signaux, rapport, passages),
+             "format": VerdictLLM.model_json_schema(), "stream": morceau is not None,
+             "options": {"temperature": 0, "num_ctx": CONTEXTE}}
     try:
-        r = client.post(f"{url}/api/chat", json={
-            "model": modele, "messages": messages(v, signaux, rapport, passages),
-            "format": VerdictLLM.model_json_schema(), "stream": False,
-            "options": {"temperature": 0, "num_ctx": CONTEXTE}})
-        r.raise_for_status()
-        contenu = r.json()["message"]["content"]
+        if morceau is None:
+            r = client.post(f"{url}/api/chat", json=corps)
+            r.raise_for_status()
+            contenu = r.json()["message"]["content"]
+        else:
+            contenu = _lire_en_flux(client, f"{url}/api/chat", corps, morceau)
     except (httpx.HTTPError, KeyError, ValueError) as e:
         base.journaliser("llm", "llm_indisponible", sujet, {"erreur": repr(e)[:300]})
         return ResultatLLM()

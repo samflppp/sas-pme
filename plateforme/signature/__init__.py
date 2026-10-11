@@ -29,7 +29,8 @@ import httpx
 from commun.modeles import EntreeInventaire, Manifeste, canonique
 from plateforme.signature import ed25519
 
-__all__ = ["publier", "revoquer", "lire_inventaire", "PublicationRefusee"]
+__all__ = ["publier", "revoquer", "lire_inventaire", "demander_installation", "lire_acces",
+           "PublicationRefusee"]
 
 
 class PublicationRefusee(RuntimeError):
@@ -130,3 +131,32 @@ def lire_inventaire() -> list[EntreeInventaire]:
     champs = EntreeInventaire.model_fields
     return [EntreeInventaire.model_validate({k: v for k, v in e.items() if k in champs})
             for e in r.json()]
+
+
+# --- démo : installation demandée au serveur, journal d'accès (A pour C, conception-demo § 1) ---
+def demander_installation(ecosysteme, nom: str, demande: int) -> int:
+    """Demande au serveur de démo d'installer `nom` (la passerelle sert la dernière version
+    vérifiée). Signée Ed25519, préfixe à part (passerelle.installation) ; rend son rang au guichet."""
+    from passerelle import installation
+
+    _verifier_pypi(ecosysteme)
+    if not _signe():
+        raise RuntimeError("passerelle non configurée (SAS_PASSERELLE_URL)")
+    d = installation.DemandeInstallation(nom=nom, demande=demande, emis_le=datetime.now(timezone.utc),
+                                         nonce=secrets.token_hex(16))
+    texte, sig = installation.signer(d, ed25519.charger_cle(Path(os.environ["SAS_CLE_SIGNATURE"])))
+    with _client() as c:
+        r = c.post("/v1/install", data={"demande": texte, "signature": sig})
+    if r.status_code >= 300:
+        raise PublicationRefusee(f"passerelle {r.status_code} : {r.text[:200]}")
+    return int(r.json()["n"])
+
+
+def lire_acces(apres: int = 0) -> dict:
+    """Les requêtes des serveurs à pypiserver après la ligne `apres` : {"total", "lignes"}."""
+    if not _signe():
+        raise RuntimeError("passerelle non configurée (SAS_PASSERELLE_URL)")
+    with _client() as c:
+        r = c.get("/v1/access", params={"apres": apres})
+    r.raise_for_status()
+    return r.json()

@@ -12,6 +12,7 @@ Environment=SAS_CLE_PUBLIQUE=/etc/sas/plateforme_signature.pub
 Environment=SAS_NONCES=/var/lib/sas-recepteur/nonces.txt
 Environment=SAS_JOURNAL_ACCES=/var/lib/sas/pypiserver-acces.log
 Environment=SAS_REGISTRE=/var/lib/sas-recepteur/registre.txt
+Environment=SAS_INSTALLATIONS=/var/lib/sas-recepteur/installations.jsonl
 # --ssl-cert-reqs 2 : certificat client exigé, signé par l'autorité du lien (la plateforme seule).
 ExecStart=/usr/bin/python3 -m uvicorn passerelle.recepteur:app --host 10.42.2.10 --port 8443 \
   --ssl-keyfile /etc/sas/passerelle.key --ssl-certfile /etc/sas/passerelle.pem \

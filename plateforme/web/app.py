@@ -6,12 +6,17 @@ SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions),
 SAS_TRAITEMENT_INTERVALLE (secondes entre deux appels de `traiter`, 60 ; 0 l'arrête),
 SAS_ARCHIVES (dossier des archives téléchargées, `archives`).
 La page « Inventaire » lit la passerelle (`signature.lire_inventaire`, C) à chaque affichage.
+La page « Direct » suit les versions d'une demande : étapes de la pipeline en direct (Server-Sent
+Events, `direct.Diffusion` alimentée par `traiter(..., suivi=...)`) et relues au journal.
 Au premier lancement (base sans compte), le compte `admin` est créé avec SAS_ADMIN_MOTDEPASSE
 (MDP_MIN caractères au moins, sinon refus de démarrer) ; sans elle, un mot de passe aléatoire est
 tiré et affiché. Ensuite, la variable est ignorée.
 """
+import asyncio
+import json
 import os
 import re
+import time
 import secrets
 import sys
 from contextlib import asynccontextmanager
@@ -22,7 +27,7 @@ from typing import Callable
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from packaging.utils import canonicalize_name, canonicalize_version
@@ -31,9 +36,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from commun.modeles import Ecosysteme, EntreeInventaire, Etat, Version
 from plateforme.db.acces import Base, Compte, Role
+from plateforme.web import catalogue as cat
+from plateforme.web import direct as dr
 from plateforme.web.fond import TacheDeFond
 
-Demander = Callable[[Ecosysteme, str], None]
+# demander(eco, nom) : pipeline.demander (B) ; rend la version demandée (None : inconnue)
+Demander = Callable[[Ecosysteme, str], Version | None]
 # decider(base, eco, nom, version, etat, raison, acteur) : pipeline.decision_humaine (B)
 Decider = Callable[[Base, Ecosysteme, str, str, Etat, str, str], object]
 # revoquer(eco, nom, version, raison) : signature.revoquer (C), qui retire l'archive de la passerelle
@@ -41,6 +49,9 @@ Revoquer = Callable[[Ecosysteme, str, str, str], None]
 Traiter = Callable[[Base], object]
 # lire_inventaire() : signature.lire_inventaire (C), ce que les serveurs ont installé
 LireInventaire = Callable[[], list[EntreeInventaire]]
+# installer(eco, nom, demande) : signature.demander_installation ; lire_acces(apres) : signature.lire_acces
+Installer = Callable[[Ecosysteme, str, int], int]
+LireAcces = Callable[[int], dict]
 Horloge = Callable[[], datetime]
 Delai = Callable[[], timedelta]
 
@@ -73,8 +84,8 @@ def _demander_par_defaut(base: Base) -> Demander:
     try:
         import plateforme.pipeline as pipeline
 
-        def vrai(eco: Ecosysteme, nom: str) -> None:
-            pipeline.demander(eco, nom, base=base)
+        def vrai(eco: Ecosysteme, nom: str) -> Version:
+            return pipeline.demander(eco, nom, base=base)
         return vrai
     except ImportError:
         def faux(eco: Ecosysteme, nom: str) -> None:
@@ -95,6 +106,20 @@ def _lire_inventaire_par_defaut() -> list[EntreeInventaire]:
     """Le vrai `signature.lire_inventaire` (C), importé seulement à l'affichage de la page."""
     from plateforme.signature import lire_inventaire
     return lire_inventaire()
+
+
+def _passerelle_configuree() -> bool:
+    return bool(os.environ.get("SAS_PASSERELLE_URL"))
+
+
+def _installer_par_defaut(*args) -> int:
+    from plateforme.signature import demander_installation
+    return demander_installation(*args)
+
+
+def _lire_acces_par_defaut(apres: int) -> dict:
+    from plateforme.signature import lire_acces
+    return lire_acces(apres)
 
 
 def _revoquer_par_defaut(*args) -> None:
@@ -166,6 +191,7 @@ def compter_par_etat(versions: list[Version]) -> dict[Etat, int]:
 
 
 DERNIERS_BLOCAGES = 5
+DERNIERES = 8            # versions récentes sur la racine du catalogue
 
 
 @dataclass(frozen=True)
@@ -239,7 +265,13 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
               traiter: Traiter | None = None, intervalle: float = 60,
               horloge: Horloge | None = None, delai: Delai | None = None,
               decider: Decider | None = None, revoquer: Revoquer | None = None,
-              lire_inventaire: LireInventaire | None = None) -> FastAPI:
+              lire_inventaire: LireInventaire | None = None,
+              archives: Path | None = None, images: Path | None = None,
+              diffusion: dr.Diffusion | None = None, duree_flux: float = 600,
+              installer: Installer | None = None, lire_acces: LireAcces | None = None,
+              index_serveur: str | None = None) -> FastAPI:
+    """`installer` et `lire_acces` (panneau « Serveur » de la page Direct) : par défaut, ceux de la
+    signature (C) si la passerelle est configurée (SAS_PASSERELLE_URL), sinon aucun."""
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -278,6 +310,24 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     decider = decider or _decider_par_defaut
     revoquer = revoquer or _revoquer_par_defaut
     lire_inventaire = lire_inventaire or _lire_inventaire_par_defaut
+    archives = archives if archives is not None else Path(os.environ.get("SAS_ARCHIVES", "archives"))
+    images = images if images is not None else Path(__file__).with_name("images-agreees.json")
+    diffusion = diffusion or dr.Diffusion()
+    app.state.diffusion = diffusion
+    if installer is None and lire_acces is None and _passerelle_configuree():
+        installer, lire_acces = _installer_par_defaut, _lire_acces_par_defaut
+    index_serveur = index_serveur or os.environ.get("SAS_INDEX_SERVEUR",
+                                                    "http://10.42.2.10:8080/simple/")
+    lectures: dict[int, tuple[float, dict]] = {}
+
+    def lire_acces_court(apres: int) -> dict:
+        """Une lecture par seconde au plus pour un même point de départ : le flux en fait souvent."""
+        t, r = lectures.get(apres, (0.0, None))
+        if r is None or time.monotonic() - t > 1.0:
+            r = lire_acces(apres)
+            lectures.clear()
+            lectures[apres] = (time.monotonic(), r)
+        return r
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -331,9 +381,69 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         request.session.clear()
         return RedirectResponse("/connexion", status_code=303)
 
+    # --- catalogue en arborescence -----------------------------------------------------------
     @app.get("/", response_class=HTMLResponse)
     def catalogue(request: Request):
-        return page(request, "catalogue.html", exiger(request), versions=base.lister_versions())
+        compte = exiger(request)
+        versions = base.lister_versions()
+        dossiers = [{"nom": e.value, "n": len(cat.paquets(versions, e)), "sorte": "paquet"}
+                    for e in Ecosysteme]
+        dossiers.append({"nom": "images", "n": len(cat.images(images)), "sorte": "image"})
+        return page(request, "catalogue.html", compte, niveau="racine", arbo=[],
+                    dossiers=dossiers, compteurs=compter_par_etat(versions),
+                    recentes=sorted(versions, key=lambda v: v.detectee_le, reverse=True)[:DERNIERES])
+
+    def ecosysteme_ou_404(valeur: str) -> Ecosysteme:
+        try:
+            return Ecosysteme(valeur)
+        except ValueError:
+            raise HTTPException(status_code=404)
+
+    @app.get("/catalogue/{ecosysteme}", response_class=HTMLResponse)
+    def catalogue_ecosysteme(request: Request, ecosysteme: str):
+        compte = exiger(request)
+        if ecosysteme == "images":
+            return page(request, "catalogue.html", compte, niveau="images", arbo=["images"],
+                        images=cat.images(images))
+        eco = ecosysteme_ou_404(ecosysteme)
+        return page(request, "catalogue.html", compte, niveau="ecosysteme", arbo=[eco.value],
+                    eco=eco, paquets=cat.paquets(base.lister_versions(), eco))
+
+    @app.get("/catalogue/{ecosysteme}/{reste:path}", response_class=HTMLResponse)
+    def catalogue_paquet(request: Request, ecosysteme: str, reste: str):
+        """`<nom>` (un nom npm peut contenir « / »), `<nom>/-/<version>`, `<nom>/-/<version>/<fichier>`.
+        Tout est relu dans la base : un nom, une version ou un fichier inconnus donnent 404."""
+        compte = exiger(request)
+        eco = ecosysteme_ou_404(ecosysteme)
+        nom, _, apres = reste.partition("/-/")
+        p = cat.paquet(base.lister_versions(), eco, nom)
+        if p is None:
+            raise HTTPException(status_code=404)
+        if not apres:
+            attente = None
+            if p.suivante is not None and p.suivante.etat in (Etat.NOUVELLE, Etat.EN_ATTENTE):
+                try:
+                    fin = p.suivante.publiee_le + delai()
+                    attente = duree_lisible(fin - horloge()) if fin > horloge() else "au prochain tour"
+                except ValueError:
+                    attente = None
+            return page(request, "catalogue.html", compte, niveau="paquet", arbo=[eco.value, nom],
+                        eco=eco, p=p, attente=attente)
+        version, _, nom_fichier = apres.partition("/")
+        f = base.fiche(eco, nom, version)
+        if f is None:
+            raise HTTPException(status_code=404)
+        fichiers = cat.fichiers_version(f, archives)
+        if not nom_fichier:
+            return page(request, "catalogue.html", compte, niveau="version",
+                        arbo=[eco.value, nom, version], eco=eco, p=p, fiche=f, fichiers=fichiers,
+                        taille=cat.taille_lisible)
+        blob = next((x for x in fichiers if x.nom == nom_fichier and x.contenu is not None), None)
+        if blob is None:
+            raise HTTPException(status_code=404)
+        return page(request, "catalogue.html", compte, niveau="blob",
+                    arbo=[eco.value, nom, version, nom_fichier], eco=eco, p=p, fiche=f, blob=blob,
+                    lignes=blob.contenu.splitlines(), taille=cat.taille_lisible)
 
     @app.get("/tableau-de-bord", response_class=HTMLResponse)
     def tableau_de_bord(request: Request):
@@ -363,9 +473,22 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         return page(request, "inventaire.html", compte, lignes=lignes,
                     alertes=sum(l.alerte is not None for l in lignes), erreur=None)
 
+    def demandes_recentes(n: int = 20) -> list[dict]:
+        sortie = []
+        for e in base.journal_recent(n, q="demande_resolue"):
+            d = dr.demande(e)
+            if d is None:
+                continue
+            principale = None
+            if d.sujets and (cle := dr._decouper(d.sujets[0])):
+                principale = base.lire_version(*cle)
+            sortie.append({"d": d, "principale": principale})
+        return sortie
+
     @app.get("/demander", response_class=HTMLResponse)
     def page_demander(request: Request):
-        return page(request, "demander.html", exiger(request), ecosystemes=list(Ecosysteme))
+        return page(request, "demander.html", exiger(request), ecosystemes=list(Ecosysteme),
+                    demandes=demandes_recentes())
 
     @app.post("/demander")
     def demander_paquet(request: Request, ecosysteme: str = Form(...), nom: str = Form(...)):
@@ -379,19 +502,118 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             raise HTTPException(status_code=400, detail="Nom de paquet invalide.")
         base.journaliser(compte.identifiant, "demande_paquet", f"{eco.value}:{nom}", {})
         # Erreurs prévues de pipeline.demander (B) : on les dit sur le formulaire, pas en erreur 500.
+        avant = dernier_seq()
         try:
-            demander(eco, nom)
+            principale = demander(eco, nom)
         except LookupError as e:
             return refuser(request, compte, nom, str(e), 404)
         except ValueError as e:
             return refuser(request, compte, nom, str(e), 400)
         except NotImplementedError:
             return refuser(request, compte, nom, f"{eco.value} n'est pas encore pris en charge.", 400)
-        return RedirectResponse("/", status_code=303)
+        # Les versions que la demande a fait entrer (le paquet et ses dépendances) ; une version déjà
+        # connue n'est pas re-détectée : la version demandée est alors celle que rend demander().
+        detectees = [e.sujet for e in reversed(base.journal_recent(500)) if e.seq > avant
+                     and e.action == "version_detectee" and e.sujet.startswith(f"{eco.value}:")]
+        tete = [f"{eco.value}:{principale.nom}@{principale.version}"] if principale else []
+        sujets = list(dict.fromkeys([*tete, *detectees]))
+        base.journaliser(compte.identifiant, "demande_resolue", f"{eco.value}:{nom}",
+                         {"versions": sujets})
+        n = dernier_seq()
+        if installer is not None:
+            demander_au_serveur(compte, eco, nom, n)
+        return RedirectResponse(f"/direct?demande={n}", status_code=303)
+
+    def demander_au_serveur(compte: Compte, eco: Ecosysteme, nom: str, n: int) -> None:
+        """Le serveur de démo installe ce qu'on vient de demander : il recevra la dernière version
+        vérifiée. On note où en est le journal d'accès, pour ne montrer que la suite. Un refus ou
+        une panne se dit au journal et sur la page ; la demande, elle, est faite."""
+        try:
+            depuis = lire_acces(10 ** 9)["total"]
+            rang = installer(eco, nom, n)
+        except Exception as e:  # noqa: BLE001 — refus, réseau : dit, jamais une erreur 500
+            base.journaliser(compte.identifiant, "installation_echouee", f"{eco.value}:{nom}",
+                             {"demande": n, "erreur": str(e)[:300]})
+            return
+        base.journaliser(compte.identifiant, "installation_demandee", f"{eco.value}:{nom}",
+                         {"demande": n, "rang": rang, "acces_depuis": depuis})
+
+    def dernier_seq() -> int:
+        dernieres = base.journal_recent(1)
+        return dernieres[0].seq if dernieres else 0
 
     def refuser(request: Request, compte: Compte, nom: str, message: str, code: int):
         return page(request, "demander.html", compte, code, ecosystemes=list(Ecosysteme),
-                    erreur=message, nom=nom)
+                    erreur=message, nom=nom, demandes=demandes_recentes())
+
+    # --- direct : les versions d'une demande, étape par étape -----------------------------------
+    def demande_ou_404(n: int | None) -> dr.Demande | None:
+        """La demande n° n (seq de sa résolution au journal) ; sans n, la plus récente (None : aucune)."""
+        if n is None:
+            recentes = [d for e in base.journal_recent(20, q="demande_resolue")
+                        if (d := dr.demande(e))]
+            return recentes[0] if recentes else None
+        trouvees = base.journal_recent(1, avant=n + 1)
+        d = dr.demande(trouvees[0]) if trouvees and trouvees[0].seq == n else None
+        if d is None:
+            raise HTTPException(status_code=404)
+        return d
+
+    def delai_ou_none() -> timedelta | None:
+        try:
+            return delai()
+        except ValueError:
+            return None
+
+    def instantane(d: dr.Demande) -> dict:
+        maintenant, delai_ = horloge(), delai_ou_none()
+        i = dr.instantane(base, diffusion, d, maintenant, delai_, libelle, duree_lisible)
+        installations = [e for e in base.journal_recent(200, q="installation_")
+                         if e.action in ("installation_demandee", "installation_echouee")]
+        celle = next((e for e in installations if e.charge.get("demande") == d.seq), None)
+        apres = [e for e in installations if celle and e.seq > celle.seq
+                 and e.action == "installation_demandee"]
+        i["serveur"] = dr.serveur(base, d, celle, apres[-1] if apres else None,
+                                  lire_acces_court if lire_acces else None, maintenant, delai_,
+                                  libelle, duree_lisible, index_serveur)
+        return i
+
+    @app.get("/direct", response_class=HTMLResponse)
+    def page_direct(request: Request, demande: int | None = None):
+        compte = exiger(request)
+        d = demande_ou_404(demande)
+        return page(request, "direct.html", compte, i=instantane(d) if d else None,
+                    demandes=demandes_recentes(10))
+
+    @app.get("/direct/instantane")
+    def direct_instantane(request: Request, demande: int):
+        exiger(request)
+        return JSONResponse(instantane(demande_ou_404(demande)))
+
+    @app.get("/direct/flux")
+    async def direct_flux(request: Request, demande: int):
+        """Server-Sent Events : l'instantané à chaque nouvelle de la pipeline, et au moins toutes les
+        secondes (un état changé ailleurs) ; seulement s'il a changé. La connexion dure au plus
+        `duree_flux` secondes ; EventSource la rouvre seul."""
+        await run_in_threadpool(exiger, request)
+        d = await run_in_threadpool(demande_ou_404, demande)
+
+        async def evenements():
+            yield "retry: 1000\n\n"
+            fin, dernier, vu, prochain = time.monotonic() + duree_flux, None, -1, 0.0
+            while True:
+                if diffusion.seq != vu or time.monotonic() >= prochain:
+                    vu, prochain = diffusion.seq, time.monotonic() + 1.0
+                    texte = json.dumps(await run_in_threadpool(instantane, d), ensure_ascii=False)
+                    if texte != dernier:
+                        dernier = texte
+                        yield f"data: {texte}\n\n"
+                if time.monotonic() >= fin or await request.is_disconnected():
+                    return
+                await asyncio.sleep(0.25)
+
+        return StreamingResponse(evenements(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @app.get("/versions/{ecosysteme}/{nom:path}/{version}", response_class=HTMLResponse)
     def fiche(request: Request, ecosysteme: str, nom: str, version: str):
@@ -600,17 +822,19 @@ def _depuis_environnement() -> FastAPI:
                            f"{MDP_MIN} caractères au moins.")
     secret = os.environ.get("SAS_SECRET") or secrets.token_urlsafe(32)
     intervalle = float(os.environ.get("SAS_TRAITEMENT_INTERVALLE", "60"))
+    diffusion = dr.Diffusion()
     return creer_app(base=base, mot_de_passe=mdp, secret=secret,
-                     traiter=_traiter_par_defaut() if intervalle > 0 else None,
-                     intervalle=intervalle)
+                     traiter=_traiter_par_defaut(diffusion) if intervalle > 0 else None,
+                     intervalle=intervalle, diffusion=diffusion)
 
 
-def _traiter_par_defaut() -> Traiter:
-    """Le vrai `pipeline.traitement.traiter` (B), avec le dossier d'archives de SAS_ARCHIVES."""
+def _traiter_par_defaut(diffusion: dr.Diffusion) -> Traiter:
+    """Le vrai `pipeline.traitement.traiter` (B), avec le dossier d'archives de SAS_ARCHIVES ;
+    chaque étape est dite à la page « Direct »."""
     from plateforme.pipeline.traitement import traiter
 
     dossier = Path(os.environ.get("SAS_ARCHIVES", "archives"))
-    return lambda base: traiter(base, dossier=dossier)
+    return lambda base: traiter(base, dossier=dossier, suivi=diffusion.publier)
 
 
 def __getattr__(nom: str):

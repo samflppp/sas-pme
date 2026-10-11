@@ -1,15 +1,38 @@
 {% extends "base.html" %}
-{% block titre %}Demander un paquet{% endblock %}
+{% block titre %}Demandes{% endblock %}
 {% block contenu %}
-<h1>Demander un paquet</h1>
-<p>La plateforme prend la dernière version publiée depuis plus de 3 jours, l'analyse, puis la publie
-dans la passerelle si elle est sûre.</p>
-<form class="carte" method="post" action="/demander">
-  <label>Écosystème
-    <select name="ecosysteme">{% for e in ecosystemes %}<option value="{{ e.value }}">{{ e.value }}</option>{% endfor %}</select>
-  </label>
-  <label>Nom du paquet <input name="nom" placeholder="requests" value="{{ nom or '' }}" required></label>
-  {% if erreur %}<p class="erreur">{{ erreur }}</p>{% endif %}
-  <button type="submit">Demander</button>
-</form>
+<div class="page-demande">
+<h1>Demandes de paquets</h1>
+<div class="grille g-demande">
+  <form class="carte demande" method="post" action="/demander">
+    <h2>Demander un paquet</h2>
+    <p class="note">La plateforme prend la dernière version publiée depuis plus de 3 jours, et chacune de ses
+    dépendances. Chacune est analysée chez vous, puis publiée dans la passerelle si elle est sûre.</p>
+    <label>Écosystème
+      <select name="ecosysteme">{% for e in ecosystemes %}<option value="{{ e.value }}">{{ e.value }}</option>{% endfor %}</select>
+    </label>
+    <label>Nom du paquet <input name="nom" placeholder="requests" value="{{ nom or '' }}" required autocomplete="off" spellcheck="false"></label>
+    {% if erreur %}<p class="erreur" role="alert">{{ erreur }}</p>{% endif %}
+    <button type="submit">Demander et suivre en direct</button>
+  </form>
+
+  <div class="depot">
+    <div class="depot-tete">Demandes récentes</div>
+    {% if demandes %}
+    <table class="fichiers">
+      <thead><tr><th>Paquet</th><th>Versions</th><th>Version demandée</th><th>Par</th><th></th></tr></thead>
+      <tbody>
+      {% for x in demandes %}
+        <tr><td class="nom"><strong>{{ x.d.ecosysteme.value }}/{{ x.d.nom }}</strong></td>
+            <td>{{ x.d.sujets|length }} version{{ "s" if x.d.sujets|length > 1 }}</td>
+            <td>{% if x.principale %}<code>{{ x.principale.version }}</code> <span class="etat etat-{{ x.principale.etat.value }}">{{ x.principale.etat.value|libelle }}</span>{% else %}<span class="note">déjà connue</span>{% endif %}</td>
+            <td class="date">{{ x.d.acteur }} · {{ x.d.a.astimezone().strftime("%d/%m %H:%M") }}</td>
+            <td><a class="bouton second" href="/direct?demande={{ x.d.seq }}">Suivre</a></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vide depot-vide">Aucune demande pour l'instant.</p>{% endif %}
+  </div>
+</div>
+</div>
 {% endblock %}
