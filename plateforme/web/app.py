@@ -6,12 +6,17 @@ SAS_ADMIN_MOTDEPASSE, SAS_SECRET (signature des sessions),
 SAS_TRAITEMENT_INTERVALLE (secondes entre deux appels de `traiter`, 60 ; 0 l'arrête),
 SAS_ARCHIVES (dossier des archives téléchargées, `archives`).
 La page « Inventaire » lit la passerelle (`signature.lire_inventaire`, C) à chaque affichage.
+La page « Direct » suit les versions d'une demande : étapes de la pipeline en direct (Server-Sent
+Events, `direct.Diffusion` alimentée par `traiter(..., suivi=...)`) et relues au journal.
 Au premier lancement (base sans compte), le compte `admin` est créé avec SAS_ADMIN_MOTDEPASSE
 (MDP_MIN caractères au moins, sinon refus de démarrer) ; sans elle, un mot de passe aléatoire est
 tiré et affiché. Ensuite, la variable est ignorée.
 """
+import asyncio
+import json
 import os
 import re
+import time
 import secrets
 import sys
 from contextlib import asynccontextmanager
@@ -22,7 +27,7 @@ from typing import Callable
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from packaging.utils import canonicalize_name, canonicalize_version
@@ -32,9 +37,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from commun.modeles import Ecosysteme, EntreeInventaire, Etat, Version
 from plateforme.db.acces import Base, Compte, Role
 from plateforme.web import catalogue as cat
+from plateforme.web import direct as dr
 from plateforme.web.fond import TacheDeFond
 
-Demander = Callable[[Ecosysteme, str], None]
+# demander(eco, nom) : pipeline.demander (B) ; rend la version demandée (None : inconnue)
+Demander = Callable[[Ecosysteme, str], Version | None]
 # decider(base, eco, nom, version, etat, raison, acteur) : pipeline.decision_humaine (B)
 Decider = Callable[[Base, Ecosysteme, str, str, Etat, str, str], object]
 # revoquer(eco, nom, version, raison) : signature.revoquer (C), qui retire l'archive de la passerelle
@@ -74,8 +81,8 @@ def _demander_par_defaut(base: Base) -> Demander:
     try:
         import plateforme.pipeline as pipeline
 
-        def vrai(eco: Ecosysteme, nom: str) -> None:
-            pipeline.demander(eco, nom, base=base)
+        def vrai(eco: Ecosysteme, nom: str) -> Version:
+            return pipeline.demander(eco, nom, base=base)
         return vrai
     except ImportError:
         def faux(eco: Ecosysteme, nom: str) -> None:
@@ -242,7 +249,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
               horloge: Horloge | None = None, delai: Delai | None = None,
               decider: Decider | None = None, revoquer: Revoquer | None = None,
               lire_inventaire: LireInventaire | None = None,
-              archives: Path | None = None, images: Path | None = None) -> FastAPI:
+              archives: Path | None = None, images: Path | None = None,
+              diffusion: dr.Diffusion | None = None, duree_flux: float = 600) -> FastAPI:
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -283,6 +291,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     lire_inventaire = lire_inventaire or _lire_inventaire_par_defaut
     archives = archives if archives is not None else Path(os.environ.get("SAS_ARCHIVES", "archives"))
     images = images if images is not None else Path(__file__).with_name("images-agreees.json")
+    diffusion = diffusion or dr.Diffusion()
+    app.state.diffusion = diffusion
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -428,9 +438,22 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         return page(request, "inventaire.html", compte, lignes=lignes,
                     alertes=sum(l.alerte is not None for l in lignes), erreur=None)
 
+    def demandes_recentes(n: int = 20) -> list[dict]:
+        sortie = []
+        for e in base.journal_recent(n, q="demande_resolue"):
+            d = dr.demande(e)
+            if d is None:
+                continue
+            principale = None
+            if d.sujets and (cle := dr._decouper(d.sujets[0])):
+                principale = base.lire_version(*cle)
+            sortie.append({"d": d, "principale": principale})
+        return sortie
+
     @app.get("/demander", response_class=HTMLResponse)
     def page_demander(request: Request):
-        return page(request, "demander.html", exiger(request), ecosystemes=list(Ecosysteme))
+        return page(request, "demander.html", exiger(request), ecosystemes=list(Ecosysteme),
+                    demandes=demandes_recentes())
 
     @app.post("/demander")
     def demander_paquet(request: Request, ecosysteme: str = Form(...), nom: str = Form(...)):
@@ -444,19 +467,91 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             raise HTTPException(status_code=400, detail="Nom de paquet invalide.")
         base.journaliser(compte.identifiant, "demande_paquet", f"{eco.value}:{nom}", {})
         # Erreurs prévues de pipeline.demander (B) : on les dit sur le formulaire, pas en erreur 500.
+        avant = dernier_seq()
         try:
-            demander(eco, nom)
+            principale = demander(eco, nom)
         except LookupError as e:
             return refuser(request, compte, nom, str(e), 404)
         except ValueError as e:
             return refuser(request, compte, nom, str(e), 400)
         except NotImplementedError:
             return refuser(request, compte, nom, f"{eco.value} n'est pas encore pris en charge.", 400)
-        return RedirectResponse("/", status_code=303)
+        # Les versions que la demande a fait entrer (le paquet et ses dépendances) ; une version déjà
+        # connue n'est pas re-détectée : la version demandée est alors celle que rend demander().
+        detectees = [e.sujet for e in reversed(base.journal_recent(500)) if e.seq > avant
+                     and e.action == "version_detectee" and e.sujet.startswith(f"{eco.value}:")]
+        tete = [f"{eco.value}:{principale.nom}@{principale.version}"] if principale else []
+        sujets = list(dict.fromkeys([*tete, *detectees]))
+        base.journaliser(compte.identifiant, "demande_resolue", f"{eco.value}:{nom}",
+                         {"versions": sujets})
+        return RedirectResponse(f"/direct?demande={dernier_seq()}", status_code=303)
+
+    def dernier_seq() -> int:
+        dernieres = base.journal_recent(1)
+        return dernieres[0].seq if dernieres else 0
 
     def refuser(request: Request, compte: Compte, nom: str, message: str, code: int):
         return page(request, "demander.html", compte, code, ecosystemes=list(Ecosysteme),
-                    erreur=message, nom=nom)
+                    erreur=message, nom=nom, demandes=demandes_recentes())
+
+    # --- direct : les versions d'une demande, étape par étape -----------------------------------
+    def demande_ou_404(n: int | None) -> dr.Demande | None:
+        """La demande n° n (seq de sa résolution au journal) ; sans n, la plus récente (None : aucune)."""
+        if n is None:
+            recentes = [d for e in base.journal_recent(20, q="demande_resolue")
+                        if (d := dr.demande(e))]
+            return recentes[0] if recentes else None
+        trouvees = base.journal_recent(1, avant=n + 1)
+        d = dr.demande(trouvees[0]) if trouvees and trouvees[0].seq == n else None
+        if d is None:
+            raise HTTPException(status_code=404)
+        return d
+
+    def delai_ou_none() -> timedelta | None:
+        try:
+            return delai()
+        except ValueError:
+            return None
+
+    def instantane(d: dr.Demande) -> dict:
+        return dr.instantane(base, diffusion, d, horloge(), delai_ou_none(), libelle, duree_lisible)
+
+    @app.get("/direct", response_class=HTMLResponse)
+    def page_direct(request: Request, demande: int | None = None):
+        compte = exiger(request)
+        d = demande_ou_404(demande)
+        return page(request, "direct.html", compte, i=instantane(d) if d else None,
+                    demandes=demandes_recentes(10))
+
+    @app.get("/direct/instantane")
+    def direct_instantane(request: Request, demande: int):
+        exiger(request)
+        return JSONResponse(instantane(demande_ou_404(demande)))
+
+    @app.get("/direct/flux")
+    async def direct_flux(request: Request, demande: int):
+        """Server-Sent Events : l'instantané à chaque nouvelle de la pipeline, et au moins toutes les
+        secondes (un état changé ailleurs) ; seulement s'il a changé. La connexion dure au plus
+        `duree_flux` secondes ; EventSource la rouvre seul."""
+        await run_in_threadpool(exiger, request)
+        d = await run_in_threadpool(demande_ou_404, demande)
+
+        async def evenements():
+            yield "retry: 1000\n\n"
+            fin, dernier, vu, prochain = time.monotonic() + duree_flux, None, -1, 0.0
+            while True:
+                if diffusion.seq != vu or time.monotonic() >= prochain:
+                    vu, prochain = diffusion.seq, time.monotonic() + 1.0
+                    texte = json.dumps(await run_in_threadpool(instantane, d), ensure_ascii=False)
+                    if texte != dernier:
+                        dernier = texte
+                        yield f"data: {texte}\n\n"
+                if time.monotonic() >= fin or await request.is_disconnected():
+                    return
+                await asyncio.sleep(0.25)
+
+        return StreamingResponse(evenements(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @app.get("/versions/{ecosysteme}/{nom:path}/{version}", response_class=HTMLResponse)
     def fiche(request: Request, ecosysteme: str, nom: str, version: str):
@@ -665,17 +760,19 @@ def _depuis_environnement() -> FastAPI:
                            f"{MDP_MIN} caractères au moins.")
     secret = os.environ.get("SAS_SECRET") or secrets.token_urlsafe(32)
     intervalle = float(os.environ.get("SAS_TRAITEMENT_INTERVALLE", "60"))
+    diffusion = dr.Diffusion()
     return creer_app(base=base, mot_de_passe=mdp, secret=secret,
-                     traiter=_traiter_par_defaut() if intervalle > 0 else None,
-                     intervalle=intervalle)
+                     traiter=_traiter_par_defaut(diffusion) if intervalle > 0 else None,
+                     intervalle=intervalle, diffusion=diffusion)
 
 
-def _traiter_par_defaut() -> Traiter:
-    """Le vrai `pipeline.traitement.traiter` (B), avec le dossier d'archives de SAS_ARCHIVES."""
+def _traiter_par_defaut(diffusion: dr.Diffusion) -> Traiter:
+    """Le vrai `pipeline.traitement.traiter` (B), avec le dossier d'archives de SAS_ARCHIVES ;
+    chaque étape est dite à la page « Direct »."""
     from plateforme.pipeline.traitement import traiter
 
     dossier = Path(os.environ.get("SAS_ARCHIVES", "archives"))
-    return lambda base: traiter(base, dossier=dossier)
+    return lambda base: traiter(base, dossier=dossier, suivi=diffusion.publier)
 
 
 def __getattr__(nom: str):

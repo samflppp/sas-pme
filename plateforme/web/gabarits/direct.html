@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titre %}Direct{% endblock %}
+{% macro etapes_version(v) -%}
+<section class="version-suivie" data-sujet="{{ v.sujet }}">
+  <header><a href="{{ v.lien }}"><strong>{{ v.nom }}</strong> <code>{{ v.version }}</code></a>
+    <span class="etat etat-{{ v.etat }}">{{ v.libelle }}</span></header>
+  <ol class="etapes">
+  {% for e in v.etapes %}
+    <li class="etape {{ e.etat }}" data-cle="{{ e.cle }}">
+      <span class="puce" aria-hidden="true"></span>
+      <div><strong>{{ e.titre }}</strong>{% if e.duree %} <span class="duree">{{ e.duree }}</span>{% endif %}
+        {% if e.detail %}<p class="detail">{{ e.detail }}</p>{% endif %}
+        {% if e.texte %}<p class="pensee">{{ e.texte }}</p>{% endif %}</div>
+    </li>
+  {% endfor %}
+  </ol>
+</section>
+{%- endmacro %}
+{% block actions %}
+{% if demandes %}
+<form method="get" action="/direct" class="choix-demande">
+  <label class="visuellement-cache" for="demande">Demande suivie</label>
+  <select id="demande" name="demande">
+    {% for x in demandes %}<option value="{{ x.d.seq }}"{% if i and x.d.seq == i.demande %} selected{% endif %}>{{ x.d.nom }} · {{ x.d.a.strftime("%d/%m %H:%M") }}</option>{% endfor %}
+  </select>
+  <button class="second" type="submit">Suivre</button>
+</form>
+{% endif %}
+<a class="bouton" href="/demander">Nouvelle demande</a>
+{% endblock %}
+{% block contenu %}
+{% if not i %}
+<div class="tuile vide-direct">
+  <h1>Aucune demande à suivre</h1>
+  <p>Demandez un paquet : vous verrez ici le serveur l'installer et la pipeline l'analyser, en direct.</p>
+  <a class="bouton" href="/demander">Faire une demande</a>
+</div>
+{% else %}
+<div class="direct-tete">
+  <h1>{{ i.nom }}</h1>
+  <p class="note">Demande n° {{ i.demande }}, par {{ i.par }} · {% if i.versions|length > 1 %}{{ i.versions|length }} versions : le paquet et ses dépendances{% else %}le paquet, sans nouvelle dépendance{% endif %}</p>
+  <span class="direct-voyant" id="voyant" aria-live="polite">Rechargez la page pour voir l'avancement</span>
+</div>
+<div class="direct" data-demande="{{ i.demande }}">
+  <section class="panneau terminal" id="panneau-serveur" aria-labelledby="t-serveur">
+    <h2 id="t-serveur"><span class="pastille-serveur" aria-hidden="true"></span>Serveur <span>10.42.2.20 · sans Internet</span></h2>
+    <div class="ecran" id="ecran-serveur">
+      <p class="invite">Les requêtes du serveur à la passerelle s'affichent ici, lues dans son journal d'accès.</p>
+    </div>
+  </section>
+  <section class="panneau" id="panneau-pipeline" aria-labelledby="t-pipeline">
+    <h2 id="t-pipeline">Pipeline <span>plateforme agréée</span></h2>
+    <div id="versions-suivies">
+      {% for v in i.versions %}{{ etapes_version(v) }}{% else %}<p class="vide">Aucune nouvelle version : tout était déjà connu.</p>{% endfor %}
+    </div>
+    <p class="regle">Le code décide (politique) ; l'IA alerte et explique, elle n'approuve jamais.</p>
+  </section>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if i %}<script src="/statique/direct.js" defer></script>{% endif %}{% endblock %}
