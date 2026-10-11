@@ -26,10 +26,11 @@
 {% if s.erreur %}<p class="t-erreur">✗ {{ s.erreur }}</p>{% endif %}
 {% for x in s.lignes %}<p class="t-ligne"><span class="t-heure">{{ x.a }}</span> <span class="t-ip">{{ x.ip }}</span> {{ x.texte }}</p>{% endfor %}
 {% if s.installee %}<p class="t-ok">✓ {{ nom }} {{ s.installee }} installée : la dernière version vérifiée et signée</p>
+{% elif s.verdict %}<p class="{{ 't-ok' if s.verdict.ok else 't-erreur' }}">{{ s.verdict.texte }}</p>
 {% elif s.reessaie %}<p class="t-attente">pas encore servie : le serveur réessaie dès que la version est publiée…</p>
 {% elif s.aucune_servie %}<p class="t-erreur">✗ aucune version de {{ nom }} n'est servie par la passerelle : pip n'installe rien</p>
 {% elif not s.erreur and not s.manuel %}<p class="t-attente">en attente des requêtes du serveur…</p>{% endif %}
-{% if s.amont %}<p class="t-amont">↳ {{ s.amont.version }} sur PyPI : {{ s.amont.libelle }}{% if s.amont.detail %}, {{ s.amont.detail }}{% endif %}. Pas servie aux serveurs.</p>{% endif %}
+{% if s.amont and not (s.verdict and not s.verdict.ok) %}<p class="t-amont">↳ {{ s.amont.version }} sur PyPI : {{ s.amont.libelle }}{% if s.amont.detail %}, {{ s.amont.detail }}{% endif %}. Pas servie aux serveurs.</p>{% endif %}
 {% endif %}
 {%- endmacro %}
 {% block actions %}

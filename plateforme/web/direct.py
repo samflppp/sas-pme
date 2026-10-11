@@ -222,6 +222,30 @@ def _pep(v: str):
         return None
 
 
+def _verdict_console(base: Base, d: Demande) -> dict | None:
+    """Le mot de la fin pour la console serveur, tiré du verdict de la version demandée : succès
+    si elle est publiée, échec si elle est à revoir, bloquée ou révoquée ; None pendant l'analyse."""
+    cle = _decouper(d.sujets[0]) if d.sujets else None
+    v = base.lire_version(*cle) if cle else None
+    if v is None:
+        return None
+    nom = f"{v.nom} {v.version}"
+    textes = {
+        Etat.PUBLIEE: (True, f"✓ {nom} vérifiée, signée et publiée : installation autorisée sur "
+                             "le serveur"),
+        Etat.A_REVOIR: (False, f"✗ installation refusée : {nom} est à revoir, un humain doit "
+                               "trancher avant que le serveur la reçoive"),
+        Etat.BLOQUEE: (False, f"✗ installation refusée : {nom} est bloquée par la pipeline, le "
+                              "serveur ne la recevra jamais"),
+        Etat.REVOQUEE: (False, f"✗ installation refusée : {nom} a été révoquée et retirée de la "
+                               "passerelle"),
+    }
+    if v.etat not in textes:
+        return None
+    ok, texte = textes[v.etat]
+    return {"ok": ok, "texte": texte, "etat": v.etat.value}
+
+
 def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
             suivante: EntreeJournal | None, lire_acces, maintenant: datetime,
             delai: timedelta | None, libelle: Callable[[Etat], str],
@@ -234,17 +258,18 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
     journal n'est pas montrée."""
     if lire_acces is None:
         return {"configure": False}
+    verdict = _verdict_console(base, d)
     if d.ecosysteme is Ecosysteme.NPM:
         # L'agent du serveur de démo n'installe que pip : la commande npm se tape à la main, vers
         # le registre de la passerelle (Verdaccio sans source amont). Rien n'est lu ni inventé.
         return {"configure": True, "index": registre, "repli": "registry.npmjs.org",
                 "commande": f"npm install {d.nom}", "manuel": True, "demandee_a": None,
                 "erreur": None, "lignes": [], "installee": None, "amont": None,
-                "aucune_servie": False, "reessaie": False}
+                "aucune_servie": False, "reessaie": False, "verdict": verdict}
     sortie = {"configure": True, "index": index, "repli": "pypi.org", "manuel": False,
               "commande": f"pip install {d.nom}",
               "demandee_a": None, "erreur": None, "lignes": [], "installee": None, "amont": None,
-              "aucune_servie": False, "reessaie": False}
+              "aucune_servie": False, "reessaie": False, "verdict": verdict}
     if installation is None:
         return sortie
     sortie["demandee_a"] = installation.a.astimezone().strftime("%H:%M:%S")

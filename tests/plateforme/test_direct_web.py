@@ -263,7 +263,8 @@ def test_sans_version_servie_le_panneau_dit_que_pip_n_installe_rien(base):
     p.requete("/simple/requests/")
     s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
     assert s["aucune_servie"] and s["installee"] is None
-    assert "aucune version de requests" in c.get(f"/direct?demande={n}").text.lower()
+    # La console le dit par le verdict : installation refusée, la version est à revoir.
+    assert "installation refusée" in c.get(f"/direct?demande={n}").text
 
 
 def test_une_version_publiee_n_est_pas_dite_absente(base):
@@ -338,3 +339,41 @@ def test_pendant_l_analyse_le_panneau_dit_que_le_serveur_reessaie(base):
     base.changer_etat(PY, "requests", "2.32.4", Etat.BLOQUEE, "Exfiltration.", acteur="pipeline")
     s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
     assert s["aucune_servie"] and not s["reessaie"]     # bloquée : plus rien à attendre
+
+
+# --- console serveur : un message final, selon le verdict de la pipeline (demande de Mouabd19) ---
+@pytest.mark.parametrize("etat, ok, morceau", [
+    (Etat.PUBLIEE, True, "installation autorisée"),
+    (Etat.A_REVOIR, False, "installation refusée"),
+    (Etat.BLOQUEE, False, "installation refusée"),
+])
+def test_la_console_serveur_dit_le_succes_ou_l_echec_selon_le_verdict(base, etat, ok, morceau):
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    n = demander(c)
+    base.changer_etat(PY, "requests", "2.32.4", Etat.EN_ANALYSE, "analyse", acteur="pipeline")
+    if etat is Etat.PUBLIEE:
+        base.changer_etat(PY, "requests", "2.32.4", Etat.APPROUVEE, "ok", acteur="pipeline")
+    base.changer_etat(PY, "requests", "2.32.4", etat, "verdict", acteur="pipeline")
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["verdict"]["ok"] is ok and morceau in s["verdict"]["texte"]
+    page = c.get(f"/direct?demande={n}").text
+    assert morceau in page and ("t-ok" if ok else "t-erreur") in page
+
+
+def test_pendant_l_analyse_pas_encore_de_verdict_dans_la_console(base):
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    n = demander(c)
+    assert c.get(f"/direct/instantane?demande={n}").json()["serveur"]["verdict"] is None
+
+
+def test_la_console_npm_dit_aussi_le_verdict(base):
+    p = FaussePasserelle()
+    c = client(base, installer=p.installer, lire_acces=p.lire)
+    r = c.post("/demander", data={"ecosysteme": "npm", "nom": "ms"}, follow_redirects=False)
+    n = int(r.headers["location"].split("=")[1])
+    for etat in (Etat.EN_ANALYSE, Etat.BLOQUEE):
+        base.changer_etat(Ecosysteme.NPM, "ms", "2.32.4", etat, "verdict", acteur="pipeline")
+    s = c.get(f"/direct/instantane?demande={n}").json()["serveur"]
+    assert s["verdict"]["ok"] is False and "installation refusée" in s["verdict"]["texte"]
