@@ -6,6 +6,7 @@ Généré le 2026-10-11 par `python3 -I mesure/mesurer.py`, sur `demo/corpus/cor
 |---|---|---|
 | 1. Contrôles seuls (nom + code) | 93 / 128 (73 %) | 0 / 98 (0 %) |
 | 2. + sandbox | 103 / 128 (80 %) | 0 / 98 (0 %) |
+| 3. + LLM/RAG | 103 / 128 (80 %) | 0 / 98 (0 %) |
 
 Une version est arrêtée si un signal est FORT ou BLOQUANT : la politique la met « à revoir » ou « bloquée », donc elle n'atteint pas les serveurs.
 
@@ -124,12 +125,22 @@ Une version est arrêtée si un signal est FORT ou BLOQUANT : la politique la me
 
 **Malveillantes manquées (25) :** `durabletask 1.4.1`, `durabletask 1.4.2`, `durabletask 1.4.3`, `guardrails-ai 0.10.1`, `lightning 2.6.2`, `litellm 1.82.7`, `num2words 0.5.15`, `num2words 0.5.16`, `ultralytics 8.3.41`, `ultralytics 8.3.42`, `ultralytics 8.3.46`, `ai-labs-snippets-sdk 1.2.0`, `bytedtrace 0.1.6`, `bytedtrace 0.3.9`, `ctftestsowwy 0.1.0`, `data-pipeline-check 0.1.1`, `example-package-sthnck 0.0.1.dev1`, `git-config-sync 0.1.1`, `http3-client 1.0.15`, `kube-health-tools 2.0.0`, `my-fun-tools 0.1.2`, `pxz 1.1.11`, `pydefender 1.0.3`, `quasarlib 1.0.8`, `robloxapiaccess 0.0.1`
 
+## 3. + LLM/RAG
+
+**Arrêtées en plus de la ligne précédente :**
+- aucune
+
+**Malveillantes manquées (25) :** `durabletask 1.4.1`, `durabletask 1.4.2`, `durabletask 1.4.3`, `guardrails-ai 0.10.1`, `lightning 2.6.2`, `litellm 1.82.7`, `num2words 0.5.15`, `num2words 0.5.16`, `ultralytics 8.3.41`, `ultralytics 8.3.42`, `ultralytics 8.3.46`, `ai-labs-snippets-sdk 1.2.0`, `bytedtrace 0.1.6`, `bytedtrace 0.3.9`, `ctftestsowwy 0.1.0`, `data-pipeline-check 0.1.1`, `example-package-sthnck 0.0.1.dev1`, `git-config-sync 0.1.1`, `http3-client 1.0.15`, `kube-health-tools 2.0.0`, `my-fun-tools 0.1.2`, `pxz 1.1.11`, `pydefender 1.0.3`, `quasarlib 1.0.8`, `robloxapiaccess 0.0.1`
+
 ## Fausses alertes par groupe de versions saines
 
 | Ligne | populaires | peu connus |
 |---|---|---|
 | 1. Contrôles seuls (nom + code) | 0 / 50 (0 %) | 0 / 48 (0 %) |
 | 2. + sandbox | 0 / 50 (0 %) | 0 / 48 (0 %) |
+| 3. + LLM/RAG | 0 / 50 (0 %) | 0 / 48 (0 %) |
+
+**LLM interrogé sur 5 versions** : celles qui n'étaient pas encore arrêtées et avaient un constat MOYEN hors du LLM. Ailleurs, il ne peut rien changer (voir `avec_llm`).
 
 ## Annexe : nom seul, corpus OpenSSF (`demo/corpus/corpus.json`)
 
