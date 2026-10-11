@@ -116,3 +116,19 @@ def test_une_archive_qui_ment_sur_son_nom_est_refusee(verdaccio):
     _, vd = verdaccio
     with pytest.raises(ErreurDepot, match="annonce"):
         vd.publier("vrai-nom", "1.0.0", "vrai-nom-1.0.0.tgz", tgz("autre-nom", "1.0.0"))
+
+
+def test_la_passerelle_ne_depend_pas_de_la_plateforme():
+    """installer.sh ne copie que commun/ et passerelle/ sur la passerelle."""
+    import sys
+    code = ("import sys, passerelle.recepteur, passerelle.verdaccio, passerelle.inventaire_npm;"
+            "passerelle.verdaccio._cle('1.0.0');"
+            "print([m for m in sys.modules if m.startswith('plateforme')])")
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert r.stdout.strip() == "[]"
+
+
+def test_latest_suit_l_ordre_semver_et_pas_celui_du_texte():
+    from passerelle.verdaccio import _cle
+    assert sorted(["1.10.0", "1.9.0", "1.10.0-beta.1", "2.0.0"], key=_cle) == [
+        "1.9.0", "1.10.0-beta.1", "1.10.0", "2.0.0"]

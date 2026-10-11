@@ -11,6 +11,7 @@ import base64
 import hashlib
 import io
 import json
+import re
 import tarfile
 from urllib.parse import quote
 
@@ -21,9 +22,17 @@ class ErreurDepot(RuntimeError):
     """Verdaccio a refusé l'opération, ou l'archive n'est pas un paquet npm lisible."""
 
 
+_SEMVER = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$")
+
+
 def _cle(version: str) -> tuple:
-    from plateforme.pipeline import semver     # même règle de tri que le pipeline
-    return semver.cle(version) if semver.lire(version) else (-1,)
+    """Ordre semver (celui de npm) ; la passerelle ne dépend pas du code de la plateforme."""
+    m = _SEMVER.match(version)
+    if not m:
+        return (-1,)
+    pre = tuple((0, int(p), "") if p.isdigit() else (1, 0, p) for p in m[4].split(".")) \
+        if m[4] else ()
+    return (int(m[1]), int(m[2]), int(m[3]), 0 if pre else 1, pre)
 
 
 def package_json(tgz: bytes) -> dict:

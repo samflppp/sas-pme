@@ -119,3 +119,22 @@ def test_le_vrai_pipeline_recoit_la_base_du_web(base, monkeypatch):
     connecter(client)
     client.post("/demander", data={"ecosysteme": "pypi", "nom": "requests"})
     assert recu["base"] is base
+
+
+# --- npm (extension) : la demande et la fiche d'un paquet npm, à portée comprise -------------
+def test_demander_un_paquet_npm_a_portee_appelle_le_pipeline(client, demandes):
+    connecter(client)
+    r = client.post("/demander", data={"ecosysteme": "npm", "nom": "@org/outil"},
+                    follow_redirects=False)
+    assert r.status_code == 303
+    assert demandes == [(Ecosysteme.NPM, "@org/outil")]
+
+
+def test_la_fiche_d_une_version_npm_a_portee(client, base):
+    base.enregistrer_version(Version(ecosysteme=Ecosysteme.NPM, nom="@org/outil", version="1.0.0",
+                                     publiee_le=T0, detectee_le=T0, etat=Etat.EN_ANALYSE))
+    base.enregistrer_verdict(Ecosysteme.NPM, "@org/outil", "1.0.0",
+                             Verdict(etat=Etat.BLOQUEE, raison="Vol de ~/.npmrc.", signaux=[]))
+    connecter(client)
+    r = client.get("/versions/npm/@org/outil/1.0.0")
+    assert r.status_code == 200 and "Vol de ~/.npmrc." in r.text and "@org/outil" in r.text

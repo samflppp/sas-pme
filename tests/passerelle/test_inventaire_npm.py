@@ -42,3 +42,13 @@ def test_versions_presentes_et_revoquees_deja_telechargees():
     assert entrees[0][1] == ["10.42.2.20", "10.42.2.21"]
     assert entrees[0][0].dernier == datetime.fromtimestamp(1791716800, tz=timezone.utc)
     assert entrees[1][0].dernier is None
+
+
+def test_verdaccio_ecrit_deux_lignes_par_telechargement_une_seule_compte():
+    """Constaté avec Verdaccio 6 : une ligne « bytes out 0 » (en-têtes), puis la vraie."""
+    vide = ('{"level":25,"time":1791686219946,"request":{"method":"GET","url":"/demo/-/demo-1.0.0.tgz"},'
+            '"remoteIP":"10.42.2.20","status":200,"bytes":{"in":0,"out":0}}')
+    pleine = vide.replace('"out":0', '"out":184').replace("219946", "219948")
+    assert telechargement(vide) is None and telechargement(pleine).version == "1.0.0"
+    (e, _), = inventaire([vide, pleine], ["2026-10-11T09:00:00+00:00 publie npm:demo@1.0.0"])
+    assert e.telechargements == 1

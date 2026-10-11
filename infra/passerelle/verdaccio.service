@@ -1,0 +1,21 @@
+[Unit]
+Description=Verdaccio sas-pme (npm : versions approuvées seulement, aucun repli vers npmjs)
+After=network-online.target
+
+[Service]
+User=verdaccio
+Group=verdaccio
+# Groupe pypi : écrire son journal dans /var/lib/sas (2770, setgid), que le récepteur lit.
+SupplementaryGroups=pypi
+ExecStart=/opt/node/bin/node /opt/verdaccio/node_modules/verdaccio/bin/verdaccio \
+  --config /etc/verdaccio/config.yaml
+ReadWritePaths=/var/lib/verdaccio /var/lib/sas
+UMask=0027
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

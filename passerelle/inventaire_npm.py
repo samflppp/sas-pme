@@ -1,9 +1,10 @@
 """Inventaire npm de la passerelle : ce que les serveurs ont installé depuis Verdaccio.
 
 Le pendant de `inventaire.py` pour npm. Verdaccio écrit un journal JSON (pino) avec, pour chaque
-requête servie, `request.method`, `request.url`, `status`, `remoteIP` et `time` (en ms). Un
-téléchargement est un `GET /<nom>/-/<archive>.tgz` répondu 200 ; la page du paquet (`GET /<nom>`)
-ne compte pas. Une ligne illisible est ignorée, jamais une erreur.
+requête servie, `request.method`, `request.url`, `status`, `bytes`, `remoteIP` et `time` (en ms).
+Un téléchargement est un `GET /<nom>/-/<archive>.tgz` répondu 200 avec des octets servis (Verdaccio
+écrit une première ligne à 0 octet pour les en-têtes) ; la page du paquet (`GET /<nom>`) ne compte
+pas. Une ligne illisible est ignorée, jamais une erreur.
 
 Entrées (contrat § 4) : chaque version présente dans Verdaccio d'après le registre du récepteur
 (« <date> publie|retire npm:<nom>@<version> »), même jamais téléchargée, plus chaque version
@@ -35,6 +36,9 @@ def telechargement(ligne: str) -> Telechargement | None:
         e = json.loads(ligne)
         req = e["request"]
         if req["method"] != "GET" or int(e["status"]) != 200:
+            return None
+        # Verdaccio écrit deux lignes par réponse : en-têtes (0 octet), puis l'archive servie.
+        if "bytes" in e and int((e["bytes"] or {}).get("out") or 0) <= 0:
             return None
         chemin = unquote(urlsplit(req["url"]).path).lstrip("/")
         nom, archive = chemin.split("/-/", 1)
