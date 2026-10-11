@@ -250,6 +250,13 @@ form.carte.demande .note { margin: 0; text-align: center; }
 .etape.en_cours strong { color: var(--ambre-texte); }
 .etape.erreur .puce { background: var(--rouge); border-color: var(--rouge); }
 .etape.erreur .puce::after { content: "!"; color: #fff; font: 700 12px var(--texte); }
+/* Le verdict sur la dernière étape franchie : orange « à revoir », rouge « bloquée ». */
+.etape.revoir .puce { background: var(--ambre); border-color: var(--ambre); }
+.etape.revoir .puce::after { content: "?"; color: #fff; font: 700 12px var(--texte); }
+.etape.revoir strong { color: var(--orange); }
+.etape.bloque .puce { background: var(--rouge); border-color: var(--rouge); }
+.etape.bloque .puce::after { content: "✕"; color: #fff; font: 700 11px var(--texte); }
+.etape.bloque strong { color: var(--rouge); }
 .etape.erreur .detail { color: var(--rouge); }
 .etape.saute { color: var(--doux); }
 .etape.saute strong { font-weight: 400; text-decoration: line-through; text-decoration-color: var(--filet-fort); }

@@ -113,7 +113,7 @@ def test_apres_un_redemarrage_les_etapes_se_relisent_au_journal(base):
     i = client(base).get(f"/direct/instantane?demande={n}").json()   # une autre instance
     e = etapes(i, "requests")
     assert e["telechargement"]["etat"] == "fait"
-    assert e["politique"]["etat"] == "fait" and "Exfiltration." in e["politique"]["detail"]
+    assert e["politique"]["etat"] == "bloque" and "Exfiltration." in e["politique"]["detail"]
     v = next(x for x in i["versions"] if x["nom"] == "requests")
     assert v["etat"] == "bloquee" and v["libelle"] == "bloquée"
 
@@ -279,3 +279,28 @@ def test_avant_toute_requete_du_serveur_on_attend(base):
     p = FaussePasserelle()
     c = client(base, installer=p.installer, lire_acces=p.lire)
     assert not c.get(f"/direct/instantane?demande={demander(c)}").json()["serveur"]["aucune_servie"]
+
+
+@pytest.mark.parametrize("etat, attendu", [(Etat.A_REVOIR, "revoir"), (Etat.BLOQUEE, "bloque")])
+def test_la_derniere_etape_franchie_prend_la_couleur_du_verdict(base, etat, attendu):
+    """À revoir : la dernière pastille franchie est orange ; bloquée : rouge. Les autres restent
+    vertes, et les étapes sautées le restent."""
+    c = client(base)
+    n = demander(c)
+    base.changer_etat(PY, "requests", "2.32.4", Etat.EN_ANALYSE, "analyse", acteur="pipeline")
+    base.changer_etat(PY, "requests", "2.32.4", etat, "verdict", acteur="pipeline")
+    e = etapes(c.get(f"/direct/instantane?demande={n}").json(), "requests")
+    assert e["demande"]["etat"] == "fait"
+    assert e["attente"]["etat"] == attendu            # la dernière franchie (le reste est sauté)
+    assert e["politique"]["etat"] == "saute"
+    assert f'etape {attendu}' in c.get(f"/direct?demande={n}").text
+
+
+def test_une_version_validee_garde_ses_pastilles_vertes(base):
+    c = client(base)
+    n = demander(c)
+    base.changer_etat(PY, "requests", "2.32.4", Etat.EN_ANALYSE, "analyse", acteur="pipeline")
+    base.changer_etat(PY, "requests", "2.32.4", Etat.APPROUVEE, "ok", acteur="pipeline")
+    base.changer_etat(PY, "requests", "2.32.4", Etat.PUBLIEE, "publiée", acteur="pipeline")
+    e = etapes(c.get(f"/direct/instantane?demande={n}").json(), "requests")
+    assert e["attente"]["etat"] == "fait"
