@@ -9,6 +9,10 @@ Mouabd19 veut l'animation complète de la page Direct à chaque demande de la vi
 La solution est celle que tu as déjà appliquée (`C-demo-horodatage-aws`) : **une base neuve avant
 chaque prise**, l'ancienne archivée, jamais effacée.
 
+**Merci pour `C-pret-video`** : les six couleurs sont bonnes. Mais les six paquets sont
+maintenant connus de la base actuelle. Une demande pendant la vidéo n'aurait donc **aucune
+animation** : il faut une base neuve avant de tourner.
+
 ## À faire sur la plateforme, avant chaque prise
 ```bash
 cd ~/sas-pme
