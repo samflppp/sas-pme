@@ -77,7 +77,7 @@ EOF
 $SCP -q $T/ca.pem $T/plateforme.pem $T/plateforme.key sas-plateforme:sas/tls/
 $SSH sas-plateforme 'openssl pkey -in ~/sas/signature.pem -pubout' > $T/plateforme_signature.pub
 $SCP -q $T/ca.pem $T/passerelle.pem $T/passerelle.key $T/plateforme_signature.pub \
-  ../passerelle/recepteur.service sas-passerelle:/tmp/
+  ../passerelle/recepteur.service ../passerelle/guichet.service sas-passerelle:/tmp/
 ( cd ../.. && git archive --format=tar.gz HEAD commun passerelle ) | $SSH sas-passerelle 'cat > /tmp/sas-code.tar.gz'
 
 echo "== 7. Passerelle : récepteur hors ligne (:8443, TLS mutuel)"
@@ -103,6 +103,10 @@ chmod 2755 /srv/pypi/packages                # pypiserver (groupe pypi) lit seul
 install -m 644 /tmp/recepteur.service /etc/systemd/system/recepteur.service
 systemctl daemon-reload && systemctl enable --now recepteur && systemctl restart recepteur
 sleep 3 && systemctl is-active --quiet recepteur && echo "récepteur actif"
+# Guichet (démo) : rend aux serveurs les demandes d'installation signées, en lecture seule.
+install -m 644 /tmp/guichet.service /etc/systemd/system/guichet.service
+systemctl daemon-reload && systemctl enable --now guichet && systemctl restart guichet
+sleep 2 && systemctl is-active --quiet guichet && echo "guichet actif"
 EOF
 
 echo "== 8. Passerelle : pare-feu ufw (n'ouvrir que ce qui sert)"
@@ -122,6 +126,7 @@ ufw allow from 10.42.1.10 to any port 8443 proto tcp   # récepteur : plateforme
 ufw allow from 10.42.2.20 to any port 8080 proto tcp   # pypiserver : serveur seulement
 ufw allow from 10.42.2.20 to any port 4873 proto tcp   # verdaccio (npm, si prévu) : serveur
 ufw allow from 10.42.2.20 to any port 3128 proto tcp   # relais d'API (M2) : serveur
+ufw allow from 10.42.2.20 to any port 8444 proto tcp   # guichet (démo) : serveur
 ufw --force enable
 ufw status verbose
 EOF
@@ -186,6 +191,21 @@ echo "== 12 bis. Passerelle : retrait de la clé SSH de la plateforme (B : C3)"
 $SSH sas-passerelle "sed -i '/plateforme-publier/d' ~/.ssh/authorized_keys"
 echo "  clé plateforme-publier retirée de la passerelle"
 
+echo "== 11 bis. Serveur : agent d'installation de la démo (demandes signées par la plateforme)"
+$SCP -q ../serveur/agent_installation.py ../serveur/agent-installation.service \
+  $T/plateforme_signature.pub sas-serveur:/tmp/
+$SSH sas-serveur sudo bash -s <<'EOF'
+set -euo pipefail
+python3 -c "import cryptography" || { echo "ERREUR : python3-cryptography absent du serveur"; exit 1; }
+install -d -m 755 /opt/sas-agent /etc/sas
+install -m 644 /tmp/agent_installation.py /opt/sas-agent/
+install -m 644 /tmp/plateforme_signature.pub /etc/sas/
+install -d -o ubuntu -g ubuntu -m 700 /var/lib/sas-agent
+install -m 644 /tmp/agent-installation.service /etc/systemd/system/agent-installation.service
+systemctl daemon-reload && systemctl enable --now agent-installation && systemctl restart agent-installation
+sleep 2 && systemctl is-active --quiet agent-installation && echo "agent d'installation actif"
+EOF
+
 echo "== 12. DNS du VPC coupé : le serveur et la passerelle ne résolvent plus aucun nom (B : C5)"
 ( source ./config.env; source ./etat.env
   aws ec2 modify-vpc-attribute --region "$REGION" --vpc-id "$VPC" --no-enable-dns-support )
@@ -196,4 +216,5 @@ echo "Fini. Variables pour l'appli sur la plateforme (publication signée, M1) :
 echo "  export SAS_PASSERELLE_URL=https://10.42.2.10:8443 SAS_CLE_SIGNATURE=~/sas/signature.pem"
 echo "  export SAS_TLS_CA=~/sas/tls/ca.pem SAS_TLS_CERT=~/sas/tls/plateforme.pem SAS_TLS_CLE=~/sas/tls/plateforme.key"
 echo "  export SAS_CLE_JOURNAL=\$(cat ~/.sas-cle-journal)     # clé HMAC du journal, tirée sur la plateforme"
+echo "  export SAS_INDEX_SERVEUR=http://10.42.2.10:8080/simple/  # affiché dans le panneau Serveur (Direct)"
 echo "Stub M0 (scp), si besoin : SAS_PASSERELLE_SSH=ubuntu@10.42.2.10 SAS_PASSERELLE_CLE=~/.ssh/sas_passerelle"

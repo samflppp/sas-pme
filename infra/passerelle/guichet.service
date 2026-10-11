@@ -1,0 +1,22 @@
+[Unit]
+Description=guichet sas-pme (demandes d'installation signées, lues par les serveurs)
+After=network-online.target recepteur.service
+
+[Service]
+# Même compte que le récepteur, qui écrit le fichier ; le guichet ne fait que le lire.
+User=recepteur
+Group=recepteur
+Environment=PYTHONPATH=/opt/recepteur/code:/opt/recepteur/lib
+Environment=SAS_INSTALLATIONS=/var/lib/sas-recepteur/installations.jsonl
+# HTTP sur le réseau privé seulement : chaque demande porte la signature de la plateforme, que le
+# serveur vérifie lui-même (infra/serveur/agent_installation.py). Le guichet n'a pas à être cru.
+ExecStart=/usr/bin/python3 -m uvicorn passerelle.guichet:app --host 10.42.2.10 --port 8444
+ReadOnlyPaths=/var/lib/sas-recepteur
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

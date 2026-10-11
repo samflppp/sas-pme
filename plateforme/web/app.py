@@ -49,6 +49,9 @@ Revoquer = Callable[[Ecosysteme, str, str, str], None]
 Traiter = Callable[[Base], object]
 # lire_inventaire() : signature.lire_inventaire (C), ce que les serveurs ont installé
 LireInventaire = Callable[[], list[EntreeInventaire]]
+# installer(eco, nom, demande) : signature.demander_installation ; lire_acces(apres) : signature.lire_acces
+Installer = Callable[[Ecosysteme, str, int], int]
+LireAcces = Callable[[int], dict]
 Horloge = Callable[[], datetime]
 Delai = Callable[[], timedelta]
 
@@ -103,6 +106,20 @@ def _lire_inventaire_par_defaut() -> list[EntreeInventaire]:
     """Le vrai `signature.lire_inventaire` (C), importé seulement à l'affichage de la page."""
     from plateforme.signature import lire_inventaire
     return lire_inventaire()
+
+
+def _passerelle_configuree() -> bool:
+    return bool(os.environ.get("SAS_PASSERELLE_URL"))
+
+
+def _installer_par_defaut(*args) -> int:
+    from plateforme.signature import demander_installation
+    return demander_installation(*args)
+
+
+def _lire_acces_par_defaut(apres: int) -> dict:
+    from plateforme.signature import lire_acces
+    return lire_acces(apres)
 
 
 def _revoquer_par_defaut(*args) -> None:
@@ -250,7 +267,11 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
               decider: Decider | None = None, revoquer: Revoquer | None = None,
               lire_inventaire: LireInventaire | None = None,
               archives: Path | None = None, images: Path | None = None,
-              diffusion: dr.Diffusion | None = None, duree_flux: float = 600) -> FastAPI:
+              diffusion: dr.Diffusion | None = None, duree_flux: float = 600,
+              installer: Installer | None = None, lire_acces: LireAcces | None = None,
+              index_serveur: str | None = None) -> FastAPI:
+    """`installer` et `lire_acces` (panneau « Serveur » de la page Direct) : par défaut, ceux de la
+    signature (C) si la passerelle est configurée (SAS_PASSERELLE_URL), sinon aucun."""
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -293,6 +314,20 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     images = images if images is not None else Path(__file__).with_name("images-agreees.json")
     diffusion = diffusion or dr.Diffusion()
     app.state.diffusion = diffusion
+    if installer is None and lire_acces is None and _passerelle_configuree():
+        installer, lire_acces = _installer_par_defaut, _lire_acces_par_defaut
+    index_serveur = index_serveur or os.environ.get("SAS_INDEX_SERVEUR",
+                                                    "http://10.42.2.10:8080/simple/")
+    lectures: dict[int, tuple[float, dict]] = {}
+
+    def lire_acces_court(apres: int) -> dict:
+        """Une lecture par seconde au plus pour un même point de départ : le flux en fait souvent."""
+        t, r = lectures.get(apres, (0.0, None))
+        if r is None or time.monotonic() - t > 1.0:
+            r = lire_acces(apres)
+            lectures.clear()
+            lectures[apres] = (time.monotonic(), r)
+        return r
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -484,7 +519,24 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         sujets = list(dict.fromkeys([*tete, *detectees]))
         base.journaliser(compte.identifiant, "demande_resolue", f"{eco.value}:{nom}",
                          {"versions": sujets})
-        return RedirectResponse(f"/direct?demande={dernier_seq()}", status_code=303)
+        n = dernier_seq()
+        if installer is not None:
+            demander_au_serveur(compte, eco, nom, n)
+        return RedirectResponse(f"/direct?demande={n}", status_code=303)
+
+    def demander_au_serveur(compte: Compte, eco: Ecosysteme, nom: str, n: int) -> None:
+        """Le serveur de démo installe ce qu'on vient de demander : il recevra la dernière version
+        vérifiée. On note où en est le journal d'accès, pour ne montrer que la suite. Un refus ou
+        une panne se dit au journal et sur la page ; la demande, elle, est faite."""
+        try:
+            depuis = lire_acces(10 ** 9)["total"]
+            rang = installer(eco, nom, n)
+        except Exception as e:  # noqa: BLE001 — refus, réseau : dit, jamais une erreur 500
+            base.journaliser(compte.identifiant, "installation_echouee", f"{eco.value}:{nom}",
+                             {"demande": n, "erreur": str(e)[:300]})
+            return
+        base.journaliser(compte.identifiant, "installation_demandee", f"{eco.value}:{nom}",
+                         {"demande": n, "rang": rang, "acces_depuis": depuis})
 
     def dernier_seq() -> int:
         dernieres = base.journal_recent(1)
@@ -514,7 +566,17 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
             return None
 
     def instantane(d: dr.Demande) -> dict:
-        return dr.instantane(base, diffusion, d, horloge(), delai_ou_none(), libelle, duree_lisible)
+        maintenant, delai_ = horloge(), delai_ou_none()
+        i = dr.instantane(base, diffusion, d, maintenant, delai_, libelle, duree_lisible)
+        installations = [e for e in base.journal_recent(200, q="installation_")
+                         if e.action in ("installation_demandee", "installation_echouee")]
+        celle = next((e for e in installations if e.charge.get("demande") == d.seq), None)
+        apres = [e for e in installations if celle and e.seq > celle.seq
+                 and e.action == "installation_demandee"]
+        i["serveur"] = dr.serveur(base, d, celle, apres[-1] if apres else None,
+                                  lire_acces_court if lire_acces else None, maintenant, delai_,
+                                  libelle, duree_lisible, index_serveur)
+        return i
 
     @app.get("/direct", response_class=HTMLResponse)
     def page_direct(request: Request, demande: int | None = None):

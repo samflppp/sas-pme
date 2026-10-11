@@ -258,3 +258,20 @@ form.carte.demande .note { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .direct-voyant.en-direct::before, .etape.en_cours .puce::after, .pensee.ecrit::after { animation: none; }
 }
+
+/* --- terminal du serveur ---------------------------------------------------------------------- */
+.ecran p { margin: 0 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.t-cmd { color: #fff; margin-bottom: 4px !important; }
+.t-invite { color: #3fb27f; }
+.t-heure { color: #6f767e; }
+.t-cmd .t-heure { float: right; }
+.t-ip { color: #9aa1a9; }
+.t-note { color: #7d848c; }
+.t-ligne { color: #d7dbe0; }
+.t-ok { color: #4cc38a; margin-top: 8px !important; }
+.t-amont { color: #e0b15f; }
+.t-erreur { color: #f07178; }
+.t-attente { color: #9aa1a9; }
+.t-attente::after { content: ""; display: inline-block; width: 8px; height: 1em; margin-left: 4px; vertical-align: text-bottom;
+                    background: #9aa1a9; animation: curseur 0.9s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) { .t-attente::after { animation: none; } }

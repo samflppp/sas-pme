@@ -25,7 +25,7 @@
         <tr><td class="nom"><strong>{{ x.d.ecosysteme.value }}/{{ x.d.nom }}</strong></td>
             <td>{{ x.d.sujets|length }} version{{ "s" if x.d.sujets|length > 1 }}</td>
             <td>{% if x.principale %}<code>{{ x.principale.version }}</code> <span class="etat etat-{{ x.principale.etat.value }}">{{ x.principale.etat.value|libelle }}</span>{% else %}<span class="note">déjà connue</span>{% endif %}</td>
-            <td class="date">{{ x.d.acteur }} · {{ x.d.a.strftime("%d/%m %H:%M") }}</td>
+            <td class="date">{{ x.d.acteur }} · {{ x.d.a.astimezone().strftime("%d/%m %H:%M") }}</td>
             <td><a class="bouton second" href="/direct?demande={{ x.d.seq }}">Suivre</a></td></tr>
       {% endfor %}
       </tbody>
