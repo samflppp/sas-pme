@@ -69,10 +69,15 @@ malveillante sur 30 du corpus OpenSSF (3 %, mesure du 2026-10-10).
 - **La sandbox paie :** 10 détections de plus, sans fausse alerte. Elle voit ce que le code cache :
   un DNS vers l'attaquant (`bytedance-chat` → `0wn.sh`), le sondage du cloud et de Kubernetes
   (`169.254.169.254`), une commande lancée, `/etc/passwd` lu.
-- **Le LLM n'ajoute aucune détection, et c'est voulu.** Il n'est interrogé que là où il peut changer
-  le verdict (5 versions sur 226) : il n'en change aucun, et ne crée aucune fausse alerte. Sa valeur
-  se voit sur la fiche d'une version : une explication en français, avec des références réelles
-  (CWE, ATT&CK, cas connus du RAG).
+- **Le LLM n'ajoute aucune détection, et c'est voulu.** Dans le produit, il analyse **chaque**
+  version : il lit les constats, le rapport de la sandbox et les cas proches du RAG, puis il donne
+  son avis (des signaux, au plus FORT), une explication en français et ses références (CWE,
+  ATT&CK, cas connus). Mais le code garde la décision : son signal FORT ne compte que s'il
+  s'appuie sur le paquet et qu'un autre contrôle a relevé au moins un doute. Sur ce corpus, son
+  avis ne pouvait donc changer le verdict que de 5 versions sur 226 (les seules interrogées par la
+  mesure, pour ne pas payer le LLM là où rien ne peut changer) : il n'en change aucun, et ne crée
+  aucune fausse alerte. Sa valeur se voit sur la fiche de chaque version : l'explication qu'un CTO
+  sans équipe sécurité peut lire.
 - **La réponse au premortem** (« une règle simple fait-elle aussi bien que l'IA ? »,
   `contexte.md` § 8) : pour **détecter**, oui, et nous l'assumons, c'est ce qui rend le verdict
   fiable et vérifiable. Pour **expliquer** à un CTO sans équipe sécurité, il faut le LLM.
