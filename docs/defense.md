@@ -41,30 +41,48 @@ version.
 | Root sur la plateforme ne donne ni le serveur, ni Internet | 8 contrôles sur AWS, chacun avec sa contre-épreuve : SSH refusé vers le serveur et la passerelle avec chaque clé de la plateforme, pypiserver injoignable, aucune route vers `1.1.1.1`, relais hors liste 403, autre clé de signature 401 | `infra/aws/verifier_compromission.sh` ; `demo/reseau.md` § 3 |
 | Le journal n'est pas réécrit en silence | « Vérifier la chaîne » : intègre ; une entrée modifiée casse la chaîne à son numéro | démo, étape 6 ; `tests/plateforme/test_journal_hmac.py` |
 
-Le code est testé : **531 tests verts** au dernier point de B (2026-10-11). Chaque test neuf a été
+Le code est testé : **551 tests verts** (2026-10-11). Chaque test neuf a été
 vu rouge avant le code, puis le code a été cassé exprès (mutations) pour vérifier qu'un test tombe.
 
 ## 3. Les chiffres
 
-**Mesure au 2026-10-10** (`mesure/resultats.md`, `python3 -I mesure/mesurer.py`). Une version est
-arrêtée si un contrôle lève un signal FORT ou BLOQUANT.
+**Mesure finale au 2026-10-11** (`mesure/resultats.md`, `python3 -I mesure/mesurer.py`). Même
+corpus pour les trois lignes : 128 versions malveillantes (Datadog) et 98 saines (PyPI, dont 48
+paquets peu connus qui n'ont servi à régler aucune règle). Chaque ligne ajoute une couche du
+pipeline à la précédente. Une version est arrêtée si un contrôle lève un signal FORT ou BLOQUANT.
 
 | Contrôles | Détection (malveillantes arrêtées) | Fausses alertes (saines arrêtées) |
 |---|---|---|
-| Nom seul (typosquat), corpus OpenSSF | 1 / 30 (3 %) | 0 / 50 (0 %) |
-| Contrôles statiques (nom + code), Datadog + sains | 93 / 128 (73 %) | 0 / 98 (0 %) |
+| 1. Contrôles seuls (nom + code) | 93 / 128 (73 %) | 0 / 98 (0 %) |
+| 2. + sandbox | **103 / 128 (80 %)** | **0 / 98 (0 %)** |
+| 3. + LLM/RAG | 103 / 128 (80 %) | 0 / 98 (0 %) |
 
-**À reprendre de la mesure finale de B (M3)** : les trois colonnes (contrôles seuls ; + sandbox ;
-+ LLM/RAG), détection et fausses alertes. Elle répond à la question qui tuerait le projet : « une
-règle simple fait-elle aussi bien que l'IA ? » (premortem, `contexte.md` § 8). Ne citer au jury que
-les chiffres de ce fichier, avec leur date.
+La ligne 2 rejoue la vraie sandbox (60 s de battement, leurres, `strace`, réseau interne) ; ses
+226 rapports sont gardés dans `mesure/rapports_sandbox/`. La ligne 3 a été lancée sur la plateforme
+AWS, avec le vrai LLM et le RAG. Pour comparaison, le nom seul (typosquat) n'arrête que 1 version
+malveillante sur 30 du corpus OpenSSF (3 %, mesure du 2026-10-10).
 
-**Ce que disent les chiffres actuels, honnêtement :**
-- le nom seul ne suffit pas (3 %) : la plupart des paquets malveillants ne copient pas un nom connu ;
-- les contrôles statiques arrêtent 73 % sans fausse alerte. Ils manquent 35 versions, dont
-  **ultralytics 8.3.41, 8.3.42 et 8.3.46** (la 8.3.45 est arrêtée : `domaine_suspect`). Ce qu'ils
-  manquent, c'est au délai et à la sandbox de le prendre ;
-- le délai ne se mesure pas sur ce corpus : il dépend de la vitesse de retrait de chaque version.
+> « 80 % des versions malveillantes arrêtées, 0 fausse alerte sur 98 versions saines. La détection
+> vient de règles et d'une sandbox qu'on peut vérifier ; l'IA explique, elle ne décide pas. »
+
+**Ce que disent les chiffres, honnêtement :**
+- **La sandbox paie :** 10 détections de plus, sans fausse alerte. Elle voit ce que le code cache :
+  un DNS vers l'attaquant (`bytedance-chat` → `0wn.sh`), le sondage du cloud et de Kubernetes
+  (`169.254.169.254`), une commande lancée, `/etc/passwd` lu.
+- **Le LLM n'ajoute aucune détection, et c'est voulu.** Il n'est interrogé que là où il peut changer
+  le verdict (5 versions sur 226) : il n'en change aucun, et ne crée aucune fausse alerte. Sa valeur
+  se voit sur la fiche d'une version : une explication en français, avec des références réelles
+  (CWE, ATT&CK, cas connus du RAG).
+- **La réponse au premortem** (« une règle simple fait-elle aussi bien que l'IA ? »,
+  `contexte.md` § 8) : pour **détecter**, oui, et nous l'assumons, c'est ce qui rend le verdict
+  fiable et vérifiable. Pour **expliquer** à un CTO sans équipe sécurité, il faut le LLM.
+- **Les 25 manquées** comptent ultralytics 8.3.41, 8.3.42 et 8.3.46 (la 8.3.45 est arrêtée :
+  `domaine_suspect`). La sandbox installe sans les dépendances, comme le produit : une charge qui
+  part à l'import d'un paquet qui ne s'importe pas seul n'est pas vue. C'est le rôle du délai de
+  3 jours et de la veille, qui l'auraient vue retirée.
+- Le délai ne se mesure pas sur ce corpus : il dépend de la vitesse de retrait de chaque version.
+- Autres limites de la mesure : `mesure/resultats.md` § Limites (campagnes en série, groupe
+  « populaires » optimiste, cibles Windows).
 
 **Le LLM sur de vrais paquets** (vérifié sur AWS par C, 2026-10-11, `mesure/llm_paquet.py`) :
 certifi 2026.7.22, idna 3.20 et requests 2.34.2, sains, sont **approuvés** ; la 1.2 piégée garde
@@ -152,7 +170,8 @@ Une porte dérobée dormante et bien cachée, comme xz, peut passer les trois : 
 Oui. La sandbox v2 observe 60 s après l'import et suit aussi le code natif (`strace`). Une analyse
 sabotée (traces effacées, journal tronqué) met la version « à revoir », jamais « approuvée ». Une
 bombe à retardement plus longue que l'observation reste possible : le cloisonnement réseau limite
-alors ce qu'elle peut faire.
+alors ce qu'elle peut faire. Et une version qui ne s'importe pas sans ses dépendances n'est observée
+qu'à l'installation (ultralytics) : c'est alors au délai et à la veille de la prendre.
 
 **« Et si la plateforme est compromise ? »**
 Réponse détaillée de C : `demo/reseau.md` § 3, schéma `demo/schema-reseau.svg`.
@@ -240,6 +259,10 @@ de l'eau et attendent 3 jours : ce temps ne gêne personne. Pas de GPU nécessai
   obligatoire et contrôle d'origine des POST actifs, mais pas encore de limite au nombre d'essais de
   connexion, ni de drapeau `Secure` sur le cookie de session. Comptes de démo en rôle `dev`, mots de
   passe longs.
+- **La sandbox installe sans les dépendances** : elle n'a pu observer l'import que de 58 des
+  98 versions saines, et 12 des 25 malveillantes manquées ont échoué à l'import (dont ultralytics).
+  Idée notée, pas codée : installer dans la sandbox les dépendances depuis le dépôt des versions
+  déjà approuvées.
 - **Mesure sur corpus**, pas en production. Les chiffres valent pour ces corpus, à leur date.
 - **Le LLM sur CPU est lent** (50 à 60 s par version) : sans effet sur un délai de 3 jours, visible
   en démo (attentes coupées au montage de la vidéo, jamais simulées).
@@ -253,7 +276,7 @@ de l'eau et attendent 3 jours : ce temps ne gêne personne. Pas de GPU nécessai
 2. npm, puis images Docker, Maven et NuGet.
 3. La clé de signature hors de la plateforme, et une double signature (code + admin).
 4. L'ancrage du journal sur la passerelle ; une voie d'urgence tracée ; un export SBOM de
-   l'inventaire.
+   l'inventaire ; la sandbox avec les dépendances déjà approuvées (elle verrait ultralytics).
 5. Une console multi-clients pour les infogérants, et une télémétrie partagée entre clients (une
    version libérée après avoir été vue saine ailleurs).
 
@@ -310,7 +333,7 @@ Consultées le 2026-10-11.
 
 ## 10. Reproduire
 
-- **Tests :** `python -m pytest -q` à la racine du dépôt (531 verts au 2026-10-11).
+- **Tests :** `python -m pytest -q` à la racine du dépôt (551 verts au 2026-10-11).
 - **Mesure :** `python3 -I mesure/mesurer.py` (statique) ; `mesure/llm_paquet.py` (le vrai LLM sur une
   version de PyPI, avec Ollama).
 - **Démo complète :** `demo/script.md`, section H16, sur l'infra AWS (`infra/README.md`).
