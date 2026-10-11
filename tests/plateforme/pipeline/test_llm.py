@@ -230,3 +230,45 @@ def test_les_signaux_identiques_du_llm_ne_comptent_qu_une_fois(base):
     meme = {"niveau": "moyen", "sorte": "exfiltration_donnees", "extrait": REQUESTS[:150]}
     signaux = _avec_signaux(base, [meme] * 10)
     assert len(signaux) == 1
+
+
+# --- explication : un LLM qui boucle (requests 2.34.2 sur AWS, capture de Sam) ---------------------
+PHRASE = ("Le code utilise des méthodes comme `requests.get` et `requests.post` pour envoyer des "
+          "requêtes HTTP. Cela peut être utilisé pour exécuter des commandes malveillantes sur le "
+          "serveur cible, en particulièrement si les données transmises ne sont pas correctement "
+          "filtrées ou vérifiées.")
+EN_BOUCLE = (PHRASE + " De plus, " + PHRASE[0].lower() + PHRASE[1:] + " De plus, "
+             + PHRASE[0].lower() + PHRASE[1:])[:800]           # coupée par le schéma, au milieu
+
+
+def test_une_explication_qui_boucle_n_est_gardee_qu_une_fois():
+    propre = llm.explication_propre(EN_BOUCLE)
+    assert propre == PHRASE
+    assert propre.count("requests.get") == 1
+
+
+def test_une_explication_coupee_finit_par_des_points_de_suspension():
+    assert llm.explication_propre("Le paquet lit des identifiants AWS factices et les env") == \
+        "Le paquet lit des identifiants AWS factices et les env…"
+
+
+def test_une_explication_coupee_apres_une_phrase_complete_garde_la_phrase():
+    assert llm.explication_propre("Le paquet lit ~/.aws/credentials. Il contacte ensuite un dom") == \
+        "Le paquet lit ~/.aws/credentials. Il contacte ensuite un dom…"
+
+
+@pytest.mark.parametrize("texte", [
+    "Le paquet lit des identifiants AWS factices puis contacte un domaine inconnu : c'est un vol de "
+    "secrets.",
+    "Version 1.2.3 : lecture de ~/.aws/credentials. Puis appel à collecte.attaquant-demo.invalid !",
+    "",
+])
+def test_une_explication_saine_ne_change_pas(texte):
+    assert llm.explication_propre(texte) == texte
+
+
+@respx.mock
+def test_l_explication_enregistree_est_nettoyee(base):
+    respx.post(f"{OLLAMA}/api/chat").mock(return_value=reponse_ollama(
+        {**BONNE, "explication": EN_BOUCLE}))
+    assert lancer(base).explication == PHRASE

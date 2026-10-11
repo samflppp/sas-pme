@@ -69,7 +69,8 @@ jours. Ces entreprises n'ont ni RSSI ni SOC.
   - les grandes entreprises, qui ont déjà Artifactory ou Sonatype et un SOC ;
   - les équipes de moins de 5 développeurs.
 
-Les dates réglementaires et les chiffres viennent de mémoire. **À vérifier avant le deck.**
+Les textes réglementaires (NIS2, DORA, CRA), leurs dates et l'état de NIS2 en France sont vérifiés et sourcés
+dans `defense.md` § 8 (2026-10-11) : citer ceux-là, pas ceux de mémoire.
 
 ## 5. Le produit
 
