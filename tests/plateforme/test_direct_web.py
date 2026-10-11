@@ -304,3 +304,20 @@ def test_une_version_validee_garde_ses_pastilles_vertes(base):
     base.changer_etat(PY, "requests", "2.32.4", Etat.PUBLIEE, "publiée", acteur="pipeline")
     e = etapes(c.get(f"/direct/instantane?demande={n}").json(), "requests")
     assert e["attente"]["etat"] == "fait"
+
+
+def test_une_version_bloquee_apres_analyse_a_des_croix_rouges_de_l_ia_a_la_publication(base):
+    """Demande de Mouabd19 (vidéo) : bloquée après analyse, IA, politique et publication sont des
+    croix rouges ; les étapes d'avant (téléchargement, sandbox, contrôles) restent vertes."""
+    c = client(base)
+    n = demander(c)
+    sujet = "pypi:requests@2.32.4"
+    for etape in ("telechargement", "sandbox", "statique", "ia", "politique"):
+        base.journaliser("pipeline", "etape", sujet, {"etape": etape, "etat": "fin", "duree_s": 0,
+                                                       "verdict": "bloquee", "raison": "Exfiltration."})
+    base.changer_etat(PY, "requests", "2.32.4", Etat.EN_ANALYSE, "analyse", acteur="pipeline")
+    base.changer_etat(PY, "requests", "2.32.4", Etat.BLOQUEE, "Exfiltration.", acteur="pipeline")
+    e = etapes(c.get(f"/direct/instantane?demande={n}").json(), "requests")
+    assert [e[k]["etat"] for k in ("telechargement", "sandbox", "statique")] == ["fait"] * 3
+    assert [e[k]["etat"] for k in ("ia", "politique", "publication")] == ["bloque"] * 3
+    assert "jamais publiée" in e["publication"]["detail"]
