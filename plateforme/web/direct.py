@@ -32,7 +32,8 @@ _ANALYSE = [cle for cle, _ in ETAPES[2:]]
 # Une étape jamais vue d'une version dans ces états ne viendra plus : elle a été sautée.
 _SANS_SUITE = {Etat.BLOQUEE, Etat.PUBLIEE, Etat.REVOQUEE, Etat.A_REVOIR}
 _ISSUE = {Etat.A_REVOIR: "revoir", Etat.BLOQUEE: "bloque"}
-_REFUS = ("ia", "politique", "publication")              # en croix rouges quand l'analyse bloque   # couleur de la dernière étape franchie
+_REFUS = ("ia", "politique", "publication")
+_EN_ROUTE = {Etat.NOUVELLE, Etat.EN_ATTENTE, Etat.EN_ANALYSE, Etat.APPROUVEE}              # en croix rouges quand l'analyse bloque   # couleur de la dernière étape franchie
 
 
 class Diffusion:
@@ -239,11 +240,11 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
         return {"configure": True, "index": registre, "repli": "registry.npmjs.org",
                 "commande": f"npm install {d.nom}", "manuel": True, "demandee_a": None,
                 "erreur": None, "lignes": [], "installee": None, "amont": None,
-                "aucune_servie": False}
+                "aucune_servie": False, "reessaie": False}
     sortie = {"configure": True, "index": index, "repli": "pypi.org", "manuel": False,
               "commande": f"pip install {d.nom}",
               "demandee_a": None, "erreur": None, "lignes": [], "installee": None, "amont": None,
-              "aucune_servie": False}
+              "aucune_servie": False, "reessaie": False}
     if installation is None:
         return sortie
     sortie["demandee_a"] = installation.a.astimezone().strftime("%H:%M:%S")
@@ -273,8 +274,12 @@ def serveur(base: Base, d: Demande, installation: EntreeJournal | None,
     # La plus récente connue de la plateforme, si elle n'est pas ce que le serveur a reçu.
     versions = [v for v in base.versions_du_paquet(d.ecosysteme, d.nom) if _pep(v.version)]
     # Le serveur a lu l'index, et la plateforme n'a publié aucune version : pip n'a rien à prendre.
-    sortie["aucune_servie"] = (index_lu and sortie["installee"] is None
-                               and not any(v.etat is Etat.PUBLIEE for v in versions))
+    # Une version encore en route : l'agent du serveur relance pip jusqu'à sa publication.
+    rien = index_lu and sortie["installee"] is None and not any(v.etat is Etat.PUBLIEE
+                                                                for v in versions)
+    en_route = any(v.etat in _EN_ROUTE for v in versions)
+    sortie["reessaie"] = bool(rien and en_route)
+    sortie["aucune_servie"] = bool(rien and not en_route)
     if versions:
         recente = max(versions, key=lambda v: _pep(v.version))
         recue = _pep(sortie["installee"]) if sortie["installee"] else None
