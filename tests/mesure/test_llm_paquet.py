@@ -55,7 +55,7 @@ def test_la_fausse_alerte_de_certifi_redescend_et_la_politique_approuve(tmp_path
                                      tmp_path, pypi_base=PYPI)
     (e,) = essais
     assert (e.nom, e.version, e.conforme) == ("certifi", "2026.7.22", True)
-    assert e.signaux_llm == ["moyen pth_suspect (non ancré : redescendu de fort)"]
+    assert e.signaux_llm == ["info pth_suspect (sans constat statique ni sandbox : point d'attention)"]
     assert e.verdict == "approuvee"
     # Le LLM a reçu le vrai code du paquet, lu comme donnée (jamais exécuté).
     assert "certifi" in json.loads(route.calls.last.request.content)["messages"][1]["content"]
@@ -70,7 +70,7 @@ def test_la_sortie_dit_le_verdict_et_le_code_de_retour(tmp_path, capsys, monkeyp
     sortie = capsys.readouterr().out
     assert code == 0
     assert "certifi 2026.7.22 : verdict approuvee" in sortie
-    assert "non ancré" in sortie
+    assert "sans constat" in sortie
 
 
 def test_une_version_mal_ecrite_est_refusee():

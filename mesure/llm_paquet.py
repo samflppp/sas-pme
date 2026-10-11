@@ -48,7 +48,7 @@ def _signal(s) -> str:
     if s.preuve.get("non_ancre"):
         return texte + " (non ancré : redescendu de fort)"
     if s.preuve.get("sans_constat"):
-        return texte + " (sans constat statique ni sandbox : redescendu de fort)"
+        return texte + " (sans constat statique ni sandbox : point d'attention)"
     return texte
 
 
