@@ -280,6 +280,8 @@ Le détail est dans [`docs/defense.md` § 6](docs/defense.md).
 
 ## Pour le jury : où trouver quoi
 
+**Fiche de défense (1 page) :** [`docs/fiche-defense.md`](docs/fiche-defense.md) — scénario, fonctions NIST CSF, ATT&CK / OWASP, métriques, limites.
+
 | Critère | Poids | Où |
 |---|---|---|
 | Importance et originalité du problème | 25 % | [Le problème](#le-problème) ; [Ce qui est neuf](#ce-qui-est-neuf-et-ce-qui-ne-lest-pas) ; [`docs/business.md`](docs/business.md) § 2 à 5 |
