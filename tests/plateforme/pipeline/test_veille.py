@@ -76,8 +76,8 @@ def test_rien_de_nouveau_rien_d_enregistre_et_deux_tours_n_en_font_qu_une(base):
     assert len(base.versions_du_paquet(P, "requests")) == 2
 
 
-def _bloquee(base, nom, v, sorte):
-    fiche = base.fiche(P, nom, v)
+def _bloquee(base, nom, v, sorte, eco=P):
+    fiche = base.fiche(eco, nom, v)
     assert fiche.version.etat is Etat.BLOQUEE
     assert fiche.verdict.etat is Etat.BLOQUEE and fiche.verdict_id is not None
     [s] = [s for s in fiche.signaux if s.sorte == sorte]
@@ -145,3 +145,63 @@ def test_pypi_ou_osv_injoignable_ne_bloque_rien_et_ne_casse_rien(base):
     assert [(v.nom, v.version) for v in nouvelles] == [("idna", "3.11")]   # l'autre paquet avance
     assert bloquees == []
     assert base.lire_version(P, "idna", "3.10").etat is Etat.EN_ATTENTE
+
+
+# --- npm : la même veille sur le registre npm et OSV (écosystème « npm ») ---------------------
+NPM = "https://npm.test"
+N = Ecosysteme.NPM
+
+
+def paquet_npm(nom: str, versions: dict[str, tuple[int, bool]]) -> dict:
+    """{version: (publiée il y a n minutes, dépréciée)} au format du registre npm."""
+    return {"name": nom, "versions": {v: {"version": v, "dist": {"tarball": f"{NPM}/{nom}-{v}.tgz"},
+                                          **({"deprecated": "retirée"} if dep else {})}
+                                      for v, (_, dep) in versions.items()},
+            "time": {v: il_y_a(m).isoformat().replace("+00:00", "Z")
+                     for v, (m, _) in versions.items()}}
+
+
+def lancer_npm(base):
+    with httpx.Client() as client:
+        return veille.veiller(base, MAINTENANT, client=client, pypi_url=PYPI, npm_url=NPM,
+                              osv_url=OSV)
+
+
+@respx.mock
+def test_npm_une_nouvelle_version_entre_en_attente_et_une_depreciee_est_bloquee(base):
+    respx.get(f"{PYPI}/pypi/requests/json").respond(json=meta({"2.32.0": (14400, False)}))
+    base.enregistrer_version(Version(ecosysteme=N, nom="left-pad", version="1.2.0",
+                                     publiee_le=il_y_a(14400), detectee_le=il_y_a(14400),
+                                     etat=Etat.PUBLIEE))
+    base.enregistrer_version(Version(ecosysteme=N, nom="@org/outil", version="2.0.0",
+                                     publiee_le=il_y_a(5), detectee_le=il_y_a(5),
+                                     etat=Etat.EN_ATTENTE))
+    respx.get(f"{NPM}/left-pad").respond(json=paquet_npm("left-pad", {
+        "1.2.0": (14400, False), "1.10.0": (5, False), "1.3.0": (60, False),
+        "2.0.0-beta.1": (1, False)}))
+    respx.get(f"{NPM}/@org%2Foutil").respond(json=paquet_npm("@org/outil", {"2.0.0": (5, True)}))
+    osv_vide()
+    nouvelles, bloquees = lancer_npm(base)
+    # 1.10.0 > 1.3.0 en semver (pas en texte) ; la préversion est ignorée.
+    assert [(v.ecosysteme, v.nom, v.version) for v in nouvelles] == [(N, "left-pad", "1.10.0")]
+    assert base.lire_version(N, "@org/outil", "2.0.0").etat is Etat.BLOQUEE
+    assert [s.sorte for _, s in bloquees] == ["retiree_npm"]
+
+
+@respx.mock
+def test_npm_osv_est_interroge_avec_l_ecosysteme_npm(base):
+    respx.get(f"{PYPI}/pypi/requests/json").respond(json=meta({"2.32.0": (14400, False)}))
+    base.enregistrer_version(Version(ecosysteme=N, nom="evil-pkg", version="1.0.1",
+                                     publiee_le=il_y_a(5), detectee_le=il_y_a(5),
+                                     etat=Etat.EN_ATTENTE))
+    respx.get(f"{NPM}/evil-pkg").respond(json=paquet_npm("evil-pkg", {"1.0.1": (5, False)}))
+
+    def reponse(requete):
+        requetes = json.loads(requete.content)["queries"]
+        assert requetes == [{"package": {"name": "evil-pkg", "ecosystem": "npm"},
+                             "version": "1.0.1"}]
+        return httpx.Response(200, json={"results": [{"vulns": [{"id": "MAL-2025-777"}]}]})
+    respx.post(f"{OSV}/v1/querybatch").mock(side_effect=reponse)
+    lancer_npm(base)
+    _, s = _bloquee(base, "evil-pkg", "1.0.1", "malveillant_osv", eco=N)
+    assert s.preuve["ref"] == "MAL-2025-777"

@@ -59,3 +59,33 @@ def test_un_nouveau_mainteneur_depuis_la_version_precedente_est_signale():
 def test_pypi_injoignable_ne_donne_aucun_signal_et_ne_plante_pas():
     respx.get(f"{PYPI}/pypi/demo/json").mock(side_effect=httpx.ConnectError("hors ligne"))
     assert lancer("0.1") == []
+
+
+# --- npm : âge du projet (time.created) et éditeur de la version (_npmUser) ------------------
+NPM = "https://npm.test"
+
+
+def paquet_npm(cree_il_y_a: int, editeurs: dict[str, str]) -> dict:
+    return {"name": "demo", "time": {"created": (MAINTENANT - timedelta(days=cree_il_y_a))
+                                     .isoformat().replace("+00:00", "Z")},
+            "versions": {v: {"version": v, "_npmUser": {"name": e.split("@")[0], "email": e}}
+                         for v, e in editeurs.items()}}
+
+
+def lancer_npm(paquet, precedente="1.0.0"):
+    with respx.mock:
+        respx.get(f"{NPM}/demo").respond(json=paquet)
+        with httpx.Client() as c:
+            return meta.controler_metadonnees(Ecosysteme.NPM, "demo", "1.1.0", precedente=precedente,
+                                              maintenant=MAINTENANT, client=c, npm_url=NPM)
+
+
+def test_npm_un_editeur_different_de_la_version_precedente_est_signale():
+    s = lancer_npm(paquet_npm(400, {"1.0.0": "alice@ex.org", "1.1.0": "mallory@evil.test"}))
+    assert [(x.sorte, x.niveau) for x in s] == [("mainteneur_change", Niveau.MOYEN)]
+    assert "mallory@evil.test" in s[0].preuve["extrait"]
+
+
+def test_npm_un_projet_recent_est_signale_et_le_meme_editeur_ne_l_est_pas():
+    s = lancer_npm(paquet_npm(5, {"1.0.0": "alice@ex.org", "1.1.0": "alice@ex.org"}))
+    assert [x.sorte for x in s] == ["projet_recent"]

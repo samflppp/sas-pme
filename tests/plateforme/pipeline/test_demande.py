@@ -69,11 +69,6 @@ def test_demander_sans_version_mure_leve_lookuperror(base):
     assert base.lister_versions() == []
 
 
-def test_demander_npm_hors_mvp(base):
-    with pytest.raises(NotImplementedError):
-        pipeline.demander(Ecosysteme.NPM, "left-pad", maintenant=MAINTENANT, base=base)
-
-
 def test_la_page_web_de_a_appelle_le_vrai_demander(base, monkeypatch, tmp_path):
     """Intégration avec A : le web appelle demander(eco, nom), sans base ; on prend SAS_DB."""
     monkeypatch.setenv("SAS_DB", str(tmp_path / "sas.db"))
@@ -127,3 +122,59 @@ def test_le_message_d_erreur_donne_le_delai_de_la_demo(base, monkeypatch):
     monkeypatch.setenv("SAS_DELAI", "120")
     with pytest.raises(LookupError, match="120 s"):
         pipeline.demander(Ecosysteme.PYPI, "absent", maintenant=MAINTENANT, base=base)
+
+
+# --- npm : même parcours, dépendances dans leur plage semver ----------------------------------
+INDEX_NPM = {
+    "express-lite": {"4.2.0": {"debug": "^2.6.0", "ms": "2.x"}},
+    "debug": {"2.6.9": {"ms": "2.0.0"}, "3.0.0": {}},   # 3.0.0 hors de ^2.6.0
+    "ms": {"2.0.0": {}, "2.1.3": {}},
+    "@org/outil": {"1.0.0": {}},
+    "casse-npm": {"1.0.0": {"absent-npm": "^1.0.0"}},
+}
+
+
+@pytest.fixture
+def faux_npm(monkeypatch):
+    from plateforme.pipeline import semver
+
+    def choix(nom, maintenant, *, plage=None, **_):
+        vs = [v for v in INDEX_NPM.get(nom, {})
+              if plage is None or semver.Plage(plage).contient(v)]
+        return (max(vs, key=semver.cle), PUBLIEE) if vs else None
+
+    monkeypatch.setattr(pipeline.npm, "derniere_version_mure", choix)
+    monkeypatch.setattr(pipeline.npm, "dependances", lambda nom, version, **_:
+                        INDEX_NPM[nom][version])
+
+
+def test_demander_npm_enregistre_le_paquet_et_ses_dependances(base, faux_npm):
+    v = pipeline.demander(Ecosysteme.NPM, "express-lite", maintenant=MAINTENANT, base=base)
+    assert (v.ecosysteme, v.nom, v.version) == (Ecosysteme.NPM, "express-lite", "4.2.0")
+    # ms 2.0.0 (exigée par debug) convient aussi à « 2.x » d'express-lite : prise une fois.
+    assert sorted((x.ecosysteme, x.nom, x.version) for x in base.lister_versions()) == [
+        (Ecosysteme.NPM, "debug", "2.6.9"), (Ecosysteme.NPM, "express-lite", "4.2.0"),
+        (Ecosysteme.NPM, "ms", "2.0.0")]
+
+
+def test_demander_npm_garde_deux_versions_incompatibles_d_une_dependance(base, faux_npm,
+                                                                          monkeypatch):
+    monkeypatch.setitem(INDEX_NPM, "deux-ms", {"1.0.0": {"debug": "^2.6.0", "ms": "^2.1.0"}})
+    pipeline.demander(Ecosysteme.NPM, "deux-ms", maintenant=MAINTENANT, base=base)
+    assert sorted(x.version for x in base.lister_versions() if x.nom == "ms") == ["2.0.0", "2.1.3"]
+
+
+def test_demander_npm_accepte_un_paquet_a_portee(base, faux_npm):
+    assert pipeline.demander("npm", "@org/outil", maintenant=MAINTENANT, base=base).nom == \
+        "@org/outil"
+
+
+def test_demander_npm_n_enregistre_rien_si_une_dependance_manque(base, faux_npm):
+    with pytest.raises(LookupError, match="absent-npm"):
+        pipeline.demander(Ecosysteme.NPM, "casse-npm", maintenant=MAINTENANT, base=base)
+    assert base.lister_versions() == []
+
+
+def test_demander_npm_refuse_un_nom_invalide(base, faux_npm):
+    with pytest.raises(ValueError):
+        pipeline.demander(Ecosysteme.NPM, "../etc", maintenant=MAINTENANT, base=base)
