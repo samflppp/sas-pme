@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block titre %}Demandes{% endblock %}
 {% block contenu %}
+<div class="page-demande">
 <h1>Demandes de paquets</h1>
 <div class="grille g-demande">
   <form class="carte demande" method="post" action="/demander">
@@ -32,5 +33,6 @@
     </table>
     {% else %}<p class="vide depot-vide">Aucune demande pour l'instant.</p>{% endif %}
   </div>
+</div>
 </div>
 {% endblock %}
