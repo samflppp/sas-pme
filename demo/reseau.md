@@ -87,6 +87,12 @@ confiance du système**. Le réseau limite ce qu'un attaquant peut en faire.
 - **Élargir la liste du relais d'API.** Un code déjà installé sur le serveur pourrait alors joindre
   un domaine de l'attaquant par ce relais.
 - **Réécrire sa propre base et son interface** : verdicts, signaux, alertes affichées.
+- **Faire installer une version qu'elle a signée** (démo seulement : agent d'installation du
+  serveur, PR #95). Elle n'attend donc plus qu'un humain lance `pip install`. L'agent revérifie
+  la signature, l'âge et le nonce, et n'installe que des **roues** (`--only-binary=:all:`) : aucun
+  `setup.py` ne s'exécute à l'installation. Mais une roue piégée agit quand on l'importe, ou au
+  prochain démarrage de Python par un fichier `.pth`. En production, cet agent n'existe pas : c'est
+  l'équipe qui met à jour ses serveurs.
 
 ### Ce qu'il ne peut pas faire : vérifié sur AWS (`verifier_compromission.sh`, 8 contrôles OK)
 
