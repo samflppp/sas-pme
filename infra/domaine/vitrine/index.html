@@ -3,115 +3,342 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pipelad</title>
-<meta name="description" content="Vos serveurs n'installent que ce qu'on a vérifié. Un sas de sécurité pour les paquets pip et npm, tout en local, pour les PME qui développent.">
-<style>
-  :root {
-    --fond: #ffffff; --texte: #0f172a; --doux: #475569; --trait: #e2e8f0;
-    --carte: #f8fafc; --accent: #1d4ed8; --vert: #15803d; --rouge: #b91c1c;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --fond: #0b1120; --texte: #e2e8f0; --doux: #94a3b8; --trait: #1e293b;
-            --carte: #111a2e; --accent: #60a5fa; --vert: #4ade80; --rouge: #f87171; }
-    .schema { background: #ffffff; }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--fond); color: var(--texte);
-         font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 920px; margin: 0 auto; padding: 0 16px 64px; }
-  header { padding: 64px 0 32px; }
-  .nom { font-weight: 700; letter-spacing: .02em; color: var(--accent); }
-  h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.15; margin: 12px 0 16px; }
-  h2 { font-size: 24px; margin: 56px 0 16px; }
-  p.chapo { font-size: 19px; color: var(--doux); max-width: 680px; }
-  .boutons { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
-  .bouton { display: inline-block; padding: 11px 20px; border-radius: 8px; text-decoration: none;
-            font-weight: 600; border: 1px solid var(--accent); }
-  .bouton.plein { background: var(--accent); color: #fff; }
-  .bouton.vide { color: var(--accent); }
-  .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-  .carte { background: var(--carte); border: 1px solid var(--trait); border-radius: 12px; padding: 20px; }
-  .carte h3 { margin: 0 0 8px; font-size: 18px; }
-  .carte p { margin: 0; color: var(--doux); font-size: 16px; }
-  .chiffre { font-size: 34px; font-weight: 700; }
-  .vert { color: var(--vert); } .rouge { color: var(--rouge); }
-  ol.etapes { padding-left: 22px; } ol.etapes li { margin: 6px 0; }
-  .schema { width: 100%; height: auto; border: 1px solid var(--trait); border-radius: 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: 16px; }
-  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--trait); vertical-align: top; }
-  th { color: var(--doux); font-weight: 600; }
-  .note { color: var(--doux); font-size: 14px; }
-  footer { border-top: 1px solid var(--trait); margin-top: 64px; padding-top: 20px; color: var(--doux); font-size: 14px; }
-</style>
+<title>Pipelad — rapport de sécurité de la chaîne d'approvisionnement</title>
+<meta name="description" content="Vos serveurs n'installent que ce qu'on a vérifié. Un sas pour les paquets pip : délai imposé par le réseau, analyse sur place, signature. Tout reste chez vous.">
+<meta name="color-scheme" content="light">
+<link rel="preload" href="polices/selawik-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="polices/selawik-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script src="rapport.js" defer></script>
 </head>
 <body>
-<main>
-  <header>
-    <div class="nom">PIPELAD</div>
-    <h1>Vos serveurs n'installent que ce qu'on a vérifié.</h1>
-    <p class="chapo">Un sas de sécurité pour les paquets pip et npm. Chaque nouvelle version attend
-      3 jours, est analysée chez vous (code, sandbox, IA locale), puis signée. Vos serveurs sensibles
-      ne voient jamais la dernière version publiée sur Internet, seulement la dernière version
-      vérifiée.</p>
-    <div class="boutons">
-      <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
-      <a class="bouton vide" href="#fonctionnement">Comment ça marche</a>
-    </div>
-  </header>
+<a class="evitement" href="#contenu">Aller au contenu</a>
 
-  <h2>Le problème</h2>
-  <div class="grille">
-    <div class="carte"><h3>Personne ne relit</h3>
-      <p>Les équipes installent chaque jour des paquets venus d'Internet, directement sur les
-        serveurs qui portent leurs données.</p></div>
-    <div class="carte"><h3>Une version piégée suffit</h3>
-      <p>Typosquat, mainteneur compromis : ultralytics (décembre 2024), le ver Shai-Hulud sur npm
-        (septembre 2025). La plupart sont retirées en quelques jours.</p></div>
-    <div class="carte"><h3>Pas d'équipe sécurité</h3>
-      <p>Une PME de 20 à 80 personnes n'a ni RSSI ni SOC. C'est le CTO qui porte la sécurité.</p></div>
-  </div>
+<header class="barre">
+  <a class="marque" href="#synthese" aria-label="Pipelad, retour en haut">
+    <svg class="marque-signe" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="6" height="18"/><rect x="16" y="3" width="6" height="18"/><rect x="9.5" y="10" width="5" height="4"/></svg>
+    PIPELAD
+  </a>
+  <span class="fil" aria-hidden="true">Rapport <span class="sep">/</span> Sécurité de la chaîne d'approvisionnement <span class="sep">/</span> Octobre 2026</span>
+  <a class="bouton-barre" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+</header>
 
-  <h2 id="fonctionnement">Comment ça marche</h2>
-  <img class="schema" src="schema-reseau.svg" alt="Trois zones : la plateforme reliée à Internet, la passerelle et le serveur sensible dans un sous-réseau sans route vers Internet.">
-  <ol class="etapes">
-    <li><strong>Attente de 3 jours</strong> pour chaque nouvelle version, pendant que la veille lit OSV, PyPI et les blogs de chercheurs.</li>
-    <li><strong>Analyse statique</strong> : typosquat, code exécuté à l'installation, code obfusqué, accès aux secrets, domaines suspects.</li>
-    <li><strong>Sandbox</strong> sans réseau réel : faux DNS, faux secrets ; on voit si le paquet lit un jeton ou appelle son serveur.</li>
-    <li><strong>IA locale avec RAG</strong> : elle explique en français et cite des cas connus. Elle alerte, elle ne décide jamais.</li>
-    <li><strong>Politique déterministe</strong>, puis <strong>signature Ed25519</strong> et publication dans la passerelle, qui vérifie tout avant d'accepter.</li>
+<nav class="onglets" aria-label="Pages du rapport">
+  <ol>
+    <li><a href="#synthese">Synthèse</a></li>
+    <li><a href="#menace">Menace</a></li>
+    <li><a href="#sas">Le sas</a></li>
+    <li><a href="#preuves">Preuves</a></li>
+    <li><a href="#paysage">Paysage</a></li>
+    <li><a href="#compromission">Compromission</a></li>
+    <li><a href="#principes">Principes</a></li>
   </ol>
+</nav>
 
-  <h2>Démontré, pas promis</h2>
-  <div class="grille">
-    <div class="carte"><div class="chiffre vert">73 %</div>
-      <p>des versions malveillantes arrêtées par les contrôles statiques seuls (93 sur 128), avant même la sandbox et l'IA.</p></div>
-    <div class="carte"><div class="chiffre vert">0</div>
-      <p>fausse alerte des contrôles statiques sur 98 versions saines.</p></div>
-    <div class="carte"><div class="chiffre rouge">401</div>
-      <p>Une publication signée avec une autre clé est refusée par la passerelle.</p></div>
-    <div class="carte"><div class="chiffre vert">8 / 8</div>
-      <p>contrôles passés quand un attaquant est root sur la plateforme : il n'obtient ni Internet pour les serveurs, ni accès à leurs machines.</p></div>
+<main id="contenu" class="canevas">
+
+<!-- 1. SYNTHÈSE ======================================================================== -->
+<section id="synthese" class="page" aria-labelledby="t-synthese">
+  <div class="grille g-couverture">
+    <div class="tuile couverture">
+      <p class="surtitre">Page 1 · Synthèse</p>
+      <h1 id="t-synthese">Vos serveurs n'installent que ce qu'on a vérifié.</h1>
+      <p class="chapo">Un sas pour les paquets logiciels. Chaque nouvelle version attend trois jours
+        <strong>derrière une passerelle sans Internet</strong>, est analysée chez vous (code,
+        comportement, IA locale), puis signée. Vos serveurs ne voient jamais la dernière version
+        publiée sur Internet : seulement la dernière version vérifiée.</p>
+      <div class="actions">
+        <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+        <a class="bouton" href="#sas">Lire le fonctionnement</a>
+      </div>
+    </div>
+    <figure class="tuile boucle">
+      <video class="texture" muted loop playsinline poster="boucles/chemin.webp" width="1280" height="720" aria-hidden="true">
+        <source src="boucles/chemin.webm" type="video/webm">
+        <source src="boucles/chemin.mp4" type="video/mp4">
+      </video>
+      <figcaption><span class="fig">Fig. 1</span> Un seul chemin mène à vos serveurs : celui qui a été vérifié.</figcaption>
+    </figure>
   </div>
-  <p class="note">Mesures du 2026-10-10 sur un corpus de paquets malveillants publics (Datadog, OpenSSF) ; contrôles réseau vérifiés sur l'infrastructure de démo AWS.</p>
 
-  <h2>Nos principes</h2>
-  <table>
-    <tr><th>Principe</th><th>Conséquence</th></tr>
-    <tr><td>Les serveurs sensibles ne parlent jamais à Internet</td><td>Tout passe par la passerelle, qui n'a elle-même aucune route vers Internet.</td></tr>
-    <tr><td>Le code décide, l'IA alerte et explique</td><td>Un signal de l'IA peut monter un risque, jamais approuver.</td></tr>
-    <tr><td>Rien n'est publié sans signature</td><td>La passerelle refuse tout manifeste mal signé ou dont un fichier diffère.</td></tr>
-    <tr><td>Tout local</td><td>IA, RAG et sandbox tournent chez vous. Aucun service d'IA dans le cloud.</td></tr>
-    <tr><td>Le journal ne s'efface pas</td><td>Chaque décision est chaînée par HMAC ; une ligne modifiée se voit.</td></tr>
-  </table>
+  <h2 class="titre-rangee">Indicateurs clés <span>état de la menace, sources publiques</span></h2>
+  <div class="grille g-kpi">
+    <article class="tuile kpi">
+      <h3>Paquets malveillants nouveaux, 2025</h3>
+      <p class="valeur">454 600</p>
+      <p class="delta hausse">+75 % sur un an</p>
+      <p class="source">Sonatype, rapport 2026</p>
+    </article>
+    <article class="tuile kpi">
+      <h3>Violations impliquant un tiers</h3>
+      <p class="valeur">30 %</p>
+      <p class="delta hausse">×2 sur un an (15 %)</p>
+      <p class="source">Verizon DBIR 2025, 12 195 violations</p>
+    </article>
+    <article class="tuile kpi">
+      <h3>Coût moyen d'une compromission par la chaîne d'approvisionnement</h3>
+      <p class="valeur">4,91 M$</p>
+      <p class="delta">moyenne toutes causes : 4,44 M$</p>
+      <p class="source">IBM, Cost of a Data Breach 2025</p>
+    </article>
+    <article class="tuile kpi">
+      <h3>Pour la détecter et la contenir</h3>
+      <p class="valeur">267 j</p>
+      <p class="delta hausse">le vecteur le plus long</p>
+      <p class="source">IBM, Cost of a Data Breach 2025</p>
+    </article>
+  </div>
+</section>
 
-  <h2>Et si la plateforme est compromise ?</h2>
-  <p>La plateforme est le point de confiance du système. Prise par un attaquant, elle pourrait
-    signer une version piégée : c'est le risque principal, et nous le disons. Mais elle ne peut ni
-    donner Internet aux serveurs (aucune route, c'est le réseau qui le tient), ni s'y connecter, ni
-    effacer le registre des publications gardé par la passerelle. Prochaine étape : la clé de
-    signature sur une clé matérielle, avec une double signature humaine.</p>
+<!-- 2. MENACE ========================================================================== -->
+<section id="menace" class="page" aria-labelledby="t-menace">
+  <h2 id="t-menace" class="titre-page"><span class="num">2</span> Menace <span>la plupart des attaques durent moins de trois jours</span></h2>
+  <div class="grille g-menace">
+    <figure class="tuile graphique">
+      <h3>Durée d'exploitation de 10 attaques réelles <span class="unite">échelle logarithmique</span></h3>
+      <div class="defile"><svg class="barres" viewBox="0 0 820 372" role="img" aria-labelledby="g1-titre g1-desc">
+        <title id="g1-titre">Durée d'exploitation de dix attaques de la chaîne d'approvisionnement</title>
+        <desc id="g1-desc">Sept attaques sur dix sont exploitables moins de 24 heures, huit sur dix moins d'une semaine. Un délai de trois jours arrête toutes celles qui se trouvent à gauche de la ligne. Seules Kong Ingress Controller, environ dix jours, et xz-utils, environ cinq semaines, la dépassent.</desc>
+        <g class="axe">
+          <line x1="264.7" y1="18" x2="264.7" y2="330"/><line x1="515.6" y1="18" x2="515.6" y2="330"/>
+          <line x1="669.2" y1="18" x2="669.2" y2="330"/><line x1="784.1" y1="18" x2="784.1" y2="330"/>
+          <text x="264.7" y="350">1 h</text><text x="515.6" y="350">1 jour</text>
+          <text x="669.2" y="350">1 semaine</text><text x="784.1" y="350">1 mois</text>
+        </g>
+        <g class="seuil">
+          <line x1="602.3" y1="8" x2="602.3" y2="330"/>
+          <text x="608" y="16">délai de 3 jours</text>
+        </g>
+        <g class="lignes">
+          <text class="lib" x="200" y="42">ultralytics, phase 2</text><rect class="arretee" x="210" y="31" width="54.7" height="16"/><text class="v" x="270.7" y="44">1 h</text>
+          <text class="lib" x="200" y="72">rspack</text><rect class="arretee" x="210" y="61" width="54.7" height="16"/><text class="v" x="270.7" y="74">1 h</text>
+          <text class="lib" x="200" y="102">Nx</text><rect class="arretee" x="210" y="91" width="164.2" height="16"/><text class="v" x="380.2" y="104">4 h</text>
+          <text class="lib" x="200" y="132">web3.js</text><rect class="arretee" x="210" y="121" width="181.8" height="16"/><text class="v" x="397.8" y="134">5 h</text>
+          <text class="lib" x="200" y="162">chalk</text><rect class="arretee" x="210" y="151" width="250.9" height="16"/><text class="v" x="466.9" y="164">&lt; 12 h</text>
+          <text class="lib" x="200" y="192">num2words</text><rect class="arretee" x="210" y="181" width="250.9" height="16"/><text class="v" x="466.9" y="194">&lt; 12 h</text>
+          <text class="lib" x="200" y="222">ultralytics, phase 1</text><rect class="arretee" x="210" y="211" width="250.9" height="16"/><text class="v" x="466.9" y="224">12 h</text>
+          <text class="lib" x="200" y="252">tj-actions</text><rect class="limite" x="210" y="241" width="392.3" height="16"/><text class="v" x="608.3" y="254">3 j, à la limite</text>
+          <text class="lib" x="200" y="282">Kong Ingress Controller</text><rect class="passe" x="210" y="271" width="487.4" height="16"/><text class="v" x="703.4" y="284">≈ 10 j</text>
+          <text class="lib" x="200" y="312">xz-utils</text><rect class="passe" x="210" y="301" width="576.3" height="16"/><text class="v dans" x="778" y="314">≈ 5 sem.</text>
+        </g>
+      </svg></div>
+      <ul class="legende" aria-hidden="true">
+        <li><span class="pastille arretee"></span>arrêtée par un délai de 3 jours</li>
+        <li><span class="pastille limite"></span>à la limite</li>
+        <li><span class="pastille passe"></span>dépasse le délai</li>
+      </ul>
+      <figcaption class="source">W. Woodruff, « We should all be using dependency cooldowns », 2025. Durée entre la publication de la version piégée et son retrait.</figcaption>
+    </figure>
 
-  <footer>Projet de hackathon, IA × cybersécurité. Démo : <a href="https://demo.pipelad.tech/">demo.pipelad.tech</a> (sur invitation).</footer>
+    <div class="tuile">
+      <h3>Trois cas, trois leçons</h3>
+      <dl class="cas">
+        <div><dt><span class="date">déc. 2024</span>ultralytics <span class="eco">PyPI</span></dt>
+          <dd>La 8.3.41 installe un mineur. La 8.3.42, publiée <strong>pour corriger</strong>, contient le même code. L'urgence est le meilleur déguisement.</dd></div>
+        <div><dt><span class="date">sept. 2025</span>Shai-Hulud <span class="eco">npm</span></dt>
+          <dd>Un ver, plus de 500 paquets, vol des jetons GitHub et des clés cloud. La CISA demande de revenir aux versions d'avant le 16 septembre : un délai, imposé après coup.</dd></div>
+        <div><dt><span class="date">mai 2026</span>TanStack, Mistral AI <span class="eco">npm, PyPI</span></dt>
+          <dd>84 archives piégées publiées en 6 minutes par le vrai pipeline, avec des attestations de provenance valides. Une signature d'origine ne prouve plus qu'une version est saine.</dd></div>
+      </dl>
+      <p class="source">ReversingLabs ; CISA, 23 septembre 2025 ; post-mortem TanStack, mai 2026.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. LE SAS ========================================================================= -->
+<section id="sas" class="page" aria-labelledby="t-sas">
+  <h2 id="t-sas" class="titre-page"><span class="num">3</span> Le sas <span>trois zones, un seul passage vers Internet</span></h2>
+
+  <figure class="tuile schema">
+    <h3>Architecture <span class="unite">ce que le réseau autorise</span></h3>
+    <div class="defile">
+      <svg viewBox="0 0 960 250" role="img" aria-labelledby="g2-titre g2-desc">
+        <title id="g2-titre">Les trois zones de Pipelad</title>
+        <desc id="g2-desc">Internet n'est joint que par la plateforme agréée, qui analyse et signe. La plateforme publie vers la passerelle en TLS mutuel. La passerelle, sans Internet, sert les paquets au serveur sensible, qui n'a aucune route vers Internet.</desc>
+        <g class="zone ext"><rect x="10" y="40" width="160" height="150"/><text class="z-titre" x="90" y="70">Internet</text><text x="90" y="100">PyPI · OSV</text><text x="90" y="120">flux de chercheurs</text><text x="90" y="140">API autorisées</text></g>
+        <g class="zone plat"><rect x="240" y="40" width="220" height="150"/><text class="z-titre" x="350" y="70">Plateforme agréée</text><text x="350" y="100">délai · statique · sandbox</text><text x="350" y="120">IA locale · politique</text><text x="350" y="140">signature Ed25519</text><text class="z-pied" x="350" y="172">la seule machine reliée</text></g>
+        <g class="zone prive"><rect x="530" y="20" width="420" height="190"/><text class="z-reseau" x="545" y="38">SOUS-RÉSEAU PRIVÉ · AUCUNE ROUTE VERS INTERNET</text></g>
+        <g class="zone pass"><rect x="550" y="60" width="170" height="130"/><text class="z-titre" x="635" y="90">Passerelle</text><text x="635" y="118">vérifie signature</text><text x="635" y="138">et empreintes</text><text x="635" y="158">dépôt pip interne</text></g>
+        <g class="zone serv"><rect x="770" y="60" width="160" height="130"/><text class="z-titre" x="850" y="90">Serveur</text><text x="850" y="118">pip install</text><text x="850" y="138">depuis la passerelle</text><text x="850" y="158">seulement</text></g>
+        <g class="fleche"><line x1="170" y1="115" x2="234" y2="115"/><path d="M234 109 L240 115 L234 121"/></g>
+        <g class="fleche forte"><line x1="460" y1="115" x2="544" y2="115"/><path d="M544 109 L550 115 L544 121"/></g>
+        <text class="f-lib" x="494" y="105">signé</text><text class="f-lib" x="494" y="134">TLS mutuel</text>
+        <g class="fleche"><line x1="720" y1="125" x2="764" y2="125"/><path d="M764 119 L770 125 L764 131"/></g>
+        <g class="interdit"><line x1="850" y1="198" x2="850" y2="236"/><line x1="850" y1="236" x2="90" y2="236"/><line x1="90" y1="236" x2="90" y2="196"/><circle cx="470" cy="236" r="10"/><path d="M464 230 L476 242 M476 230 L464 242"/></g>
+        <text class="i-lib" x="490" y="231">aucune route : le serveur ne joint jamais Internet</text>
+      </svg>
+    </div>
+    <figcaption class="source">Vérifié sur l'infrastructure de démo (AWS) : <code>verifier_h3.sh</code>, <code>verifier_compromission.sh</code>.</figcaption>
+  </figure>
+
+  <div class="tuile">
+    <h3>Le parcours d'une nouvelle version</h3>
+    <ol class="parcours">
+      <li><span class="n">01</span><strong>Attente</strong><span>3 jours. La veille lit OSV et les flux de chercheurs.</span></li>
+      <li><span class="n">02</span><strong>Analyse statique</strong><span>Typosquat, code à l'installation, code obfusqué, secrets, domaines.</span></li>
+      <li><span class="n">03</span><strong>Sandbox</strong><span>Sans réseau réel, avec de faux secrets uniques : le paquet se trahit s'il les lit.</span></li>
+      <li><span class="n">04</span><strong>IA locale</strong><span>Explique en français et cite ses sources. N'aggrave qu'un doute réel.</span></li>
+      <li><span class="n">05</span><strong>Politique</strong><span>Le code décide : bloquée, à revoir par un humain, ou approuvée.</span></li>
+      <li><span class="n">06</span><strong>Signature</strong><span>Ed25519. La passerelle refuse tout le reste.</span></li>
+      <li><span class="n">07</span><strong>Après coup</strong><span>Révocation en un geste ; l'inventaire dit quels serveurs l'ont.</span></li>
+    </ol>
+  </div>
+
+  <div class="grille g-deux">
+    <figure class="tuile boucle">
+      <video class="texture" muted loop playsinline preload="none" poster="boucles/metal.webp" width="960" height="720" aria-hidden="true">
+        <source src="boucles/metal.webm" type="video/webm">
+        <source src="boucles/metal.mp4" type="video/mp4">
+      </video>
+      <figcaption><span class="fig">Fig. 2</span> La passerelle : un boîtier sur site, sans accès à Internet. Elle ne reçoit que ce qui est signé.</figcaption>
+    </figure>
+    <figure class="tuile boucle">
+      <video class="texture" muted loop playsinline preload="none" poster="boucles/verre.webp" width="960" height="720" aria-hidden="true">
+        <source src="boucles/verre.webm" type="video/webm">
+        <source src="boucles/verre.mp4" type="video/mp4">
+      </video>
+      <figcaption><span class="fig">Fig. 3</span> Rien à configurer sur les postes : <code>pip install</code> marche comme avant, avec trois jours de recul.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- 4. PREUVES ======================================================================== -->
+<section id="preuves" class="page" aria-labelledby="t-preuves">
+  <h2 id="t-preuves" class="titre-page"><span class="num">4</span> Preuves <span>mesuré, pas promis</span></h2>
+  <div class="grille g-kpi">
+    <article class="tuile kpi jauge">
+      <h3>Versions malveillantes arrêtées, analyse statique seule</h3>
+      <svg viewBox="0 0 120 120" role="img" aria-label="73 %, soit 93 versions malveillantes arrêtées sur 128">
+        <circle class="fond-jauge" cx="60" cy="60" r="44"/>
+        <circle class="arc-jauge" cx="60" cy="60" r="44" stroke-dasharray="201.8 276.5" transform="rotate(-90 60 60)"/>
+        <text x="60" y="68">73 %</text>
+      </svg>
+      <p class="delta">93 sur 128, corpus Datadog</p>
+    </article>
+    <article class="tuile kpi">
+      <h3>Fausses alertes sur des paquets sains</h3>
+      <p class="valeur">0 <small>/ 98</small></p>
+      <p class="delta baisse">analyse statique seule</p>
+    </article>
+    <article class="tuile kpi">
+      <h3>Publication signée avec une autre clé</h3>
+      <p class="valeur rouge">401</p>
+      <p class="delta">refusée par la passerelle</p>
+    </article>
+    <article class="tuile kpi">
+      <h3>Contrôles passés, attaquant root sur la plateforme</h3>
+      <p class="valeur">8 <small>/ 8</small></p>
+      <div class="segments" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <p class="delta">chacun avec sa contre-épreuve</p>
+    </article>
+  </div>
+
+  <figure class="tuile graphique">
+    <h3>Ce que chaque couche arrête <span class="unite">détection, en % des versions malveillantes</span></h3>
+    <div class="defile"><svg class="barres court" viewBox="0 0 850 132" role="img" aria-labelledby="g3-titre g3-desc">
+      <title id="g3-titre">Détection par couche de contrôle</title>
+      <desc id="g3-desc">Le nom seul, contrôle du typosquat, arrête 3 % des versions malveillantes du corpus OpenSSF. L'analyse statique, nom et code, en arrête 73 % du corpus Datadog, sans fausse alerte. La mesure avec la sandbox et l'IA est en cours.</desc>
+      <g class="axe"><line x1="210" y1="10" x2="210" y2="104"/><line x1="510" y1="10" x2="510" y2="104"/><line x1="810" y1="10" x2="810" y2="104"/><text x="210" y="124">0 %</text><text x="510" y="124">50 %</text><text x="810" y="124">100 %</text></g>
+      <text class="lib" x="200" y="30">Nom seul (typosquat)</text><rect class="passe" x="210" y="19" width="18" height="16"/><text class="v" x="234" y="32">3 %, 1 sur 30</text>
+      <text class="lib" x="200" y="62">Statique : nom et code</text><rect class="arretee" x="210" y="51" width="438" height="16"/><text class="v" x="654" y="64">73 %, 93 sur 128</text>
+      <text class="lib" x="200" y="94">+ sandbox et IA</text><rect class="attente" x="210" y="83" width="600" height="16"/><text class="v" x="216" y="96">mesure finale en cours</text>
+    </svg></div>
+    <figcaption class="source">Mesure du 2026-10-10 (<code>mesure/resultats.md</code>), corpus publics OpenSSF et Datadog. Une version est arrêtée si un contrôle lève un signal fort ou bloquant.</figcaption>
+  </figure>
+</section>
+
+<!-- 5. PAYSAGE ======================================================================== -->
+<section id="paysage" class="page" aria-labelledby="t-paysage">
+  <h2 id="t-paysage" class="titre-page"><span class="num">5</span> Paysage <span>ce qui existe, et notre place</span></h2>
+  <div class="tuile">
+    <h3>Comparaison des approches</h3>
+    <div class="defile">
+      <table class="matrice">
+        <caption class="visuellement-cache">Comparaison de Pipelad avec les approches existantes</caption>
+        <thead>
+          <tr><th scope="col">Critère</th><th scope="col">Délai natif<small>Dependabot, pnpm, uv</small></th><th scope="col">Pare-feu de poste<small>Aikido Safe Chain</small></th><th scope="col">Plateformes SaaS<small>Socket, Aikido, Snyk</small></th><th scope="col">Dépôts d'entreprise<small>Sonatype, JFrog</small></th><th scope="col" class="nous">Pipelad</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Délai avant installation</th><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td><b class="p">en partie</b></td><td><b class="p">en partie</b></td><td class="nous"><b class="o">oui</b></td></tr>
+          <tr><th scope="row">Imposé par le réseau, sans réglage par projet</th><td><b class="n">non</b></td><td><b class="n">non</b></td><td><b class="n">non</b></td><td><b class="p">en partie</b></td><td class="nous"><b class="o">oui</b></td></tr>
+          <tr><th scope="row">Analyse du code et du comportement</th><td><b class="n">non</b></td><td><b class="p">en partie</b></td><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td class="nous"><b class="o">oui</b></td></tr>
+          <tr><th scope="row">Rien n'est envoyé à un éditeur</th><td><b class="o">oui</b></td><td><b class="p">en partie</b></td><td><b class="n">non</b></td><td><b class="p">en partie</b></td><td class="nous"><b class="o">oui</b></td></tr>
+          <tr><th scope="row">Révocation et inventaire des serveurs</th><td><b class="n">non</b></td><td><b class="n">non</b></td><td><b class="p">en partie</b></td><td><b class="p">en partie</b></td><td class="nous"><b class="o">oui</b></td></tr>
+          <tr><th scope="row">Base de menaces mondiale, mise à jour en continu</th><td><b class="n">non</b></td><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td class="nous"><b class="p">en partie</b></td></tr>
+          <tr><th scope="row">Écosystèmes couverts</th><td><b class="o">tous</b></td><td><b class="o">npm, pip</b></td><td><b class="o">nombreux</b></td><td><b class="o">tous</b></td><td class="nous"><b class="p">pip</b></td></tr>
+          <tr><th scope="row">À la taille d'une PME de 20 à 80 personnes</th><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td><b class="o">oui</b></td><td><b class="n">non</b></td><td class="nous"><b class="o">oui</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><strong>Ce que nous ne prétendons pas.</strong> Le délai n'est plus une idée neuve :
+      Dependabot attend trois jours par défaut depuis juillet 2026. Notre différence est ailleurs :
+      le délai est tenu par le réseau, les jours d'attente servent à analyser, et rien ne quitte
+      l'entreprise. Nous ne couvrons aujourd'hui que pip.</p>
+  </div>
+</section>
+
+<!-- 6. COMPROMISSION ================================================================= -->
+<section id="compromission" class="page" aria-labelledby="t-compromission">
+  <h2 id="t-compromission" class="titre-page"><span class="num">6</span> Compromission <span>et si la plateforme est prise ?</span></h2>
+  <div class="grille g-deux">
+    <div class="tuile">
+      <h3>Un attaquant root sur la plateforme <span class="unite">peut</span></h3>
+      <ul class="liste peut">
+        <li>signer une version piégée avec la vraie clé ;</li>
+        <li>élargir la liste des API autorisées ;</li>
+        <li>réécrire sa propre base.</li>
+      </ul>
+      <p class="note">C'est le risque principal, et nous le disons. Prochaine étape : la clé de signature sur une clé matérielle, avec une double signature humaine.</p>
+    </div>
+    <div class="tuile">
+      <h3>Un attaquant root sur la plateforme <span class="unite">ne peut pas, vérifié sur AWS</span></h3>
+      <ul class="liste nepeut">
+        <li>se connecter au serveur ni à la passerelle : SSH refusé avec chaque clé de la plateforme ;</li>
+        <li>donner Internet au serveur : aucune route, c'est le réseau qui le tient ;</li>
+        <li>publier avec une autre clé : 401 ;</li>
+        <li>effacer le registre des publications, gardé par la passerelle.</li>
+      </ul>
+      <p class="source"><code>infra/aws/verifier_compromission.sh</code> : 8 contrôles sur 8.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7. PRINCIPES ===================================================================== -->
+<section id="principes" class="page" aria-labelledby="t-principes">
+  <h2 id="t-principes" class="titre-page"><span class="num">7</span> Principes <span>ce qui ne se négocie pas</span></h2>
+  <div class="tuile">
+    <table class="principes">
+      <thead><tr><th scope="col">Principe</th><th scope="col">Conséquence</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Les serveurs ne parlent jamais à Internet</th><td>Tout passe par la passerelle, qui n'a elle-même aucune route vers Internet.</td></tr>
+        <tr><th scope="row">Le code décide, l'IA alerte et explique</th><td>L'IA ne peut ni approuver ni bloquer, ni créer seule un doute.</td></tr>
+        <tr><th scope="row">Rien n'est publié sans signature</th><td>La passerelle refuse tout manifeste mal signé, ou dont un fichier diffère.</td></tr>
+        <tr><th scope="row">Tout local</th><td>IA, sandbox et base de connaissances tournent chez vous. Seuls des noms de paquets publics sortent.</td></tr>
+        <tr><th scope="row">Le journal se vérifie</th><td>Chaque décision est chaînée par HMAC : une ligne modifiée se voit.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tuile fin">
+    <p class="fin-phrase">Vos serveurs n'installent que ce qu'on a vérifié.</p>
+    <div class="actions">
+      <a class="bouton plein" href="https://demo.pipelad.tech/">Ouvrir la démo</a>
+      <a class="bouton lien" href="#preuves">Revoir les preuves</a>
+    </div>
+  </div>
+</section>
 </main>
+
+<footer class="pied">
+  <p><strong>Pipelad</strong> · projet de hackathon, IA × cybersécurité défensive · octobre 2026.
+    Démo sur invitation : <a href="https://demo.pipelad.tech/">demo.pipelad.tech</a>.</p>
+  <p class="sources">Sources : Sonatype, State of the Software Supply Chain 2026 · Verizon, DBIR 2025 ·
+    IBM, Cost of a Data Breach 2025 · W. Woodruff, « We should all be using dependency cooldowns », 2025 ·
+    ReversingLabs (ultralytics) · CISA, alerte du 23 septembre 2025 · post-mortem TanStack, mai 2026.
+    Mesures Pipelad du 2026-10-10.</p>
+  <p class="sources">Polices Selawik (Microsoft) et JetBrains Mono, licence SIL Open Font License 1.1
+    (<a href="polices/OFL-Selawik.txt">Selawik</a>, <a href="polices/OFL-JetBrainsMono.txt">JetBrains Mono</a>).
+    Photographies générées pour ce site.</p>
+</footer>
 </body>
 </html>
