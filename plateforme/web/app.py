@@ -31,6 +31,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from commun.modeles import Ecosysteme, EntreeInventaire, Etat, Version
 from plateforme.db.acces import Base, Compte, Role
+from plateforme.web import catalogue as cat
 from plateforme.web.fond import TacheDeFond
 
 Demander = Callable[[Ecosysteme, str], None]
@@ -166,6 +167,7 @@ def compter_par_etat(versions: list[Version]) -> dict[Etat, int]:
 
 
 DERNIERS_BLOCAGES = 5
+DERNIERES = 8            # versions récentes sur la racine du catalogue
 
 
 @dataclass(frozen=True)
@@ -239,7 +241,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
               traiter: Traiter | None = None, intervalle: float = 60,
               horloge: Horloge | None = None, delai: Delai | None = None,
               decider: Decider | None = None, revoquer: Revoquer | None = None,
-              lire_inventaire: LireInventaire | None = None) -> FastAPI:
+              lire_inventaire: LireInventaire | None = None,
+              archives: Path | None = None, images: Path | None = None) -> FastAPI:
     """`mot_de_passe` ne sert qu'à créer le compte `admin` si la base n'a aucun compte.
     `traiter(base)` est appelée en tâche de fond tant que l'application tourne ; sans, rien."""
 
@@ -278,6 +281,8 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
     decider = decider or _decider_par_defaut
     revoquer = revoquer or _revoquer_par_defaut
     lire_inventaire = lire_inventaire or _lire_inventaire_par_defaut
+    archives = archives if archives is not None else Path(os.environ.get("SAS_ARCHIVES", "archives"))
+    images = images if images is not None else Path(__file__).with_name("images-agreees.json")
     if not base.lister_comptes():
         base.creer_compte(ADMIN_INITIAL, Role.ADMIN, mot_de_passe, acteur="systeme",
                           doit_changer=False)
@@ -331,9 +336,69 @@ def creer_app(base: Base, mot_de_passe: str, secret: str,
         request.session.clear()
         return RedirectResponse("/connexion", status_code=303)
 
+    # --- catalogue en arborescence -----------------------------------------------------------
     @app.get("/", response_class=HTMLResponse)
     def catalogue(request: Request):
-        return page(request, "catalogue.html", exiger(request), versions=base.lister_versions())
+        compte = exiger(request)
+        versions = base.lister_versions()
+        dossiers = [{"nom": e.value, "n": len(cat.paquets(versions, e)), "sorte": "paquet"}
+                    for e in Ecosysteme]
+        dossiers.append({"nom": "images", "n": len(cat.images(images)), "sorte": "image"})
+        return page(request, "catalogue.html", compte, niveau="racine", arbo=[],
+                    dossiers=dossiers, compteurs=compter_par_etat(versions),
+                    recentes=sorted(versions, key=lambda v: v.detectee_le, reverse=True)[:DERNIERES])
+
+    def ecosysteme_ou_404(valeur: str) -> Ecosysteme:
+        try:
+            return Ecosysteme(valeur)
+        except ValueError:
+            raise HTTPException(status_code=404)
+
+    @app.get("/catalogue/{ecosysteme}", response_class=HTMLResponse)
+    def catalogue_ecosysteme(request: Request, ecosysteme: str):
+        compte = exiger(request)
+        if ecosysteme == "images":
+            return page(request, "catalogue.html", compte, niveau="images", arbo=["images"],
+                        images=cat.images(images))
+        eco = ecosysteme_ou_404(ecosysteme)
+        return page(request, "catalogue.html", compte, niveau="ecosysteme", arbo=[eco.value],
+                    eco=eco, paquets=cat.paquets(base.lister_versions(), eco))
+
+    @app.get("/catalogue/{ecosysteme}/{reste:path}", response_class=HTMLResponse)
+    def catalogue_paquet(request: Request, ecosysteme: str, reste: str):
+        """`<nom>` (un nom npm peut contenir « / »), `<nom>/-/<version>`, `<nom>/-/<version>/<fichier>`.
+        Tout est relu dans la base : un nom, une version ou un fichier inconnus donnent 404."""
+        compte = exiger(request)
+        eco = ecosysteme_ou_404(ecosysteme)
+        nom, _, apres = reste.partition("/-/")
+        p = cat.paquet(base.lister_versions(), eco, nom)
+        if p is None:
+            raise HTTPException(status_code=404)
+        if not apres:
+            attente = None
+            if p.suivante is not None and p.suivante.etat in (Etat.NOUVELLE, Etat.EN_ATTENTE):
+                try:
+                    fin = p.suivante.publiee_le + delai()
+                    attente = duree_lisible(fin - horloge()) if fin > horloge() else "au prochain tour"
+                except ValueError:
+                    attente = None
+            return page(request, "catalogue.html", compte, niveau="paquet", arbo=[eco.value, nom],
+                        eco=eco, p=p, attente=attente)
+        version, _, nom_fichier = apres.partition("/")
+        f = base.fiche(eco, nom, version)
+        if f is None:
+            raise HTTPException(status_code=404)
+        fichiers = cat.fichiers_version(f, archives)
+        if not nom_fichier:
+            return page(request, "catalogue.html", compte, niveau="version",
+                        arbo=[eco.value, nom, version], eco=eco, p=p, fiche=f, fichiers=fichiers,
+                        taille=cat.taille_lisible)
+        blob = next((x for x in fichiers if x.nom == nom_fichier and x.contenu is not None), None)
+        if blob is None:
+            raise HTTPException(status_code=404)
+        return page(request, "catalogue.html", compte, niveau="blob",
+                    arbo=[eco.value, nom, version, nom_fichier], eco=eco, p=p, fiche=f, blob=blob,
+                    lignes=blob.contenu.splitlines(), taille=cat.taille_lisible)
 
     @app.get("/tableau-de-bord", response_class=HTMLResponse)
     def tableau_de_bord(request: Request):
