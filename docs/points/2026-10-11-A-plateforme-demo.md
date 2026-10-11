@@ -51,9 +51,14 @@ Suite complète : 579 verts. Chaque test neuf a été vu rouge, ou le code cass�
 - `plateforme/pipeline/suivi.py` (neuf) ; `traitement.py` : paramètre `suivi`, étapes ;
   `llm.py` : paramètre `morceau`, lecture en flux. Rien ne change sans eux.
 
+## Script de démo
+`demo/script.md`, nouvelle section « Démo dans la plateforme » : le parcours Demandes → Direct →
+Catalogue en 2 minutes, et quoi faire si quelque chose casse.
+
 ## Demandes
 | À | Demande | Bloquant pour | Réponse attendue |
 |---|---|---|---|
 | C (STEUSSO) | Relire #95, surtout `/v1/install`, le guichet et l'agent ; au redéploiement, `creer.sh` (règle 8444) puis `installer.sh` | démo | ok / remarques |
 | C (STEUSSO) | Sur le serveur AWS : `python3 -c "import cryptography"` passe-t-il ? | démo | oui / non |
+| C (STEUSSO) | Relancer `infra/aws/domaine.sh` pour la nouvelle vitrine (#87, et #96 si fusionnée) | vitrine | fait |
 | B (Mouabd19) | Relire #92 (`suivi`, LLM en flux) | démo | ok / remarques |
